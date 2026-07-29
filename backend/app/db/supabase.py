@@ -23,6 +23,7 @@ class DatabaseService:
     def __init__(self, client: Client | None = None):
         self.client = client or supabase
 
+    # RESIDENTS
     def get_residents(self, society_id: str, building: str | None = None):
         if not self.client:
             return []
@@ -50,12 +51,56 @@ class DatabaseService:
         res = self.client.table("residents").upsert(residents_list, on_conflict="society_id,building,unit_number,phone_number").execute()
         return res.data
 
-    def get_invoices(self, society_id: str):
+    # INVOICES & DUES
+    def get_invoices(self, society_id: str, status: str | None = None):
         if not self.client:
             return []
-        res = self.client.table("invoices").select("*, residents(name, unit_number, building)").eq("society_id", society_id).execute()
+        query = self.client.table("invoices").select("*, residents(id, name, unit_number, building, phone_number)").eq("society_id", society_id)
+        if status and status != "All":
+            query = query.eq("status", status)
+        res = query.order("created_at", desc=True).execute()
         return res.data
 
+    def update_invoice(self, invoice_id: str, update_data: dict):
+        if not self.client:
+            return None
+        res = self.client.table("invoices").update(update_data).eq("id", invoice_id).execute()
+        return res.data
+
+    def verify_invoice_receipt(self, invoice_id: str, verified_by: str | None = None):
+        if not self.client:
+            return None
+        data = {
+            "status": "verified",
+            "verified_at": "now()",
+        }
+        if verified_by:
+            data["verified_by"] = verified_by
+        res = self.client.table("invoices").update(data).eq("id", invoice_id).execute()
+        return res.data
+
+    def generate_cycle_invoices(self, society_id: str, maintenance_fee: float, saas_fee: float, utility_charges: float, due_date: str, account_shown: str):
+        if not self.client:
+            return []
+        residents = self.get_residents(society_id)
+        new_invoices = []
+        for r in residents:
+            new_invoices.append({
+                "society_id": society_id,
+                "resident_id": r["id"],
+                "society_maintenance_fee": maintenance_fee,
+                "hamsayaa_saas_fee": saas_fee,
+                "utility_charges": utility_charges,
+                "due_date": due_date,
+                "status": "unpaid",
+                "account_shown": account_shown,
+            })
+        if new_invoices:
+            res = self.client.table("invoices").insert(new_invoices).execute()
+            return res.data
+        return []
+
+    # VEHICLES
     def get_unregistered_overstays(self, society_id: str):
         if not self.client:
             return []
