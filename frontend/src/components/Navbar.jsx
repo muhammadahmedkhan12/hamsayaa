@@ -1,29 +1,18 @@
-import React, { useState } from 'react';
-import { Search, Bell, ShieldCheck, ChevronDown, Building2, UserCheck } from 'lucide-react';
-import { mockSocieties, mockAdminUser } from '../services/mockData';
+import React from 'react';
+import { Search, Bell, ShieldCheck, Building2 } from 'lucide-react';
+import { mockAdminUser } from '../services/mockData';
 
 export default function Navbar() {
-  const [selectedSociety, setSelectedSociety] = useState(mockSocieties[0].id);
-
   return (
     <header className="h-16 bg-white border-b border-surface-border px-6 flex items-center justify-between sticky top-0 z-10 shadow-sm">
-      {/* Left: Active Society Dropdown Selector */}
-      <div className="flex items-center gap-3">
-        <div className="relative">
-          <div className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200/80 px-3 py-1.5 rounded-lg border border-slate-200 cursor-pointer transition-colors">
-            <Building2 className="w-4 h-4 text-emerald-600" />
-            <select
-              value={selectedSociety}
-              onChange={(e) => setSelectedSociety(e.target.value)}
-              className="bg-transparent text-sm font-semibold text-navy focus:outline-none cursor-pointer pr-1"
-            >
-              {mockSocieties.map((soc) => (
-                <option key={soc.id} value={soc.id}>
-                  {soc.name} ({soc.units} Units)
-                </option>
-              ))}
-            </select>
-          </div>
+      {/* Left: Fixed Society Name Header Badge */}
+      <div className="flex items-center gap-2.5">
+        <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
+          <Building2 className="w-4 h-4" />
+        </div>
+        <div>
+          <h2 className="text-sm font-bold text-navy leading-none">Lakeview Apartments</h2>
+          <p className="text-[10px] text-slate-400 font-medium mt-0.5">50 Subscribed Units • Gated Community</p>
         </div>
       </div>
 
