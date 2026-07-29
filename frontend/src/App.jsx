@@ -1,6 +1,5 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
-import Sidebar from './components/Sidebar';
 import Navbar from './components/Navbar';
 
 import Dashboard from './pages/Dashboard';
@@ -16,17 +15,13 @@ import Settings from './pages/Settings';
 
 export default function App() {
   return (
-    <div className="flex h-screen overflow-hidden bg-surface-slate text-slate-800 font-sans">
-      {/* Fixed Deep Navy Navigation Sidebar */}
-      <Sidebar />
+    <div className="flex flex-col min-h-screen bg-surface-slate text-slate-800 font-sans">
+      {/* Top Header Navigation Bar (Includes brand, search, tabs, & profile) */}
+      <Navbar />
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Top Action Navbar */}
-        <Navbar />
-
-        {/* Page Content */}
-        <main className="flex-1 overflow-y-auto p-6 md:p-8">          <div className="max-w-7xl w-full mx-auto">
+      {/* Main Content Area (Takes full viewport width, centered inside 7xl max-width) */}
+      <main className="flex-1 p-6 md:p-8">
+        <div className="max-w-7xl mx-auto w-full">
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/residents" element={<Residents />} />
@@ -40,9 +35,8 @@ export default function App() {
             <Route path="/amenities" element={<Amenities />} />
             <Route path="/settings" element={<Settings />} />
           </Routes>
-          </div>
-        </main>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }
