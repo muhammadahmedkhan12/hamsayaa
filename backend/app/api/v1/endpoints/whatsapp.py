@@ -33,12 +33,6 @@ async def verify_webhook(
 async def handle_whatsapp_event(request: Request):
     """
     Meta Cloud API Inbound Event Webhook.
-    1. Validates HMAC SHA-256 signature using Meta App Secret.
-    2. Extracts resident phone number and body text.
-    3. Looks up resident in Supabase database.
-    4. Enforces manual account block check (is_blocked).
-    5. Invokes Gemini 1.5 Flash AI Engine for intent processing.
-    6. Dispatches outbound WhatsApp message.
     """
     body_bytes = await request.body()
     signature_header = request.headers.get("X-Hub-Signature-256", "")
@@ -46,6 +40,8 @@ async def handle_whatsapp_event(request: Request):
     # Guard: Return immediately on empty body (e.g. Meta ping/health check)
     if not body_bytes or not body_bytes.strip():
         return {"status": "ignored", "reason": "Empty request body"}
+
+    print(f"--> INBOUND WEBHOOK RECEIVED: length={len(body_bytes)}")
 
     # 1. HMAC SHA-256 Signature Verification
     if settings.WHATSAPP_APP_SECRET and signature_header:
@@ -55,7 +51,8 @@ async def handle_whatsapp_event(request: Request):
 
     try:
         payload = await request.json()
-    except Exception:
+    except Exception as e:
+        print(f"--> ERROR PARSING JSON: {e}")
         return {"status": "ignored", "reason": "Invalid JSON body"}
     
     # Parse Meta webhook payload
@@ -66,31 +63,40 @@ async def handle_whatsapp_event(request: Request):
         messages = value.get("messages", [])
         
         if not messages:
+            statuses = value.get("statuses", [])
+            if statuses:
+                print(f"--> WEBHOOK MESSAGE STATUS UPDATE: {statuses[0].get('status')}")
             return {"status": "ignored", "reason": "No messages array in payload"}
 
         msg = messages[0]
         sender_phone = msg.get("from", "")
         message_text = msg.get("text", {}).get("body", "")
 
+        print(f"--> INCOMING MESSAGE FROM {sender_phone}: '{message_text}'")
+
         if not sender_phone or not message_text:
             return {"status": "ignored", "reason": "Empty sender phone or message text"}
 
         # Format phone string
-        if not sender_phone.startswith("+"):
-            sender_phone = "+" + sender_phone
+        clean_phone = sender_phone.replace("+", "").replace(" ", "").replace("-", "")
+        formatted_phone = "+" + clean_phone
 
         # 2. Resident Lookup in Supabase DB
         resident = None
         if db_service.client:
-            res = db_service.client.table("residents").select("*").eq("phone_number", sender_phone).execute()
+            res = db_service.client.table("residents").select("*").eq("phone_number", formatted_phone).execute()
             if res.data and len(res.data) > 0:
                 resident = res.data[0]
+
+        print(f"--> RESIDENT MATCHED: {resident.get('name') if resident else 'NOT FOUND'}")
 
         # If resident not registered in society
         if not resident:
             reply = "Hello! Your phone number is not currently registered in the society directory. Please contact your building management."
-            await whatsapp_service.send_text_message(sender_phone, reply)
-            return {"status": "unregistered_resident", "phone": sender_phone}
+            print(f"--> SENDING UNREGISTERED REPLY TO {formatted_phone}")
+            outbound_res = await whatsapp_service.send_text_message(formatted_phone, reply)
+            print(f"--> OUTBOUND RES: {outbound_res}")
+            return {"status": "unregistered_resident", "phone": formatted_phone}
 
         # 3. Check Manual Account Block (is_blocked)
         if resident.get("is_blocked"):
@@ -101,10 +107,13 @@ async def handle_whatsapp_event(request: Request):
                 "Meezan Bank - A/C 01020304050607 (Lakeview Maint Account)\n\n"
                 "Please send a screenshot of your payment receipt to building management to restore immediate access."
             )
-            await whatsapp_service.send_text_message(sender_phone, block_reply)
-            return {"status": "resident_blocked", "phone": sender_phone}
+            print(f"--> SENDING BLOCKED RESIDENT REPLY TO {formatted_phone}")
+            outbound_res = await whatsapp_service.send_text_message(formatted_phone, block_reply)
+            print(f"--> OUTBOUND RES: {outbound_res}")
+            return {"status": "resident_blocked", "phone": formatted_phone}
 
         # 4. Invoke Gemini 1.5 Flash AI Engine
+        print(f"--> INVOKING GEMINI AI ENGINE FOR {resident.get('name')}...")
         ai_response = await gemini_engine.process_resident_message(
             resident=resident,
             message_text=message_text,
@@ -112,18 +121,21 @@ async def handle_whatsapp_event(request: Request):
         )
 
         reply_text = ai_response.get("reply_text", "Thank you for contacting Hamsayaa Society Concierge.")
+        print(f"--> AI REPLY GENERATED: '{reply_text}'")
 
         # 5. Dispatch Outbound WhatsApp Response
-        await whatsapp_service.send_text_message(sender_phone, reply_text)
+        outbound_res = await whatsapp_service.send_text_message(formatted_phone, reply_text)
+        print(f"--> OUTBOUND DISPATCH RESULT: {outbound_res}")
 
         return {
             "status": "success",
-            "phone": sender_phone,
+            "phone": formatted_phone,
             "resident_name": resident.get("name"),
             "ai_intent": ai_response.get("intent", "general"),
             "reply_text": reply_text
         }
 
     except Exception as e:
+        print(f"--> EXCEPTION IN WEBHOOK HANDLER: {e}")
         logger.error(f"Error handling WhatsApp webhook event: {e}")
         return {"status": "error", "message": str(e)}
