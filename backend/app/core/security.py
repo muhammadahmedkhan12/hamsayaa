@@ -24,3 +24,6 @@ def verify_whatsapp_signature(payload_bytes: bytes, signature_header: str | None
     ).hexdigest()
     
     return hmac.compare_digest(calculated, expected_signature)
+
+# Alias for compatibility
+validate_whatsapp_signature = verify_whatsapp_signature

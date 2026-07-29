@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request, HTTPException, Query, Response, status
 from app.core.config import settings
-from app.core.security import validate_whatsapp_signature
+from app.core.security import verify_whatsapp_signature
 from app.db.supabase import db_service
 from app.services.gemini import gemini_engine
 from app.services.whatsapp import whatsapp_service
@@ -45,7 +45,7 @@ async def handle_whatsapp_event(request: Request):
     
     # 1. HMAC SHA-256 Signature Verification
     if settings.WHATSAPP_APP_SECRET and signature_header:
-        if not validate_whatsapp_signature(body_bytes, settings.WHATSAPP_APP_SECRET, signature_header):
+        if not verify_whatsapp_signature(body_bytes, signature_header):
             logger.warning("Invalid WhatsApp HMAC signature detected")
             raise HTTPException(status_code=401, detail="Invalid signature")
 
