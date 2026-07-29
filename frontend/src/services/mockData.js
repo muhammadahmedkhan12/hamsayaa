@@ -279,3 +279,34 @@ export const mockActivePasses = [
     status: 'active',
   },
 ];
+
+export const mockPolls = [
+  {
+    id: 'p1111111-1111-1111-1111-111111111111',
+    title: 'Should we upgrade the Block B Elevator System?',
+    options: ['Upgrade completely', 'Repair current elevators', 'No changes'],
+    expiry_timestamp: '2026-08-15T18:00:00Z',
+    is_closed: false,
+    created_at: '2026-07-25T10:00:00Z',
+    votes: {
+      'Upgrade completely': 12,
+      'Repair current elevators': 8,
+      'No changes': 2
+    },
+    total_votes: 22
+  },
+  {
+    id: 'p2222222-2222-2222-2222-222222222222',
+    title: 'Proposal to establish a community gym in the Block C basement area.',
+    options: ['Support', 'Oppose', 'Neutral'],
+    expiry_timestamp: '2026-07-28T12:00:00Z',
+    is_closed: true,
+    created_at: '2026-07-20T08:00:00Z',
+    votes: {
+      'Support': 25,
+      'Oppose': 14,
+      'Neutral': 3
+    },
+    total_votes: 42
+  }
+];

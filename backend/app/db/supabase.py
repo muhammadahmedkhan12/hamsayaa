@@ -169,4 +169,54 @@ class DatabaseService:
             "vehicle_logs": self.get_vehicle_logs(society_id)[:5]
         }
 
+    # POLLS & VOTING
+    def get_polls(self, society_id: str):
+        if not self.client:
+            return []
+        polls_res = self.client.table("polls").select("*").eq("society_id", society_id).order("created_at", desc=True).execute()
+        polls_list = polls_res.data
+        if not polls_list:
+            return []
+        
+        for p in polls_list:
+            votes_res = self.client.table("poll_votes").select("selected_option").eq("poll_id", p["id"]).execute()
+            votes = votes_res.data or []
+            p["total_votes"] = len(votes)
+            
+            # Options format might be list or dictionary/JSON
+            opts = p.get("options") or []
+            counts = {opt: 0 for opt in opts}
+            for v in votes:
+                opt = v.get("selected_option")
+                if opt in counts:
+                    counts[opt] += 1
+            p["votes"] = counts
+            
+        return polls_list
+
+    def create_poll(self, poll_data: dict):
+        if not self.client:
+            return None
+        res = self.client.table("polls").insert(poll_data).execute()
+        return res.data[0] if res.data else None
+
+    def cast_vote(self, poll_id: str, resident_id: str, selected_option: str):
+        if not self.client:
+            return None
+        res = self.client.table("poll_votes").upsert(
+            {
+                "poll_id": poll_id,
+                "resident_id": resident_id,
+                "selected_option": selected_option
+            },
+            on_conflict="poll_id,resident_id"
+        ).execute()
+        return res.data[0] if res.data else None
+
+    def close_poll(self, poll_id: str):
+        if not self.client:
+            return None
+        res = self.client.table("polls").update({"is_closed": True}).eq("id", poll_id).execute()
+        return res.data[0] if res.data else None
+
 db_service = DatabaseService()

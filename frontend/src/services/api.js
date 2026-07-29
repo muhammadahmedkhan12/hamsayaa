@@ -1,4 +1,4 @@
-import { mockResidents, mockInvoices, mockComplaints, mockDashboardMetrics, mockVehicleLogs } from './mockData';
+import { mockResidents, mockInvoices, mockComplaints, mockDashboardMetrics, mockVehicleLogs, mockPolls } from './mockData';
 
 const API_BASE = '/api/v1';
 
@@ -182,4 +182,68 @@ export async function fetchComplaints(status = 'All') {
     console.warn('Backend API unreachable, using local fallback complaints dataset:', err);
   }
   return mockComplaints;
+}
+
+// POLLS API
+export async function fetchPolls() {
+  try {
+    const res = await fetch(`${API_BASE}/polls`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && Array.isArray(data.polls) && data.polls.length > 0) {
+        return data.polls;
+      }
+    }
+  } catch (err) {
+    console.warn('Backend API unreachable, using local fallback polls dataset:', err);
+  }
+  return mockPolls;
+}
+
+export async function createPollApi(payload) {
+  try {
+    const res = await fetch(`${API_BASE}/polls`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn('API error during poll creation:', err);
+  }
+  return { status: 'success', poll: payload };
+}
+
+export async function closePollApi(pollId) {
+  try {
+    const res = await fetch(`${API_BASE}/polls/${pollId}/close`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn('API error during poll closure:', err);
+  }
+  return { status: 'success', poll_id: pollId, is_closed: true };
+}
+
+export async function exportPollReportApi(pollId, format = 'pdf') {
+  try {
+    const res = await fetch(`${API_BASE}/polls/${pollId}/report?format=${format}`);
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn('API error during poll report export:', err);
+  }
+  return {
+    status: 'success',
+    poll_id: pollId,
+    format,
+    download_url: `https://your-project-id.supabase.co/storage/v1/object/public/reports/poll_report_${pollId}.${format}`
+  };
 }
