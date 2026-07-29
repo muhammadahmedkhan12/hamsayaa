@@ -1,11 +1,22 @@
-import google.generativeai as genai
 from app.core.config import settings
 from app.db.supabase import db_service
 import random
-import string
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Import official google.genai SDK with fallback
+try:
+    from google import genai
+    from google.genai import types
+    USING_NEW_GENAI = True
+except ImportError:
+    try:
+        import google.generativeai as genai
+        USING_NEW_GENAI = False
+    except ImportError:
+        genai = None
+        USING_NEW_GENAI = False
 
 HAMSAYAA_SYSTEM_PROMPT = """
 You are Hamsayaa AI Concierge (ہمسایہ AI), a professional, polite, and efficient operational AI assistant for gated communities and apartment societies.
@@ -21,34 +32,35 @@ You assist verified residents strictly with community operations:
 STRICT GUARDRAILS & RULES:
 - You ONLY process queries related to society management and community operations.
 - If an inbound message is off-topic, abusive, political, or unrelated to society operations (e.g. weather, jokes, general knowledge, sales), politely refuse by stating:
-  "I am the Hamsayaa Society Concierge. I can only assist with community operations (complaints, visitor passes, maintenance dues, amenities, and polls)."
+  "I am the Hamsayaa Society Concierge. I can only assist with community operations (complaints, visitor passes, maintenance dues, amenities, and community polls)."
 - Match the resident's language (English, Urdu, or Roman Urdu).
 - Be concise and clear.
 """
 
 class GeminiEngine:
     def __init__(self):
-        if settings.GEMINI_API_KEY:
+        self.client = None
+        if settings.GEMINI_API_KEY and genai is not None:
             try:
-                genai.configure(api_key=settings.GEMINI_API_KEY)
-                self.model = genai.GenerativeModel(
-                    model_name=settings.GEMINI_MODEL,
-                    system_instruction=HAMSAYAA_SYSTEM_PROMPT
-                )
+                if USING_NEW_GENAI:
+                    self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
+                else:
+                    genai.configure(api_key=settings.GEMINI_API_KEY)
+                    self.client = genai.GenerativeModel(
+                        model_name=settings.GEMINI_MODEL,
+                        system_instruction=HAMSAYAA_SYSTEM_PROMPT
+                    )
             except Exception as e:
-                logger.error(f"Failed to initialize Gemini API: {e}")
-                self.model = None
-        else:
-            self.model = None
+                logger.error(f"Failed to initialize Gemini API client: {e}")
+                self.client = None
 
     def _generate_ticket_number(self) -> str:
         num = random.randint(1000, 9999)
         return f"TCK-{num}"
 
     def _generate_pass_code(self) -> str:
-        prefix = "LV"
         num = random.randint(1000, 9999)
-        return f"{prefix}-{num}"
+        return f"LV-{num}"
 
     async def process_resident_message(
         self,
@@ -65,7 +77,6 @@ class GeminiEngine:
         # 1. Check Guardrail: Off-Topic Detection
         off_topic_keywords = ["weather", "joke", "politics", "president", "crypto", "bitcoin", "buy", "sell"]
         if any(w in text_lower for w in off_topic_keywords):
-            # Flag complaint as irrelevant
             if resident and db_service.client:
                 try:
                     db_service.client.table("complaints").insert({
@@ -172,7 +183,23 @@ class GeminiEngine:
                 "reply_text": f"I am forwarding your request to the Building Admin for human review. A ticket has been created under ID *{ticket_num}*. Our office will contact you shortly."
             }
 
-        # Default Gemini model invocation or polite default response
+        # 7. AI Model Generation via google.genai Client
+        if self.client and USING_NEW_GENAI:
+            try:
+                prompt_content = f"Resident Name: {resident.get('name')}, Unit: {resident.get('unit_number')}. Message: {message_text}"
+                res = self.client.models.generate_content(
+                    model=settings.GEMINI_MODEL,
+                    contents=prompt_content,
+                    config=types.GenerateContentConfig(
+                        system_instruction=HAMSAYAA_SYSTEM_PROMPT
+                    )
+                )
+                if res and res.text:
+                    return {"status": "success", "reply_text": res.text}
+            except Exception as e:
+                logger.error(f"Error calling google.genai API: {e}")
+
+        # Default fallback response
         return {
             "status": "success",
             "reply_text": f"Hello {resident.get('name')}, I am the Hamsayaa AI Concierge for Unit {resident.get('unit_number')}. How can I assist you today? You can ask about complaints, guest passes, bill dues, or gym timings."
