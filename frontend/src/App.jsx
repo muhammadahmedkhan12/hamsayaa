@@ -16,17 +16,17 @@ import Settings from './pages/Settings';
 
 export default function App() {
   return (
-    <div className="flex min-h-screen bg-surface-slate text-slate-800 font-sans">
+    <div className="flex h-screen overflow-hidden bg-surface-slate text-slate-800 font-sans">
       {/* Fixed Deep Navy Navigation Sidebar */}
       <Sidebar />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top Action Navbar */}
         <Navbar />
 
         {/* Page Content */}
-        <main className="flex-1 p-6 md:p-8 max-w-7xl w-full mx-auto">
+        <main className="flex-1 overflow-y-auto p-6 md:p-8">          <div className="max-w-7xl w-full mx-auto">
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/residents" element={<Residents />} />
@@ -40,6 +40,7 @@ export default function App() {
             <Route path="/amenities" element={<Amenities />} />
             <Route path="/settings" element={<Settings />} />
           </Routes>
+          </div>
         </main>
       </div>
     </div>

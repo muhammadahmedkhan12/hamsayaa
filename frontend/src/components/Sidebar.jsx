@@ -25,7 +25,7 @@ const navItems = [
 
 export default function Sidebar() {
   return (
-    <aside className="w-64 bg-navy text-slate-300 flex flex-col min-h-screen border-r border-slate-800 flex-shrink-0 select-none">
+    <aside className="w-64 bg-navy text-slate-300 flex flex-col h-screen sticky top-0 border-r border-slate-800 flex-shrink-0 select-none overflow-y-auto">
       {/* Brand Header */}
       <div className="p-5 border-b border-slate-800 flex items-center gap-3">
         <div className="w-9 h-9 rounded-lg bg-emerald-500 flex items-center justify-center text-white font-bold text-lg shadow-md">
