@@ -93,6 +93,21 @@ VALUES
     FALSE
 ) ON CONFLICT (id) DO NOTHING;
 
+-- Test Admin Resident (Owner's phone for live testing)
+INSERT INTO residents (id, society_id, building, name, unit_number, phone_number, cnic, is_owner, is_tenant, is_blocked)
+VALUES (
+    '99999999-9999-9999-9999-111111111111',
+    'a1b2c3d4-e5f6-7890-abcd-111111111111',
+    'Block A',
+    'Admin Tester',
+    '001',
+    '+923362253299',
+    NULL,
+    TRUE,
+    FALSE,
+    FALSE
+) ON CONFLICT (id) DO NOTHING;
+
 -- 4. Sample Registered Resident Vehicles
 INSERT INTO registered_vehicles (id, society_id, resident_id, vehicle_plate, vehicle_type)
 VALUES
