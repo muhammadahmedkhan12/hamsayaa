@@ -15,14 +15,14 @@ VALUES (
 INSERT INTO users (id, society_id, email, role, auth_provider)
 VALUES 
 (
-    'u1111111-1111-1111-1111-111111111111',
+    '11111111-1111-1111-1111-111111111111',
     'a1b2c3d4-e5f6-7890-abcd-111111111111',
     'admin@lakeview.com',
     'admin',
     'supabase_auth'
 ),
 (
-    'u2222222-2222-2222-2222-222222222222',
+    '22222222-2222-2222-2222-222222222222',
     'a1b2c3d4-e5f6-7890-abcd-111111111111',
     'supervisor@lakeview.com',
     'admin',
@@ -33,7 +33,7 @@ VALUES
 INSERT INTO residents (id, society_id, building, name, unit_number, phone_number, cnic, is_owner, is_tenant, is_blocked)
 VALUES 
 (
-    'r1111111-1111-1111-1111-111111111111',
+    '33333333-3333-3333-3333-111111111111',
     'a1b2c3d4-e5f6-7890-abcd-111111111111',
     'Block A',
     'Muhammad Ahmed',
@@ -45,7 +45,7 @@ VALUES
     FALSE
 ),
 (
-    'r2222222-2222-2222-2222-222222222222',
+    '33333333-3333-3333-3333-222222222222',
     'a1b2c3d4-e5f6-7890-abcd-111111111111',
     'Block A',
     'Fatima Raza',
@@ -57,7 +57,7 @@ VALUES
     FALSE
 ),
 (
-    'r3333333-3333-3333-3333-333333333333',
+    '33333333-3333-3333-3333-333333333333',
     'a1b2c3d4-e5f6-7890-abcd-111111111111',
     'Block B',
     'Bilal Sheikh',
@@ -69,7 +69,7 @@ VALUES
     TRUE  -- Manually suspended due to overdue dues
 ),
 (
-    'r4444444-4444-4444-4444-444444444444',
+    '33333333-3333-3333-3333-444444444444',
     'a1b2c3d4-e5f6-7890-abcd-111111111111',
     'Block B',
     'Zainab Malik',
@@ -81,7 +81,7 @@ VALUES
     FALSE
 ),
 (
-    'r5555555-5555-5555-5555-555555555555',
+    '33333333-3333-3333-3333-555555555555',
     'a1b2c3d4-e5f6-7890-abcd-111111111111',
     'Block C',
     'Hamza Tariq',
@@ -97,16 +97,16 @@ VALUES
 INSERT INTO registered_vehicles (id, society_id, resident_id, vehicle_plate, vehicle_type)
 VALUES
 (
-    'v1111111-1111-1111-1111-111111111111',
+    '44444444-4444-4444-4444-111111111111',
     'a1b2c3d4-e5f6-7890-abcd-111111111111',
-    'r1111111-1111-1111-1111-111111111111',
+    '33333333-3333-3333-3333-111111111111',
     'KHI-1234',
     'Sedan'
 ),
 (
-    'v2222222-2222-2222-2222-222222222222',
+    '44444444-4444-4444-4444-222222222222',
     'a1b2c3d4-e5f6-7890-abcd-111111111111',
-    'r2222222-2222-2222-2222-222222222222',
+    '33333333-3333-3333-3333-222222222222',
     'KHI-5678',
     'SUV'
 ) ON CONFLICT (id) DO NOTHING;
@@ -115,9 +115,9 @@ VALUES
 INSERT INTO visitor_passes (id, society_id, resident_id, visitor_name, visitor_cnic, vehicle_plate, pass_code, valid_from, valid_until)
 VALUES
 (
-    'p1111111-1111-1111-1111-111111111111',
+    '55555555-5555-5555-5555-111111111111',
     'a1b2c3d4-e5f6-7890-abcd-111111111111',
-    'r1111111-1111-1111-1111-111111111111',
+    '33333333-3333-3333-3333-111111111111',
     'Tariq Mahmood',
     '42101-9988776-5',
     'KHI-8921',
@@ -130,7 +130,7 @@ VALUES
 INSERT INTO society_bills (id, society_id, billing_period_start, billing_period_end, unit_count, per_unit_rate, status)
 VALUES
 (
-    'sb111111-1111-1111-1111-111111111111',
+    '66666666-6666-6666-6666-111111111111',
     'a1b2c3d4-e5f6-7890-abcd-111111111111',
     '2026-07-01',
     '2026-07-31',
@@ -143,9 +143,9 @@ VALUES
 INSERT INTO invoices (id, society_id, resident_id, society_maintenance_fee, hamsayaa_saas_fee, utility_charges, due_date, status, account_shown)
 VALUES
 (
-    'inv11111-1111-1111-1111-111111111111',
+    '77777777-7777-7777-7777-111111111111',
     'a1b2c3d4-e5f6-7890-abcd-111111111111',
-    'r1111111-1111-1111-1111-111111111111',
+    '33333333-3333-3333-3333-111111111111',
     5000.00,
     150.00,
     1200.00,
@@ -154,9 +154,9 @@ VALUES
     'Meezan Bank - A/C 01020304050607 - Lakeview Maint Account'
 ),
 (
-    'inv22222-2222-2222-2222-222222222222',
+    '77777777-7777-7777-7777-222222222222',
     'a1b2c3d4-e5f6-7890-abcd-111111111111',
-    'r3333333-3333-3333-3333-333333333333',
+    '33333333-3333-3333-3333-333333333333',
     5000.00,
     150.00,
     2100.00,
