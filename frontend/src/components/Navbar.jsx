@@ -1,22 +1,11 @@
 import React from 'react';
-import { Search, Bell, ShieldCheck, Building2 } from 'lucide-react';
+import { Search, Bell, ShieldCheck } from 'lucide-react';
 import { mockAdminUser } from '../services/mockData';
 
 export default function Navbar() {
   return (
     <header className="h-16 bg-white border-b border-surface-border px-6 flex items-center justify-between sticky top-0 z-10 shadow-sm">
-      {/* Left: Fixed Society Name Header Badge */}
-      <div className="flex items-center gap-2.5">
-        <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
-          <Building2 className="w-4 h-4" />
-        </div>
-        <div>
-          <h2 className="text-sm font-bold text-navy leading-none">Lakeview Apartments</h2>
-          <p className="text-[10px] text-slate-400 font-medium mt-0.5">50 Subscribed Units • Gated Community</p>
-        </div>
-      </div>
-
-      {/* Center: Global Quick Search Input */}
+      {/* Left / Center: Global Quick Search Input */}
       <div className="flex items-center gap-2 max-w-md w-full bg-slate-50 px-3.5 py-1.5 rounded-lg border border-slate-200 focus-within:border-navy focus-within:ring-1 focus-within:ring-navy transition-all">
         <Search className="w-4 h-4 text-slate-400" />
         <input
@@ -27,7 +16,7 @@ export default function Navbar() {
         <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono text-slate-400 bg-white border border-slate-200 rounded">⌘K</kbd>
       </div>
 
-      {/* Right: Security Badge, Overstay Alerts, Admin Profile */}
+      {/* Right: Security Policy Badge, Overstay Alert Bell, Admin Profile */}
       <div className="flex items-center gap-4">
         {/* Gatekeeper Security Policy Indicator */}
         <div className="hidden md:flex items-center gap-1.5 text-xs text-slate-600 font-medium bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">
