@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Ticket,
   AlertTriangle,
@@ -157,7 +158,7 @@ export default function Dashboard() {
               <MessageSquare className="w-4 h-4 text-emerald-600" />
               <h2 className="font-bold text-navy text-sm">Recent Complaints & Tickets</h2>
             </div>
-            <a href="/tickets" className="text-xs font-semibold text-emerald-600 hover:text-emerald-700">View All</a>
+            <Link to="/complaints" className="text-xs font-semibold text-emerald-600 hover:text-emerald-700">View All</Link>
           </div>
 
           <div className="divide-y divide-slate-100">
