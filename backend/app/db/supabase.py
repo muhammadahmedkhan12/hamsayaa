@@ -51,6 +51,22 @@ class DatabaseService:
         res = self.client.table("residents").upsert(residents_list, on_conflict="society_id,building,unit_number,phone_number").execute()
         return res.data
 
+    # COMPLAINTS & TICKETS
+    def get_complaints(self, society_id: str, status: str | None = None):
+        if not self.client:
+            return []
+        query = self.client.table("complaints").select("*, residents(name, unit_number, building)").eq("society_id", society_id)
+        if status and status != "All":
+            query = query.eq("status", status)
+        res = query.order("created_at", desc=True).execute()
+        return res.data
+
+    def update_complaint_status(self, complaint_id: str, status: str):
+        if not self.client:
+            return None
+        res = self.client.table("complaints").update({"status": status}).eq("id", complaint_id).execute()
+        return res.data
+
     # INVOICES & DUES
     def get_invoices(self, society_id: str, status: str | None = None):
         if not self.client:
@@ -100,11 +116,57 @@ class DatabaseService:
             return res.data
         return []
 
-    # VEHICLES
+    # VEHICLE LOGS & PASSES
+    def get_vehicle_logs(self, society_id: str):
+        if not self.client:
+            return []
+        res = self.client.table("vehicle_logs").select("*").eq("society_id", society_id).order("entry_time", desc=True).execute()
+        return res.data
+
+    def get_visitor_passes(self, society_id: str):
+        if not self.client:
+            return []
+        res = self.client.table("visitor_passes").select("*, residents(name, unit_number, building)").eq("society_id", society_id).execute()
+        return res.data
+
     def get_unregistered_overstays(self, society_id: str):
         if not self.client:
             return []
         res = self.client.table("vehicle_logs").select("*").eq("society_id", society_id).eq("is_flagged_overstay", True).execute()
         return res.data
+
+    # DASHBOARD AGGREGATED METRICS
+    def get_dashboard_summary(self, society_id: str):
+        if not self.client:
+            return {
+                "open_tickets_count": 5,
+                "needs_human_review_count": 1,
+                "overdue_dues_total": 145000,
+                "overdue_count": 8,
+                "active_passes_count": 8,
+                "flagged_overstays_count": 2,
+            }
+
+        complaints = self.get_complaints(society_id)
+        open_tickets = [c for c in complaints if c.get("status") in ["open", "in_progress", "needs_human_review"]]
+        human_review = [c for c in complaints if c.get("status") == "needs_human_review"]
+
+        invoices = self.get_invoices(society_id)
+        overdue_invs = [i for i in invoices if i.get("status") == "overdue"]
+        overdue_total = sum(i.get("total_amount", 0) for i in overdue_invs)
+
+        passes = self.get_visitor_passes(society_id)
+        overstays = self.get_unregistered_overstays(society_id)
+
+        return {
+            "open_tickets_count": len(open_tickets),
+            "needs_human_review_count": len(human_review),
+            "overdue_dues_total": overdue_total,
+            "overdue_count": len(overdue_invs),
+            "active_passes_count": len(passes),
+            "flagged_overstays_count": len(overstays),
+            "recent_complaints": complaints[:5],
+            "vehicle_logs": self.get_vehicle_logs(society_id)[:5]
+        }
 
 db_service = DatabaseService()

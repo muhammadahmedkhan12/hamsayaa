@@ -14,9 +14,10 @@ import {
   UploadCloud,
   Car,
   Phone,
-  UserCheck
+  UserCheck,
+  RefreshCw
 } from 'lucide-react';
-import { mockBuildings } from '../services/mockData';
+import { mockBuildings, mockResidents } from '../services/mockData';
 import { fetchResidents, createResidentApi, toggleBlockResidentApi, bulkImportResidentsApi } from '../services/api';
 
 export default function Residents() {
@@ -44,7 +45,7 @@ export default function Residents() {
   // Bulk Upload File
   const [importFile, setImportFile] = useState(null);
 
-  // Load Residents
+  // Automatic Loading on Initial Mount and Building Filter Change
   useEffect(() => {
     loadResidentsList(selectedBuilding);
   }, [selectedBuilding]);
@@ -52,14 +53,15 @@ export default function Residents() {
   const loadResidentsList = async (bld) => {
     setLoading(true);
     const data = await fetchResidents(bld);
-    setResidents(data);
+    setResidents(data || mockResidents);
     setLoading(false);
   };
 
   // Filtered residents by search query
   const filteredResidents = residents.filter((r) => {
     const q = searchQuery.toLowerCase();
-    const unitStr = `${r.building || ''} ${r.unitNumber || r.unit_number || ''}`.toLowerCase();
+    const bldStr = r.building || 'Block A';
+    const unitStr = `${bldStr} ${r.unitNumber || r.unit_number || ''}`.toLowerCase();
     const nameStr = (r.name || '').toLowerCase();
     const phoneStr = (r.phoneNumber || r.phone_number || '').toLowerCase();
     return unitStr.includes(q) || nameStr.includes(q) || phoneStr.includes(q);
@@ -68,7 +70,6 @@ export default function Residents() {
   // Handle Manual Block Toggle
   const handleToggleBlock = async (residentId, currentStatus) => {
     const newStatus = !currentStatus;
-    // Optimistic UI update
     setResidents((prev) =>
       prev.map((r) => (r.id === residentId ? { ...r, isBlocked: newStatus, is_blocked: newStatus } : r))
     );
@@ -80,14 +81,17 @@ export default function Residents() {
     e.preventDefault();
     if (!formData.unit_number || !formData.name || !formData.phone_number) return;
 
+    let cleanPhone = formData.phone_number.strip ? formData.phone_number.strip() : formData.phone_number;
+    if (!cleanPhone.startsWith('+')) cleanPhone = '+' + cleanPhone;
+
     const newResident = {
       id: `r-${Date.now()}`,
       building: formData.building,
       unitNumber: formData.unit_number,
       unit_number: formData.unit_number,
       name: formData.name,
-      phoneNumber: formData.phone_number,
-      phone_number: formData.phone_number,
+      phoneNumber: cleanPhone,
+      phone_number: cleanPhone,
       cnic: formData.cnic,
       isOwner: formData.is_owner,
       is_owner: formData.is_owner,
@@ -100,7 +104,10 @@ export default function Residents() {
 
     setResidents((prev) => [newResident, ...prev]);
     setShowAddModal(false);
-    await createResidentApi(formData);
+    await createResidentApi({
+      ...formData,
+      phone_number: cleanPhone
+    });
     setFormData({
       building: 'Block A',
       unit_number: '',
@@ -136,6 +143,15 @@ export default function Residents() {
 
         <div className="flex items-center gap-3">
           <button
+            onClick={() => loadResidentsList(selectedBuilding)}
+            className="flex items-center gap-1.5 px-3 py-2 bg-white text-slate-700 font-medium text-sm rounded-lg border border-surface-border hover:bg-slate-50 transition-colors shadow-xs"
+            title="Reload residents from database"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-emerald-600' : ''}`} />
+            <span>Reload</span>
+          </button>
+
+          <button
             onClick={() => setShowImportModal(true)}
             className="flex items-center gap-2 px-3.5 py-2 bg-white text-slate-700 font-medium text-sm rounded-lg border border-surface-border hover:bg-slate-50 transition-colors shadow-sm"
           >
@@ -154,7 +170,7 @@ export default function Residents() {
       </div>
 
       {/* Building / Block Filter Tabs */}
-      <div className="flex items-center justify-between gap-4 border-b border-slate-200 pb-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-2">
         <div className="flex items-center gap-1.5 overflow-x-auto">
           <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-2 flex items-center gap-1">
             <Building className="w-3.5 h-3.5" /> Building:
@@ -221,7 +237,7 @@ export default function Residents() {
                 const bld = r.building || 'Block A';
                 const phone = r.phoneNumber || r.phone_number;
                 const isOwner = r.isOwner !== undefined ? r.isOwner : r.is_owner;
-                const vehicles = r.registeredVehicles || [];
+                const vehicles = r.registered_vehicles || r.registeredVehicles || [];
 
                 return (
                   <tr key={r.id} className="hover:bg-slate-50/80 transition-colors">
@@ -252,7 +268,7 @@ export default function Residents() {
                         <div className="flex flex-wrap gap-1">
                           {vehicles.map((v, i) => (
                             <span key={i} className="bg-slate-100 text-slate-700 font-mono px-1.5 py-0.5 rounded text-[10px] border border-slate-200">
-                              {v}
+                              {typeof v === 'object' ? `${v.vehicle_plate} (${v.vehicle_type})` : v}
                             </span>
                           ))}
                         </div>

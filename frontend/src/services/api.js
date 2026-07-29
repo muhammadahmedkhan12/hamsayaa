@@ -1,23 +1,24 @@
-import { mockResidents } from './mockData';
+import { mockResidents, mockInvoices, mockComplaints, mockDashboardMetrics, mockVehicleLogs } from './mockData';
 
 const API_BASE = '/api/v1';
 
+// RESIDENTS API
 export async function fetchResidents(building = 'All') {
   try {
     const url = building && building !== 'All' 
       ? `${API_BASE}/residents?building=${encodeURIComponent(building)}`
       : `${API_BASE}/residents`;
     const res = await fetch(url);
-    if (!res.ok) throw new Error('API server returned error');
-    const data = await res.json();
-    if (data && Array.isArray(data.residents) && data.residents.length > 0) {
-      return data.residents;
+    if (res.ok) {
+      const data = await res.json();
+      if (data && Array.isArray(data.residents) && data.residents.length > 0) {
+        return data.residents;
+      }
     }
   } catch (err) {
-    console.warn('Backend API unreachable, using local fallback dataset:', err);
+    console.warn('Backend API unreachable, using local fallback residents dataset:', err);
   }
   
-  // Fallback to local mock data
   if (building && building !== 'All') {
     return mockResidents.filter(r => r.building === building);
   }
@@ -73,22 +74,23 @@ export async function bulkImportResidentsApi(file) {
   return { status: 'success', filename: file.name, records_imported: 5 };
 }
 
-// INVOICES & DUES API
+// INVOICES API
 export async function fetchInvoices(status = 'All') {
   try {
     const url = status && status !== 'All' 
       ? `${API_BASE}/invoices?status=${encodeURIComponent(status)}`
       : `${API_BASE}/invoices`;
     const res = await fetch(url);
-    if (!res.ok) throw new Error('API server returned error');
-    const data = await res.json();
-    if (data && Array.isArray(data.invoices) && data.invoices.length > 0) {
-      return data.invoices;
+    if (res.ok) {
+      const data = await res.json();
+      if (data && Array.isArray(data.invoices) && data.invoices.length > 0) {
+        return data.invoices;
+      }
     }
   } catch (err) {
     console.warn('Backend API unreachable, using local fallback invoices dataset:', err);
   }
-  return null;
+  return mockInvoices;
 }
 
 export async function generateCycleInvoicesApi(payload) {
@@ -139,3 +141,45 @@ export async function verifyInvoiceReceiptApi(invoiceId) {
   return { status: 'success', invoice_id: invoiceId, message: 'Receipt verified' };
 }
 
+// COMPLAINTS & DASHBOARD SUMMARY API
+export async function fetchDashboardSummary() {
+  try {
+    const res = await fetch(`${API_BASE}/complaints/summary`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.summary) {
+        return data.summary;
+      }
+    }
+  } catch (err) {
+    console.warn('Backend API unreachable, using local fallback dashboard summary:', err);
+  }
+  return {
+    open_tickets_count: mockDashboardMetrics.openTickets,
+    needs_human_review_count: mockDashboardMetrics.ticketsHumanReview,
+    overdue_dues_total: 145000,
+    overdue_count: mockDashboardMetrics.overdueCount,
+    active_passes_count: mockDashboardMetrics.activePasses,
+    flagged_overstays_count: mockDashboardMetrics.flaggedOverstays,
+    recent_complaints: mockComplaints,
+    vehicle_logs: mockVehicleLogs,
+  };
+}
+
+export async function fetchComplaints(status = 'All') {
+  try {
+    const url = status && status !== 'All' 
+      ? `${API_BASE}/complaints?status=${encodeURIComponent(status)}`
+      : `${API_BASE}/complaints`;
+    const res = await fetch(url);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && Array.isArray(data.complaints) && data.complaints.length > 0) {
+        return data.complaints;
+      }
+    }
+  } catch (err) {
+    console.warn('Backend API unreachable, using local fallback complaints dataset:', err);
+  }
+  return mockComplaints;
+}
