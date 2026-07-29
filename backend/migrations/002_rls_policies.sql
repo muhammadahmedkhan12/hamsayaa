@@ -3,9 +3,13 @@
 
 -- 1. Helper function to extract society_id for currently authenticated admin user
 CREATE OR REPLACE FUNCTION get_auth_society_id()
-RETURNS UUID AS $$
+RETURNS UUID
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+AS '
     SELECT society_id FROM users WHERE id = auth.uid();
-$$ LANGUAGE sql STABLE SECURITY DEFINER;
+';
 
 -- 2. Enable RLS across all tenant tables
 ALTER TABLE societies ENABLE ROW LEVEL SECURITY;
