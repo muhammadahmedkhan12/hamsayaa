@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     WHATSAPP_APP_SECRET: str = ""
     WHATSAPP_ACCESS_TOKEN: str = ""
     WHATSAPP_TEST_NUMBER: str = ""
+    WHATSAPP_PHONE_NUMBER_ID: str = "1229806946879920"
     WHATSAPP_VERIFY_TOKEN: str = "hamsayaa_webhook_verify_token_secure"
     
     # Gemini API Engine

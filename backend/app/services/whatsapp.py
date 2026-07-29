@@ -9,6 +9,7 @@ class WhatsAppService:
         self.access_token = settings.WHATSAPP_ACCESS_TOKEN
         self.app_id = settings.WHATSAPP_APP_ID
         self.test_number = settings.WHATSAPP_TEST_NUMBER
+        self.phone_number_id = settings.WHATSAPP_PHONE_NUMBER_ID or "1229806946879920"
         self.base_url = "https://graph.facebook.com/v18.0"
 
     async def send_text_message(self, recipient_phone: str, message_text: str) -> dict:
@@ -19,7 +20,7 @@ class WhatsAppService:
             logger.warning(f"Simulating WhatsApp text dispatch to {recipient_phone}: {message_text}")
             return {"status": "simulated", "recipient": recipient_phone, "text": message_text}
 
-        url = f"{self.base_url}/{self.test_number}/messages"
+        url = f"{self.base_url}/{self.phone_number_id}/messages"
         headers = {
             "Authorization": f"Bearer {self.access_token}",
             "Content-Type": "application/json"
@@ -52,7 +53,7 @@ class WhatsAppService:
             logger.warning(f"Simulating WhatsApp media dispatch to {recipient_phone}: {media_url}")
             return {"status": "simulated", "recipient": recipient_phone, "media_url": media_url}
 
-        url = f"{self.base_url}/{self.test_number}/messages"
+        url = f"{self.base_url}/{self.phone_number_id}/messages"
         headers = {
             "Authorization": f"Bearer {self.access_token}",
             "Content-Type": "application/json"
