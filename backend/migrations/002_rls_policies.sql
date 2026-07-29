@@ -92,11 +92,11 @@ CREATE POLICY admin_polls_isolation ON polls
     USING (society_id = get_auth_society_id())
     WITH CHECK (society_id = get_auth_society_id());
 
--- Poll Votes Policy
+-- Poll Votes Policy (Links via poll_id -> polls.society_id)
 CREATE POLICY admin_poll_votes_isolation ON poll_votes
     FOR ALL TO authenticated
-    USING (society_id = (SELECT society_id FROM polls WHERE id = poll_id))
-    WITH CHECK (society_id = (SELECT society_id FROM polls WHERE id = poll_id));
+    USING (poll_id IN (SELECT id FROM polls WHERE society_id = get_auth_society_id()))
+    WITH CHECK (poll_id IN (SELECT id FROM polls WHERE society_id = get_auth_society_id()));
 
 -- Expenses Policy
 CREATE POLICY admin_expenses_isolation ON expenses
