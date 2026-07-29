@@ -1,0 +1,351 @@
+<!DOCTYPE html><html class="light" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Hamsayaa Assistant | WhatsApp Interface</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-fixed": "#001c3b",
+                        "inverse-surface": "#233144",
+                        "primary-container": "#00529b",
+                        "tertiary-container": "#4f5254",
+                        "surface-container-high": "#dde9ff",
+                        "on-error-container": "#93000a",
+                        "on-secondary-container": "#436b58",
+                        "on-primary-fixed-variant": "#004787",
+                        "on-surface": "#0d1c2f",
+                        "on-secondary-fixed-variant": "#274e3d",
+                        "secondary-fixed": "#c1ecd4",
+                        "surface-dim": "#ccdbf4",
+                        "surface-container-low": "#eff4ff",
+                        "outline-variant": "#c2c6d3",
+                        "on-background": "#0d1c2f",
+                        "on-tertiary": "#ffffff",
+                        "tertiary-fixed-dim": "#c4c7c9",
+                        "surface-tint": "#1d5fa8",
+                        "secondary-container": "#beead1",
+                        "surface-container-highest": "#d5e3fd",
+                        "secondary": "#3f6653",
+                        "on-secondary-fixed": "#002114",
+                        "primary-fixed-dim": "#a6c8ff",
+                        "on-surface-variant": "#424751",
+                        "outline": "#727782",
+                        "surface": "#f8f9ff",
+                        "on-secondary": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-fixed": "#191c1e",
+                        "surface-bright": "#f8f9ff",
+                        "primary-fixed": "#d5e3ff",
+                        "inverse-primary": "#a6c8ff",
+                        "background": "#f8f9ff",
+                        "primary": "#00529b",
+                        "error-container": "#ffdad6",
+                        "on-tertiary-container": "#c3c5c7",
+                        "inverse-on-surface": "#ebf1ff",
+                        "secondary-fixed-dim": "#a5d0b9",
+                        "on-error": "#ffffff",
+                        "surface-variant": "#d5e3fd",
+                        "on-primary": "#ffffff",
+                        "surface-container": "#e6eeff",
+                        "on-primary-container": "#a5c7ff",
+                        "tertiary-fixed": "#e0e3e5",
+                        "error": "#ba1a1a",
+                        "tertiary": "#383b3d",
+                        "on-tertiary-fixed-variant": "#444749"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "xs": "4px",
+                        "3xl": "64px",
+                        "base": "4px",
+                        "xl": "32px",
+                        "margin-desktop": "40px",
+                        "md": "16px",
+                        "lg": "24px",
+                        "margin-mobile": "16px",
+                        "gutter": "24px",
+                        "sm": "8px",
+                        "2xl": "48px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Inter"],
+                        "headline-xl": ["Manrope"],
+                        "body-sm": ["Inter"],
+                        "body-md": ["Inter"],
+                        "label-md": ["Inter"],
+                        "headline-md": ["Manrope"],
+                        "headline-lg": ["Manrope"],
+                        "label-sm": ["Inter"],
+                        "headline-lg-mobile": ["Manrope"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                        "headline-xl": ["40px", {"lineHeight": "48px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "label-md": ["14px", {"lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "600"}],
+                        "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                        "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                        "label-sm": ["12px", {"lineHeight": "14px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                        "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "700"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: "Inter", sans-serif;
+            background-color: #e5ddd5;
+        }
+        .whatsapp-bg {
+            background-image: url(https://lh3.googleusercontent.com/aida-public/AB6AXuARLinT6ejbAzAo7Xe3al3oPkBmb9k6kuB9-E3rfJFg0HLxPHRuC508N8M_77MJraK8c4BXQ1ySD55O8COO_0dY3U8e69bOHcYQDVJrk5i_JCyG_7h-FSSvKMWLvmgtc_KDq_pcwr7yczTq1PpelYEIf-_qyylwSdxoxAxW85LLzYZ5re9xuaTUuNJJWH9pLqND2RzCsg_lVGlf8Sc3ZAqbFVowD0bQqEEJDDMj-9FYoH6isHROfJ4lMQ);
+            background-repeat: repeat;
+            background-size: auto;
+            opacity: 0.4;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 0;
+        }
+        .chat-container {
+            position: relative;
+            z-index: 10;
+        }
+        .bubble-in {
+            position: relative;
+            background: #fff;
+            border-radius: 0 8px 8px 8px;
+        }
+        .bubble-in::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: -8px;
+            width: 0;
+            height: 0;
+            border-top: 0 solid transparent;
+            border-bottom: 10px solid transparent;
+            border-right: 10px solid #fff;
+        }
+        .bubble-out {
+            position: relative;
+            background: #dcf8c6;
+            border-radius: 8px 0 8px 8px;
+        }
+        .bubble-out::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            right: -8px;
+            width: 0;
+            height: 0;
+            border-top: 0 solid transparent;
+            border-bottom: 10px solid transparent;
+            border-left: 10px solid #dcf8c6;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+            vertical-align: middle;
+        }
+        .font-headline-md { font-family: 'Manrope', sans-serif; }
+    </style>
+</head>
+<body class="flex flex-col h-screen overflow-hidden">
+<!-- WhatsApp Header -->
+<header class="bg-[#075e54] text-white p-3 flex items-center justify-between shadow-md z-50">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined cursor-pointer">arrow_back</span>
+<div class="relative">
+<img alt="Hamsayaa Logo" class="w-10 h-10 rounded-full border border-white/20 object-contain bg-white" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCCMlwIX_zlrOgWE-F7hdJyveLgxAMMmvsaFVbkBpyEFJcMJhtlw1h8KDljmCka_HFlPi-uw58fLZ_3tdmHCuZlrDUOOAoxjBYllYJJnHYFxDVbDnXQLXNZ7-JJelkrRux3o0TQD1hgBCt59X48Lw5reqqxrnNKrmzYZP5TnTlXP6BgrAFuJ5mU0bJcbWnMfVeeZFd-Bj7KzGtm67-fPUF_-_X-e8d47_J4aBCywKuuhCNN_97Ix80pHH0ff9nHc6VP9O0">
+<div class="absolute -bottom-1 -right-1 bg-white rounded-full p-0.5 flex items-center justify-center">
+<span class="material-symbols-outlined text-[14px] text-[#25d366]" style="font-variation-settings: 'FILL' 1;">verified</span>
+</div>
+</div>
+<div class="flex flex-col">
+<h1 class="text-[16px] font-semibold text-white flex items-center gap-1 leading-tight">
+                    Hamsayaa Assistant
+                </h1>
+<p class="text-[11px] opacity-80">Online</p>
+</div>
+</div>
+<div class="flex gap-5 px-2">
+<span class="material-symbols-outlined cursor-pointer">videocam</span>
+<span class="material-symbols-outlined cursor-pointer">call</span>
+<span class="material-symbols-outlined cursor-pointer">more_vert</span>
+</div>
+</header>
+<!-- Chat Area -->
+<main class="flex-1 overflow-y-auto relative p-4 space-y-4">
+<div class="whatsapp-bg"></div>
+<div class="chat-container flex flex-col space-y-4">
+<!-- Date Indicator -->
+<div class="self-center bg-[#d1e4f4] px-3 py-1 rounded-lg shadow-sm">
+<p class="text-[11px] text-[#4a4a4a] font-bold uppercase tracking-wider">Today</p>
+</div>
+<!-- Bubble 1: User -->
+<div class="flex justify-end w-full">
+<div class="bubble-out max-w-[85%] p-2 shadow-sm">
+<p class="text-[14px] leading-tight text-on-surface">Hi, I need a guest entry pass for my cousin Ali, CNIC: 42101-XXXXX-X, Car: LES-1234.</p>
+<div class="flex justify-end items-center gap-1 mt-1">
+<span class="text-[10px] text-[#4a4a4a] opacity-70">10:42 AM</span>
+<span class="material-symbols-outlined text-[16px] text-primary" style="font-variation-settings: 'FILL' 1;">done_all</span>
+</div>
+</div>
+</div>
+<!-- Bubble 2: Bot (Visitor Pass) -->
+<div class="flex justify-start w-full">
+<div class="bubble-in max-w-[85%] p-2 shadow-sm bg-white">
+<div class="mb-2">
+<p class="text-[14px] leading-tight text-on-surface">Sure! I've generated a digital pass for your guest. They can show this at the main gate.</p>
+</div>
+<!-- VISITOR PASS CARD -->
+<div class="border border-outline-variant rounded-xl overflow-hidden bg-white shadow-sm max-w-[320px]">
+<div class="bg-primary p-3 flex justify-between items-center">
+<span class="text-white font-label-md uppercase tracking-widest text-[12px] font-bold">Visitor Pass</span>
+<img alt="Hamsayaa Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA1t_aQ1CQ1jBBbbuuE1yhG69QVVqdzeCzXzhfRf6wtwIbVyIq_OZTt-8WQkFcZUm8y-YkxbBOG3vVLB2QUodO4bSikm14cUVw3Dnggt4y0zw2CcuGy7B7tA9I2p_24BSoTZ9rTeN9xpUuwYDbHCJTVZRjgfNbZGXwYKiGAeNkx0CPipUta7aoWt7u-cSrlmgYSjV0H4DUGPktPRX_MFhLLExK41nS7WFTRERvkxDPsO3frIU9m9FHqHi4-Auk1pWaaXfc">
+</div>
+<div class="p-4 space-y-3">
+<div class="flex justify-between items-start">
+<div>
+<p class="text-[10px] uppercase text-on-surface-variant font-bold">Pass Code</p>
+<p class="font-bold text-primary text-[16px]">#HMS-2024-99</p>
+</div>
+<div class="text-right">
+<p class="text-[10px] uppercase text-on-surface-variant font-bold">Society</p>
+<p class="text-[14px] font-semibold text-on-surface">Riverbend Meadows</p>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 py-2 border-y border-outline-variant">
+<div>
+<p class="text-[10px] uppercase text-on-surface-variant font-bold">Unit</p>
+<p class="text-[14px] font-semibold text-on-surface">Block B, Apt 402</p>
+</div>
+<div>
+<p class="text-[10px] uppercase text-on-surface-variant font-bold">Expiry</p>
+<p class="text-[14px] font-semibold text-error">12 Hours</p>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="w-16 h-16 bg-surface-container flex items-center justify-center rounded-lg">
+<span class="material-symbols-outlined text-[48px] text-primary/20">qr_code_scanner</span>
+</div>
+<div class="flex-1">
+<p class="text-[10px] text-on-surface-variant leading-tight">Please keep your original CNIC ready for verification upon entry.</p>
+<div class="mt-1 flex items-center gap-1">
+<span class="material-symbols-outlined text-secondary text-[14px]" style="font-variation-settings: 'FILL' 1;">verified_user</span>
+<span class="text-[10px] text-secondary font-bold">Pre-Verified Resident Request</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="flex justify-end items-center gap-1 mt-2">
+<span class="text-[10px] text-on-surface-variant">10:42 AM</span>
+</div>
+</div>
+</div>
+<!-- Bubble 3: User -->
+<div class="flex justify-end w-full">
+<div class="bubble-out max-w-[85%] p-2 shadow-sm">
+<p class="text-[14px] leading-tight text-on-surface">Check my current bill.</p>
+<div class="flex justify-end items-center gap-1 mt-1">
+<span class="text-[10px] text-[#4a4a4a] opacity-70">10:43 AM</span>
+<span class="material-symbols-outlined text-[16px] text-primary" style="font-variation-settings: 'FILL' 1;">done_all</span>
+</div>
+</div>
+</div>
+<!-- Bubble 4: Bot (Bill Details) -->
+<div class="flex justify-start w-full">
+<div class="bubble-in max-w-[85%] p-2 shadow-sm bg-white">
+<div class="mb-3">
+<p class="text-[14px] leading-tight text-on-surface">Here is your billing breakdown for <strong>June 2024</strong>:</p>
+</div>
+<!-- BILL TEMPLATE -->
+<div class="bg-surface-container-low rounded-xl p-4 border border-outline-variant space-y-4 max-w-[320px]">
+<div class="flex justify-between items-center border-b border-outline-variant pb-2">
+<div class="flex flex-col">
+<span class="font-headline-md text-primary text-[20px]">Invoice #4582</span>
+<img alt="Hamsayaa Logo" class="h-6 w-auto object-contain self-start mt-1" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBekz7eT6Zl9MycqyoRYVq6Ea5123lDY4xCR7DYRd24yxZ-FaNdJCOa-76IsfHJUjKYrbqwG0ds_pOp_2VEFVkF8VmreM9d94A2NCEFcGjSLnMe3iFkmcaBKQqbl1ceD1f8JYl5Wpbj5HC4dQKhHs73r3Vf0pqsLAm4OyOnatOu5mN8CW2NNyQBX-5valQUSv9fK1jZ-c1a96v9LuaH9MrPzRFusWuI2YRxgQb5n-zgcYKcM1ssp3y74r1b1VCrMLJ4BW8">
+</div>
+<span class="px-2 py-1 bg-error-container text-on-error-container text-[10px] font-bold rounded uppercase">Unpaid</span>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between text-[14px]">
+<span class="text-on-surface-variant">Maintenance Fee</span>
+<span class="text-on-surface font-bold">PKR 12,500</span>
+</div>
+<div class="flex justify-between text-[14px]">
+<span class="text-on-surface-variant">Electricity (210 Units)</span>
+<span class="text-on-surface font-bold">PKR 8,420</span>
+</div>
+<div class="flex justify-between text-[14px]">
+<span class="text-on-surface-variant">Water &amp; Sanitation</span>
+<span class="text-on-surface font-bold">PKR 1,500</span>
+</div>
+<div class="pt-2 border-t border-outline-variant flex justify-between items-end">
+<span class="font-bold text-primary text-[14px]">Total Due</span>
+<span class="font-headline-md text-error text-[20px]">PKR 22,420</span>
+</div>
+</div>
+<div class="bg-primary p-3 rounded-lg">
+<p class="text-[10px] text-white/70 font-bold uppercase mb-1">Bank Payment Details</p>
+<p class="text-white text-[14px] font-semibold">Hamsayaa Society Account</p>
+<p class="text-secondary-fixed text-[12px] font-mono select-all break-all">PK12 HAMS 0000 1234 5678 9012</p>
+<p class="text-[10px] text-white/70 mt-1">Bank: Allied Bank Limited</p>
+</div>
+<button class="w-full bg-primary text-white py-2 rounded-lg text-[14px] font-bold flex items-center justify-center gap-2 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-[18px]">receipt_long</span>
+                            Download PDF Invoice
+                        </button>
+</div>
+<div class="mt-3">
+<p class="text-[14px] text-on-surface-variant italic">Would you like to notify the admin after making the transfer?</p>
+<div class="flex gap-2 mt-3 overflow-x-auto pb-1">
+<button class="whitespace-nowrap px-4 py-1.5 border-2 border-secondary text-secondary rounded-full text-[12px] font-bold hover:bg-secondary/5">Yes, I've paid</button>
+<button class="whitespace-nowrap px-4 py-1.5 border border-outline text-on-surface-variant rounded-full text-[12px] font-bold">Remind me later</button>
+</div>
+</div>
+<div class="flex justify-end items-center gap-1 mt-2">
+<span class="text-[10px] text-on-surface-variant">10:43 AM</span>
+</div>
+</div>
+</div>
+<!-- Buffer space for bottom bar -->
+<div class="h-16"></div>
+</div>
+</main>
+<!-- WhatsApp Input Bar -->
+<footer class="p-2 bg-[#f0f2f5] flex items-center gap-2 z-50">
+<div class="flex gap-3 text-on-surface-variant px-2">
+<span class="material-symbols-outlined cursor-pointer hover:text-primary transition-colors">add</span>
+</div>
+<div class="flex-1 bg-white rounded-full flex items-center px-4 py-1.5 shadow-sm border border-black/5">
+<input class="flex-1 border-none focus:ring-0 text-on-surface text-[14px] placeholder:text-on-surface-variant/50" placeholder="Type a message" type="text">
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer">sticky_note_2</span>
+</div>
+<div class="bg-[#00a884] w-12 h-12 rounded-full flex items-center justify-center text-white shadow-md cursor-pointer active:scale-90 transition-transform">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">mic</span>
+</div>
+</footer>
+<script>
+        window.onload = () => {
+            const chatContainer = document.querySelector('main');
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        };
+    </script>
+</body></html>

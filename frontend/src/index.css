@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  /* Status Pills */
+  .status-pill {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider;
+  }
+  .status-pill-paid {
+    @apply bg-emerald-50 text-emerald-700 border border-emerald-200;
+  }
+  .status-pill-overdue {
+    @apply bg-red-50 text-red-800 border border-red-200 font-bold animate-pulse;
+  }
+  .status-pill-unpaid {
+    @apply bg-red-50 text-red-700 border border-red-200;
+  }
+  .status-pill-pending {
+    @apply bg-amber-50 text-amber-700 border border-amber-200;
+  }
+  .status-pill-open {
+    @apply bg-blue-50 text-blue-700 border border-blue-200;
+  }
+
+  /* Metric Cards */
+  .metric-card {
+    @apply bg-white border border-surface-border rounded-lg p-5 shadow-sm hover:shadow-md transition-shadow;
+  }
+
+  /* Pass code visual format */
+  .code-pass {
+    @apply font-mono text-lg font-bold tracking-widest text-navy;
+  }
+}
