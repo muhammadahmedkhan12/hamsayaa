@@ -42,14 +42,21 @@ async def handle_whatsapp_event(request: Request):
     """
     body_bytes = await request.body()
     signature_header = request.headers.get("X-Hub-Signature-256", "")
-    
+
+    # Guard: Return immediately on empty body (e.g. Meta ping/health check)
+    if not body_bytes or not body_bytes.strip():
+        return {"status": "ignored", "reason": "Empty request body"}
+
     # 1. HMAC SHA-256 Signature Verification
     if settings.WHATSAPP_APP_SECRET and signature_header:
         if not verify_whatsapp_signature(body_bytes, signature_header):
             logger.warning("Invalid WhatsApp HMAC signature detected")
             raise HTTPException(status_code=401, detail="Invalid signature")
 
-    payload = await request.json()
+    try:
+        payload = await request.json()
+    except Exception:
+        return {"status": "ignored", "reason": "Invalid JSON body"}
     
     # Parse Meta webhook payload
     try:

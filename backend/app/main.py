@@ -13,11 +13,16 @@ from app.core.config import settings
 from app.api.v1.router import api_router
 
 if settings.SENTRY_DSN:
-    sentry_sdk.init(
-        dsn=settings.SENTRY_DSN,
-        send_default_pii=True,
-        traces_sample_rate=1.0,
-    )
+    try:
+        sentry_sdk.init(
+            dsn=settings.SENTRY_DSN,
+            send_default_pii=True,
+            traces_sample_rate=1.0,
+            default_integrations=False,
+        )
+    except Exception:
+        pass
+
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
