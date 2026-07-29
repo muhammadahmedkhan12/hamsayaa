@@ -8,12 +8,14 @@ from app.api.v1.endpoints import (
     polls,
     employees,
     assets,
-    amenities
+    amenities,
+    test_whatsapp
 )
 
 api_router = APIRouter()
 
 api_router.include_router(whatsapp.router, prefix="/whatsapp", tags=["WhatsApp"])
+api_router.include_router(test_whatsapp.router, prefix="/whatsapp", tags=["WhatsApp-Test"])
 api_router.include_router(residents.router, prefix="/residents", tags=["Residents"])
 api_router.include_router(invoices.router, prefix="/invoices", tags=["Invoices"])
 api_router.include_router(vehicles.router, prefix="/vehicles", tags=["Vehicles"])
