@@ -37,9 +37,9 @@ export default function Navbar() {
           <div className="flex items-center gap-3 select-none">
             {/* SVG Logo - Hamsayaa */}
             <svg width="158" height="32" viewBox="0 0 158 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-7 w-auto">
-              <path d="M4 0C1.79086 0 0 1.79086 0 4V19C0 21.2091 1.79086 23 4 23H9.5L5.5 27L10.5 23H28C30.2091 23 32 21.2091 32 19V4C32 1.79086 30.2091 0 28 0H4Z" fill="#0052b4" />
+              <path d="M4 0C1.79086 0 0 1.79086 0 4V19C0 21.2091 1.79086 23 4 23H9.5L5.5 27L10.5 23H28C30.2091 23 32 21.2091 32 19V4C32 1.79086 30.2091 0 28 0H4Z" fill="#00569e" />
               <path d="M8 14.5L16 8L24 14.5" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-              <text x="44" y="19" fill="#0052b4" fontFamily="Inter, system-ui, sans-serif" fontSize="15" fontWeight="800" letterSpacing="0.12em">HAMSAYAA</text>
+              <text x="44" y="19" fill="#00569e" fontFamily="Inter, system-ui, sans-serif" fontSize="15" fontWeight="800" letterSpacing="0.12em">HAMSAYAA</text>
             </svg>
           </div>
 
