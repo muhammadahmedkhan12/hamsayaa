@@ -161,7 +161,7 @@ export default function Residents() {
 
           <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold text-sm rounded-lg shadow transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-brand-50 text-brand-500 border border-brand-500 font-semibold text-sm rounded-lg shadow-sm transition-colors"
           >
             <Plus className="w-4 h-4" />
             <span>Add Resident</span>
@@ -357,7 +357,7 @@ export default function Residents() {
                     placeholder="e.g. 101"
                     value={formData.unit_number}
                     onChange={(e) => setFormData({ ...formData, unit_number: e.target.value })}
-                    className="w-full p-2 border border-slate-300 rounded-lg text-xs"
+                    className="w-full p-2 border border-slate-300 rounded-lg text-xs bg-white text-slate-800"
                   />
                 </div>
               </div>
@@ -370,7 +370,7 @@ export default function Residents() {
                   placeholder="e.g. Muhammad Ahmed"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full p-2 border border-slate-300 rounded-lg text-xs"
+                  className="w-full p-2 border border-slate-300 rounded-lg text-xs bg-white text-slate-800"
                 />
               </div>
 
@@ -383,7 +383,7 @@ export default function Residents() {
                     placeholder="+923001234567"
                     value={formData.phone_number}
                     onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
-                    className="w-full p-2 border border-slate-300 rounded-lg text-xs font-mono"
+                    className="w-full p-2 border border-slate-300 rounded-lg text-xs font-mono bg-white text-slate-800"
                   />
                 </div>
                 <div>
@@ -393,7 +393,7 @@ export default function Residents() {
                     placeholder="42101-1234567-1"
                     value={formData.cnic}
                     onChange={(e) => setFormData({ ...formData, cnic: e.target.value })}
-                    className="w-full p-2 border border-slate-300 rounded-lg text-xs font-mono"
+                    className="w-full p-2 border border-slate-300 rounded-lg text-xs font-mono bg-white text-slate-800"
                   />
                 </div>
               </div>
@@ -430,7 +430,7 @@ export default function Residents() {
                     placeholder="e.g. KHI-1234"
                     value={formData.vehicle_plate}
                     onChange={(e) => setFormData({ ...formData, vehicle_plate: e.target.value })}
-                    className="w-full p-2 border border-slate-300 rounded-lg text-xs font-mono"
+                    className="w-full p-2 border border-slate-300 rounded-lg text-xs font-mono bg-white text-slate-800"
                   />
                 </div>
               </div>

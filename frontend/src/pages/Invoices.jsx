@@ -164,7 +164,7 @@ export default function Invoices() {
 
         <button
           onClick={() => setShowGenerateModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold text-sm rounded-lg shadow transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-brand-50 text-brand-500 border border-brand-500 font-semibold text-sm rounded-lg shadow-sm transition-colors"
         >
           <Plus className="w-4 h-4" />
           <span>Generate Cycle Invoices</span>
@@ -353,7 +353,7 @@ export default function Invoices() {
                   required
                   value={generateForm.society_maintenance_fee}
                   onChange={(e) => setGenerateForm({ ...generateForm, society_maintenance_fee: e.target.value })}
-                  className="w-full p-2 border border-slate-300 rounded-lg font-mono"
+                  className="w-full p-2 border border-slate-300 rounded-lg font-mono bg-white text-slate-800"
                 />
               </div>
 
@@ -364,7 +364,7 @@ export default function Invoices() {
                   required
                   value={generateForm.hamsayaa_saas_fee}
                   onChange={(e) => setGenerateForm({ ...generateForm, hamsayaa_saas_fee: e.target.value })}
-                  className="w-full p-2 border border-slate-300 rounded-lg font-mono"
+                  className="w-full p-2 border border-slate-300 rounded-lg font-mono bg-white text-slate-800"
                 />
               </div>
 
@@ -374,7 +374,7 @@ export default function Invoices() {
                   type="number"
                   value={generateForm.utility_charges}
                   onChange={(e) => setGenerateForm({ ...generateForm, utility_charges: e.target.value })}
-                  className="w-full p-2 border border-slate-300 rounded-lg font-mono"
+                  className="w-full p-2 border border-slate-300 rounded-lg font-mono bg-white text-slate-800"
                 />
               </div>
 
@@ -385,7 +385,7 @@ export default function Invoices() {
                   required
                   value={generateForm.due_date}
                   onChange={(e) => setGenerateForm({ ...generateForm, due_date: e.target.value })}
-                  className="w-full p-2 border border-slate-300 rounded-lg font-mono"
+                  className="w-full p-2 border border-slate-300 rounded-lg font-mono bg-white text-slate-800"
                 />
               </div>
 
@@ -437,7 +437,7 @@ export default function Invoices() {
                     required
                     value={editForm.society_maintenance_fee}
                     onChange={(e) => setEditForm({ ...editForm, society_maintenance_fee: e.target.value })}
-                    className="w-full p-2 border border-slate-300 rounded-lg font-mono"
+                    className="w-full p-2 border border-slate-300 rounded-lg font-mono bg-white text-slate-800"
                   />
                 </div>
 
@@ -449,7 +449,7 @@ export default function Invoices() {
                     required
                     value={editForm.hamsayaa_saas_fee}
                     onChange={(e) => setEditForm({ ...editForm, hamsayaa_saas_fee: e.target.value })}
-                    className="w-full p-2 border border-slate-300 rounded-lg font-mono"
+                    className="w-full p-2 border border-slate-300 rounded-lg font-mono bg-white text-slate-800"
                   />
                 </div>
               </div>
@@ -462,7 +462,7 @@ export default function Invoices() {
                     step="0.01"
                     value={editForm.utility_charges}
                     onChange={(e) => setEditForm({ ...editForm, utility_charges: e.target.value })}
-                    className="w-full p-2 border border-slate-300 rounded-lg font-mono"
+                    className="w-full p-2 border border-slate-300 rounded-lg font-mono bg-white text-slate-800"
                   />
                 </div>
 
@@ -473,7 +473,7 @@ export default function Invoices() {
                     required
                     value={editForm.due_date}
                     onChange={(e) => setEditForm({ ...editForm, due_date: e.target.value })}
-                    className="w-full p-2 border border-slate-300 rounded-lg font-mono"
+                    className="w-full p-2 border border-slate-300 rounded-lg font-mono bg-white text-slate-800"
                   />
                 </div>
               </div>
