@@ -1,8 +1,66 @@
-// Central Mock Data Provider for Hamsayaa SaaS Dashboard
+export const mockBuildings = ['All', 'Block A', 'Block B', 'Block C'];
 
-export const mockSocieties = [
-  { id: 'a1b2c3d4-e5f6-7890-abcd-111111111111', name: 'Lakeview Apartments', units: 50, address: 'Gulshan-e-Iqbal, Karachi' },
-  { id: 'b2c3d4e5-f6a7-8901-bcde-222222222222', name: 'Askari IV Gated Society', units: 120, address: 'Rashid Minhas Rd, Karachi' },
+export const mockResidents = [
+  {
+    id: 'r1111111-1111-1111-1111-111111111111',
+    building: 'Block A',
+    unitNumber: '101',
+    name: 'Muhammad Ahmed',
+    phoneNumber: '+923001234567',
+    cnic: '42101-1234567-1',
+    isOwner: true,
+    isTenant: false,
+    isBlocked: false,
+    registeredVehicles: ['KHI-1234 (Sedan)'],
+  },
+  {
+    id: 'r2222222-2222-2222-2222-222222222222',
+    building: 'Block A',
+    unitNumber: '102',
+    name: 'Fatima Raza',
+    phoneNumber: '+923002345678',
+    cnic: '42101-2345678-2',
+    isOwner: true,
+    isTenant: false,
+    isBlocked: false,
+    registeredVehicles: ['KHI-5678 (SUV)'],
+  },
+  {
+    id: 'r3333333-3333-3333-3333-333333333333',
+    building: 'Block B',
+    unitNumber: '201',
+    name: 'Bilal Sheikh',
+    phoneNumber: '+923003456789',
+    cnic: '42101-3456789-3',
+    isOwner: false,
+    isTenant: true,
+    isBlocked: true, // Manually blocked by Admin
+    registeredVehicles: ['LEB-9921 (Car)'],
+  },
+  {
+    id: 'r4444444-4444-4444-4444-444444444444',
+    building: 'Block B',
+    unitNumber: '202',
+    name: 'Zainab Malik',
+    phoneNumber: '+923004567890',
+    cnic: '42101-4567890-4',
+    isOwner: true,
+    isTenant: false,
+    isBlocked: false,
+    registeredVehicles: [],
+  },
+  {
+    id: 'r5555555-5555-5555-5555-555555555555',
+    building: 'Block C',
+    unitNumber: '301',
+    name: 'Hamza Tariq',
+    phoneNumber: '+923005678901',
+    cnic: '42101-5678901-5',
+    isOwner: false,
+    isTenant: true,
+    isBlocked: false,
+    registeredVehicles: ['B-7712 (Bike)'],
+  },
 ];
 
 export const mockAdminUser = {

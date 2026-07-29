@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS residents (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     society_id UUID REFERENCES societies(id) ON DELETE CASCADE,
+    building VARCHAR(100) DEFAULT 'Block A',
     name VARCHAR(255) NOT NULL,
     unit_number VARCHAR(50) NOT NULL,
     phone_number VARCHAR(20) UNIQUE NOT NULL,
@@ -35,7 +36,7 @@ CREATE TABLE IF NOT EXISTS residents (
     is_tenant BOOLEAN DEFAULT FALSE,
     is_blocked BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    UNIQUE(society_id, unit_number, phone_number)
+    UNIQUE(society_id, building, unit_number, phone_number)
 );
 
 -- 4. Registered Resident Vehicles

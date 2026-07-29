@@ -29,14 +29,15 @@ VALUES
     'supabase_auth'
 ) ON CONFLICT (id) DO NOTHING;
 
--- 3. Insert 5 Residents (Mixed is_blocked statuses & unit numbers)
-INSERT INTO residents (id, society_id, name, unit_number, phone_number, cnic, is_owner, is_tenant, is_blocked)
+-- 3. Insert 5 Residents (Mixed is_blocked statuses, buildings & unit numbers)
+INSERT INTO residents (id, society_id, building, name, unit_number, phone_number, cnic, is_owner, is_tenant, is_blocked)
 VALUES 
 (
     'r1111111-1111-1111-1111-111111111111',
     'a1b2c3d4-e5f6-7890-abcd-111111111111',
+    'Block A',
     'Muhammad Ahmed',
-    'A-101',
+    '101',
     '+923001234567',
     '42101-1234567-1',
     TRUE,
@@ -46,8 +47,9 @@ VALUES
 (
     'r2222222-2222-2222-2222-222222222222',
     'a1b2c3d4-e5f6-7890-abcd-111111111111',
+    'Block A',
     'Fatima Raza',
-    'A-102',
+    '102',
     '+923002345678',
     '42101-2345678-2',
     TRUE,
@@ -57,8 +59,9 @@ VALUES
 (
     'r3333333-3333-3333-3333-333333333333',
     'a1b2c3d4-e5f6-7890-abcd-111111111111',
+    'Block B',
     'Bilal Sheikh',
-    'B-201',
+    '201',
     '+923003456789',
     '42101-3456789-3',
     FALSE,
@@ -68,8 +71,9 @@ VALUES
 (
     'r4444444-4444-4444-4444-444444444444',
     'a1b2c3d4-e5f6-7890-abcd-111111111111',
+    'Block B',
     'Zainab Malik',
-    'B-202',
+    '202',
     '+923004567890',
     '42101-4567890-4',
     TRUE,
@@ -79,8 +83,9 @@ VALUES
 (
     'r5555555-5555-5555-5555-555555555555',
     'a1b2c3d4-e5f6-7890-abcd-111111111111',
+    'Block C',
     'Hamza Tariq',
-    'C-301',
+    '301',
     '+923005678901',
     '42101-5678901-5',
     FALSE,
