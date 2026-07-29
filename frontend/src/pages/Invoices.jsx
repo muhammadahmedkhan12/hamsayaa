@@ -164,7 +164,7 @@ export default function Invoices() {
 
         <button
           onClick={() => setShowGenerateModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-sm rounded-lg shadow transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold text-sm rounded-lg shadow transition-colors"
         >
           <Plus className="w-4 h-4" />
           <span>Generate Cycle Invoices</span>
@@ -173,10 +173,10 @@ export default function Invoices() {
 
       {/* 4 Summary Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <div className="metric-card border-l-4 border-l-emerald-500">
+        <div className="metric-card border-l-4 border-l-brand-500">
           <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Collection</span>
           <div className="mt-2 text-2xl font-bold text-navy">Rs. 385,000</div>
-          <p className="text-xs text-emerald-600 font-semibold mt-1">Direct Society Bank Account</p>
+          <p className="text-xs text-brand-600 font-semibold mt-1">Direct Society Bank Account</p>
         </div>
 
         <div className="metric-card border-l-4 border-l-red-500">
@@ -247,7 +247,7 @@ export default function Invoices() {
       <div className="bg-white rounded-lg border border-surface-border shadow-sm overflow-hidden">
         <div className="p-4 border-b border-surface-border bg-slate-50/50 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Receipt className="w-4 h-4 text-emerald-600" />
+            <Receipt className="w-4 h-4 text-brand-600" />
             <h2 className="font-bold text-navy text-sm">Resident Cumulative Invoices ({filteredInvoices.length})</h2>
           </div>
           <span className="text-xs text-slate-500 font-medium">Editable Line Items Enabled</span>
@@ -338,7 +338,7 @@ export default function Invoices() {
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200">
             <div className="p-5 bg-navy text-white flex items-center justify-between">
               <h3 className="font-bold text-base flex items-center gap-2">
-                <Receipt className="w-5 h-5 text-emerald-400" /> Generate Monthly Cycle Invoices
+                <Receipt className="w-5 h-5 text-brand-400" /> Generate Monthly Cycle Invoices
               </h3>
               <button onClick={() => setShowGenerateModal(false)} className="text-slate-400 hover:text-white">
                 <X className="w-5 h-5" />
@@ -399,7 +399,7 @@ export default function Invoices() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-lg shadow"
+                  className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold rounded-lg shadow"
                 >
                   Generate All Invoices
                 </button>
@@ -416,7 +416,7 @@ export default function Invoices() {
             <div className="p-5 bg-navy text-white flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-base flex items-center gap-2">
-                  <Edit3 className="w-5 h-5 text-emerald-400" /> Edit Resident Bill
+                  <Edit3 className="w-5 h-5 text-brand-400" /> Edit Resident Bill
                 </h3>
                 <p className="text-xs text-slate-300 mt-0.5">
                   Unit {selectedInvoice.unitNumber || selectedInvoice.residents?.unit_number} — {selectedInvoice.residentName || selectedInvoice.residents?.name}
@@ -500,7 +500,7 @@ export default function Invoices() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-lg shadow"
+                  className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold rounded-lg shadow"
                 >
                   Save Invoice Changes
                 </button>
@@ -516,7 +516,7 @@ export default function Invoices() {
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200">
             <div className="p-5 bg-navy text-white flex items-center justify-between">
               <h3 className="font-bold text-base flex items-center gap-2">
-                <Eye className="w-5 h-5 text-emerald-400" /> Payment Receipt Verification
+                <Eye className="w-5 h-5 text-brand-400" /> Payment Receipt Verification
               </h3>
               <button onClick={() => setShowReceiptModal(false)} className="text-slate-400 hover:text-white">
                 <X className="w-5 h-5" />
@@ -556,7 +556,7 @@ export default function Invoices() {
                 <button
                   type="button"
                   onClick={() => handleVerifySubmit(selectedInvoice.id)}
-                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-lg shadow flex items-center gap-1.5"
+                  className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold rounded-lg shadow flex items-center gap-1.5"
                 >
                   <ShieldCheck className="w-4 h-4" />
                   <span>Verify Payment</span>

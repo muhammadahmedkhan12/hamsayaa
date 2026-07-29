@@ -78,7 +78,7 @@ export default function Complaints() {
       <div className="bg-white rounded-lg border border-surface-border shadow-sm overflow-hidden">
         <div className="p-4 border-b border-surface-border bg-slate-50/50 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Bot className="w-4 h-4 text-emerald-600" />
+            <Bot className="w-4 h-4 text-brand-500" />
             <h2 className="font-bold text-navy text-sm">Active Resident Complaints ({filteredComplaints.length})</h2>
           </div>
           <span className="text-xs text-slate-500 font-medium">Auto-Categorized by Gemini 1.5 Flash</span>
@@ -105,7 +105,7 @@ export default function Complaints() {
                       {c.category}
                     </span>
                     <span className="text-[10px] text-slate-400 flex items-center gap-1">
-                      <MessageSquare className="w-3 h-3 text-emerald-600" /> Source: WhatsApp Bot
+                      <MessageSquare className="w-3 h-3 text-brand-500" /> Source: WhatsApp Bot
                     </span>
                   </div>
                 </div>

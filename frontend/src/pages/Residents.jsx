@@ -147,7 +147,7 @@ export default function Residents() {
             className="flex items-center gap-1.5 px-3 py-2 bg-white text-slate-700 font-medium text-sm rounded-lg border border-surface-border hover:bg-slate-50 transition-colors shadow-xs"
             title="Reload residents from database"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-emerald-600' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-brand-600' : ''}`} />
             <span>Reload</span>
           </button>
 
@@ -155,13 +155,13 @@ export default function Residents() {
             onClick={() => setShowImportModal(true)}
             className="flex items-center gap-2 px-3.5 py-2 bg-white text-slate-700 font-medium text-sm rounded-lg border border-surface-border hover:bg-slate-50 transition-colors shadow-sm"
           >
-            <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+            <FileSpreadsheet className="w-4 h-4 text-brand-600" />
             <span>Bulk Excel Roster</span>
           </button>
 
           <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-sm rounded-lg shadow transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold text-sm rounded-lg shadow transition-colors"
           >
             <Plus className="w-4 h-4" />
             <span>Add Resident</span>
@@ -207,7 +207,7 @@ export default function Residents() {
       <div className="bg-white rounded-lg border border-surface-border shadow-sm overflow-hidden">
         <div className="p-4 border-b border-surface-border bg-slate-50/50 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Users className="w-4 h-4 text-emerald-600" />
+            <Users className="w-4 h-4 text-brand-600" />
             <h2 className="font-bold text-navy text-sm">
               Occupancy Roster ({filteredResidents.length} Residents)
             </h2>
@@ -254,7 +254,7 @@ export default function Residents() {
                     <td className="px-4 py-3 font-mono text-slate-700">{phone}</td>
                     <td className="px-4 py-3">
                       {isOwner ? (
-                        <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded text-[10px] font-bold uppercase">
+                        <span className="bg-brand-50 text-brand-700 border border-brand-200 px-2 py-0.5 rounded text-[10px] font-bold uppercase">
                           OWNER
                         </span>
                       ) : (
@@ -294,7 +294,7 @@ export default function Residents() {
                           onClick={() => handleToggleBlock(r.id, isBlocked)}
                           className={`px-2.5 py-1 text-[10px] font-bold rounded shadow-xs transition-colors ${
                             isBlocked
-                              ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-300'
+                              ? 'bg-brand-50 text-brand-700 hover:bg-brand-100 border border-brand-300'
                               : 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-300'
                           }`}
                           title="Manual Admin Account Suspension Control"
@@ -307,7 +307,7 @@ export default function Residents() {
                           href={`https://wa.me/${phone.replace(/[^0-9]/g, '')}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded transition-colors"
+                          className="p-1.5 text-slate-500 hover:text-brand-600 hover:bg-brand-50 rounded transition-colors"
                           title="Open WhatsApp Chat"
                         >
                           <MessageSquare className="w-4 h-4" />
@@ -328,7 +328,7 @@ export default function Residents() {
           <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200">
             <div className="p-5 bg-navy text-white flex items-center justify-between">
               <h3 className="font-bold text-base flex items-center gap-2">
-                <UserCheck className="w-5 h-5 text-emerald-400" /> Add New Resident Record
+                <UserCheck className="w-5 h-5 text-brand-400" /> Add New Resident Record
               </h3>
               <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-white">
                 <X className="w-5 h-5" />
@@ -445,7 +445,7 @@ export default function Residents() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-lg shadow"
+                  className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold rounded-lg shadow"
                 >
                   Save Resident
                 </button>
@@ -461,7 +461,7 @@ export default function Residents() {
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200">
             <div className="p-5 bg-navy text-white flex items-center justify-between">
               <h3 className="font-bold text-base flex items-center gap-2">
-                <UploadCloud className="w-5 h-5 text-emerald-400" /> Bulk Import Resident Roster
+                <UploadCloud className="w-5 h-5 text-brand-400" /> Bulk Import Resident Roster
               </h3>
               <button onClick={() => setShowImportModal(false)} className="text-slate-400 hover:text-white">
                 <X className="w-5 h-5" />
@@ -496,7 +496,7 @@ export default function Residents() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-lg shadow"
+                  className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold rounded-lg shadow"
                 >
                   Upload & Import
                 </button>

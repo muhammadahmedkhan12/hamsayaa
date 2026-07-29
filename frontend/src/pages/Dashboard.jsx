@@ -55,7 +55,7 @@ export default function Dashboard() {
             <p className="text-sm text-slate-500 mt-0.5">Loading live data from database...</p>
           </div>
           <div className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 text-slate-400 font-medium text-xs rounded-lg shadow-xs">
-            <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+            <RefreshCw className="w-3.5 h-3.5 animate-spin text-brand-600" />
             <span>Syncing...</span>
           </div>
         </div>
@@ -115,7 +115,7 @@ export default function Dashboard() {
           onClick={loadDashboardMetrics}
           className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium text-xs rounded-lg shadow-xs transition-colors"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-emerald-600' : ''}`} />
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-brand-600' : ''}`} />
           <span>Refresh Live Data</span>
         </button>
       </div>
@@ -157,16 +157,16 @@ export default function Dashboard() {
         </div>
 
         {/* Card 3: Active Guest Passes */}
-        <div className="metric-card border-l-4 border-l-emerald-500">
+        <div className="metric-card border-l-4 border-l-brand-500">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Active Guest Passes</span>
-            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center">
               <Car className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3 flex items-baseline justify-between">
             <span className="text-3xl font-bold text-navy">{activePasses}</span>
-            <span className="text-xs font-bold text-emerald-600 font-mono">Valid Window</span>
+            <span className="text-xs font-bold text-brand-600 font-mono">Valid Window</span>
           </div>
           <p className="text-xs text-slate-500 mt-2 font-medium">Visual Pass Code Verification</p>
         </div>
@@ -217,10 +217,10 @@ export default function Dashboard() {
         <div className="bg-white rounded-lg border border-surface-border shadow-sm overflow-hidden">
           <div className="p-4 border-b border-surface-border bg-slate-50/50 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <MessageSquare className="w-4 h-4 text-emerald-600" />
+              <MessageSquare className="w-4 h-4 text-brand-600" />
               <h2 className="font-bold text-navy text-sm">Recent Complaints & Tickets</h2>
             </div>
-            <Link to="/complaints" className="text-xs font-semibold text-emerald-600 hover:text-emerald-700">View All</Link>
+            <Link to="/complaints" className="text-xs font-semibold text-brand-600 hover:text-brand-700">View All</Link>
           </div>
 
           <div className="divide-y divide-slate-100">
@@ -273,7 +273,7 @@ export default function Dashboard() {
               <Car className="w-4 h-4 text-navy" />
               <h2 className="font-bold text-navy text-sm">Live Gate & Vehicle Logs</h2>
             </div>
-            <a href="/vehicles" className="text-xs font-semibold text-emerald-600 hover:text-emerald-700">View Gate Logs</a>
+            <a href="/vehicles" className="text-xs font-semibold text-brand-600 hover:text-brand-700">View Gate Logs</a>
           </div>
 
           <div className="divide-y divide-slate-100">
