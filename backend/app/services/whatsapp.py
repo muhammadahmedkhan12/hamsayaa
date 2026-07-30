@@ -34,9 +34,13 @@ class WhatsAppService:
         
         payload = {
             "messaging_product": "whatsapp",
+            "recipient_type": "individual",
             "to": clean_phone,
             "type": "text",
-            "text": {"body": message_text}
+            "text": {
+                "preview_url": False,
+                "body": message_text
+            }
         }
 
         async with httpx.AsyncClient() as client:
