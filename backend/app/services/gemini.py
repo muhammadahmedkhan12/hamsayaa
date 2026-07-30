@@ -122,6 +122,7 @@ class GeminiEngine:
     ) -> dict:
         """
         Processes inbound resident WhatsApp message through Gemini AI Engine with Upstash Redis memory.
+        Differentiates dynamically between conversational inquiries/follow-ups and new ticket/pass creations.
         """
         text_lower = message_text.lower().strip()
         phone = resident.get("phone_number", "") if resident else ""
@@ -136,15 +137,15 @@ class GeminiEngine:
         recent_tickets = []
         if resident and db_service.client:
             try:
-                tck_res = db_service.client.table("complaints").select("*").eq("resident_id", resident.get("id")).order("created_at", desc=True).limit(3).execute()
+                tck_res = db_service.client.table("complaints").select("*").eq("resident_id", resident.get("id")).order("created_at", desc=True).limit(5).execute()
                 recent_tickets = tck_res.data or []
                 if recent_tickets:
-                    t_lines = [f"- Ticket {t['ticket_number']} ({t['category']}): STATUS={t['status'].upper()} - \"{t['description']}\"" for t in recent_tickets]
-                    active_tickets_summary = "Resident Active Logged Tickets in Database:\n" + "\n".join(t_lines)
+                    t_lines = [f"- Ticket {t['ticket_number']} ({t['category']}): STATUS={t['status'].upper()} - Details: \"{t['description']}\"" for t in recent_tickets]
+                    active_tickets_summary = "Resident Logged Tickets in Database:\n" + "\n".join(t_lines)
             except Exception as e:
                 logger.error(f"Error fetching tickets context: {e}")
 
-        # 2. Check Guardrail: Off-Topic Detection
+        # 2. Guardrail: Off-Topic Detection
         off_topic_keywords = ["weather", "joke", "politics", "president", "crypto", "bitcoin", "buy", "sell"]
         if any(w in text_lower for w in off_topic_keywords):
             if resident and db_service.client:
@@ -162,71 +163,13 @@ class GeminiEngine:
 
             res_payload = {
                 "status": "flagged_irrelevant",
-                "reply_text": "I am the Hamsayaa Society Concierge. I can only assist with community operations (complaints, visitor passes, maintenance dues, amenities, and community polls)."
+                "reply_text": f"Hello {name}, I am your Hamsayaa Society Concierge. I am dedicated to helping you with society operations (complaints, visitor passes, maintenance dues, amenities, and community polls)."
             }
             return self._dispatch_response(res_payload, resident, message_text)
 
-        # 2. Intent Parsing: Complaint Status Query (Handles "when", "status", "update", "progress", "resolve")
-        status_keywords = ["when", "status", "update", "fixed", "completed", "progress", "followup", "track", "resolve", "resolved"]
-        if any(w in text_lower for w in status_keywords):
-            recent_tickets = []
-            if resident and db_service.client:
-                try:
-                    tickets_res = db_service.client.table("complaints") \
-                        .select("*") \
-                        .eq("resident_id", resident.get("id")) \
-                        .order("created_at", desc=True) \
-                        .limit(5) \
-                        .execute()
-                    recent_tickets = tickets_res.data or []
-                except Exception as e:
-                    logger.error(f"Error fetching tickets: {e}")
-
-            if recent_tickets:
-                # Find matching complaint by keyword or default to latest
-                matching_tck = recent_tickets[0]
-                for t in recent_tickets:
-                    cat_lower = t.get("category", "").lower()
-                    desc_lower = t.get("description", "").lower()
-                    if any(kw in text_lower for kw in ["water", "plumb", "leak", "pipe"]) and any(kw in cat_lower or kw in desc_lower for kw in ["water", "plumb", "leak", "pipe"]):
-                        matching_tck = t
-                        break
-                    elif any(kw in text_lower for kw in ["electric", "light", "power"]) and any(kw in cat_lower or kw in desc_lower for kw in ["electric", "light", "power"]):
-                        matching_tck = t
-                        break
-                    elif any(kw in text_lower for kw in ["lift", "elevator"]) and any(kw in cat_lower or kw in desc_lower for kw in ["lift", "elevator"]):
-                        matching_tck = t
-                        break
-
-                t_num = matching_tck.get("ticket_number", "TCK-XXXX")
-                t_cat = matching_tck.get("category", "Maintenance")
-                t_status = matching_tck.get("status", "open").replace("_", " ").title()
-                t_desc = matching_tck.get("description", "Issue report")
-
-                res_payload = {
-                    "status": "success",
-                    "intent": "ticket_status",
-                    "reply_text": (
-                        f"📊 *HAMSAYAA TICKET STATUS UPDATE*\n\n"
-                        f"Hello {name}, here is the live status of your complaint:\n"
-                        f"• *Ticket ID:* `{t_num}`\n"
-                        f"• *Category:* {t_cat}\n"
-                        f"• *Status:* 🟡 {t_status}\n"
-                        f"• *Logged Description:* \"{t_desc}\"\n\n"
-                        f"📌 *Estimated Resolution:* Our on-duty maintenance staff is currently attending to your ticket. Standard turnaround time is within 2 to 4 hours."
-                    )
-                }
-                return self._dispatch_response(res_payload, resident, message_text)
-            else:
-                res_payload = {
-                    "status": "success",
-                    "intent": "ticket_status",
-                    "reply_text": f"Hello {name}, you currently have no open complaints logged in our system. If you are facing an issue (e.g. water leak, power fault), please describe it and I will open a ticket for you immediately!"
-                }
-                return self._dispatch_response(res_payload, resident, message_text)
-
-        # 3. Handle Visitor Pass Generation (Check Parameters)
-        if any(w in text_lower for w in ["pass", "visitor", "guest", "entry", "cnic", "gatepass", "invite"]):
+        # 3. Explicit Visitor Pass Request Handling (Check Parameters)
+        is_pass_request = any(w in text_lower for w in ["visitor pass", "guest pass", "gate pass", "generate pass", "issue pass", "need a pass"])
+        if is_pass_request:
             import re
             cnic_match = re.search(r'\d{5}[-\s]?\d{7}[-\s]?\d', message_text)
             visitor_cnic = cnic_match.group(0) if cnic_match else None
@@ -286,16 +229,14 @@ class GeminiEngine:
             }
             return self._dispatch_response(res_payload, resident, message_text)
 
-        # 4. Handle NEW Complaint Registration
-        complaint_keywords = [
-            "complaint", "water", "plumb", "leak", "electric", "light", "lift", "elevator", 
-            "gate", "broken", "issue", "repair", "maintenance", "problem", "outage", "garbage", 
-            "trash", "noise", "park", "security", "leakage", "dirty", "clean", "sewer", 
-            "drain", "pipe", "stuck", "generator", "tanker", "smell", "damage"
-        ]
-        # Only register a new ticket if the message expresses a new complaint (not a follow-up status check)
-        is_followup = any(w in text_lower for w in ["when", "status", "update", "fixed", "completed", "progress", "followup"])
-        if any(w in text_lower for w in complaint_keywords) and not is_followup:
+        # 4. Explicit NEW Complaint Reporting (e.g., "Water is leaking in my kitchen", "Elevator in Block B is broken")
+        # Only register a new ticket if the resident is explicitly reporting a NEW problem, NOT asking a question/follow-up
+        is_question = any(w in text_lower for w in ["what", "when", "how", "why", "where", "who", "which", "can u", "can you", "is there", "status", "timeline", "update", "progress"])
+        new_issue_keywords = ["water leak", "leakage", "plumbing", "broken", "not working", "no light", "outage", "stuck elevator", "garbage not collected", "noise complaint", "overflow", "repair needed", "file a complaint", "log a complaint", "register complaint", "report an issue", "report issue"]
+        
+        is_new_complaint = any(kw in text_lower for kw in new_issue_keywords) or (any(w in text_lower for w in ["complaint", "issue", "leak", "broken"]) and not is_question)
+
+        if is_new_complaint and not is_question:
             ticket_num = self._generate_ticket_number()
             
             if any(w in text_lower for w in ["water", "plumb", "leak", "pipe", "drain", "sewer", "tanker"]):
@@ -335,31 +276,32 @@ class GeminiEngine:
                     f"• *Category:* {category}\n"
                     f"• *Location:* {building} - Unit {unit}\n"
                     f"• *Details:* \"{message_text}\"\n\n"
-                    f"📌 *Status:* Open & Dispatched to Society Maintenance Team. Our team will attend to your unit shortly!"
+                    f"📌 *Status:* Open & Dispatched to Maintenance Team. Our team will attend to your unit shortly!"
                 )
             }
             return self._dispatch_response(res_payload, resident, message_text)
 
-        # 5. Gemini 2.0 Flash AI Contextual Processing (Uses Upstash Memory)
+        # 5. Dynamic LLM Reasoning Engine for Questions, Context Inquiries, & Follow-Ups (Uses Upstash Memory)
         if self.client:
             try:
                 full_prompt = (
-                    f"RESIDENT METADATA:\n"
+                    f"RESIDENT PROFILE:\n"
                     f"Name: {name}\n"
                     f"Unit: {building} - Unit {unit}\n"
                 )
                 if active_tickets_summary:
                     full_prompt += f"\n{active_tickets_summary}\n"
                 if history_context:
-                    full_prompt += f"\nRECENT UPSTASH CHAT HISTORY CONTEXT:\n{history_context}\n"
+                    full_prompt += f"\nRECENT CONVERSATION HISTORY (UPSTASH MEMORY):\n{history_context}\n"
                 
                 full_prompt += (
                     f"\nNEW RESIDENT MESSAGE: \"{message_text}\"\n\n"
-                    f"INSTRUCTIONS:\n"
-                    f"- Answer the resident's message directly using the chat history and active ticket details above.\n"
-                    f"- If the resident asks a follow-up question (e.g. 'When will it be resolved?', 'Any update?', 'Is someone coming?'), look at their active tickets or previous messages and provide a helpful, specific update on their ticket status.\n"
-                    f"- DO NOT output a generic fallback greeting if you are in the middle of a conversation.\n"
-                    f"- Be concise, polite, empathetic, and professional."
+                    f"STRICT BEHAVIOR INSTRUCTIONS FOR AI CONCIERGE:\n"
+                    f"1. You are a personal, warm, and highly professional concierge manager for {name}.\n"
+                    f"2. Read the conversation history and active tickets above carefully.\n"
+                    f"3. If the resident asks a question about existing complaints (e.g. 'what complaint i have registered?', 'can u give a timeline for this to get resolved?'), answer them in a conversational, personalized tone using their exact ticket details. DO NOT output structured template boxes for conversational follow-ups.\n"
+                    f"4. If the resident is asking for a timeline on an open ticket, give a realistic, reassuring estimated turnaround time (e.g., 1 to 2 hours) and explain that the maintenance team is attending to their block.\n"
+                    f"5. Maintain context across turns seamlessly. Keep your response concise, polite, and directly relevant."
                 )
 
                 if USING_NEW_GENAI:
@@ -374,15 +316,36 @@ class GeminiEngine:
                         res_payload = {"status": "success", "reply_text": res.text}
                         return self._dispatch_response(res_payload, resident, message_text)
             except Exception as e:
-                logger.error(f"Error executing contextual Gemini AI: {e}")
+                logger.error(f"Gemini API rate-limited / error, using Smart Agentic Resolver: {e}")
 
-        # Fallback handling
-        res_payload = {
-            "status": "success",
-            "reply_text": f"Hello {name}, I am assisting you with Unit {unit}. Let me check with building management and get back to you shortly regarding your query."
-        }
+        # 6. Smart Agentic Resolver (Guarantees personalized context even if LLM API is rate-limited)
+        if recent_tickets:
+            latest = recent_tickets[0]
+            t_id = latest.get("ticket_number", "TCK-XXXX")
+            t_cat = latest.get("category", "Maintenance")
+            t_desc = latest.get("description", "Issue report")
+            t_status = latest.get("status", "open").upper()
+
+            if any(w in text_lower for w in ["what", "list", "show", "registered", "my complaint"]):
+                reply = (
+                    f"Hello {name}! You currently have active complaint **{t_id}** logged for Unit {unit}:\n"
+                    f"• *Category:* {t_cat}\n"
+                    f"• *Issue Details:* \"{t_desc}\"\n"
+                    f"• *Current Status:* {t_status}"
+                )
+            elif any(w in text_lower for w in ["timeline", "when", "time", "resolved", "fixed", "status", "long"]):
+                reply = (
+                    f"Hello {name}, regarding your open ticket **{t_id}** ({t_cat}):\n"
+                    f"Our society maintenance staff is currently attending to {building}. The estimated resolution time is within **1 to 2 hours**."
+                )
+            else:
+                reply = (
+                    f"Hello {name}, I am tracking your ticket **{t_id}** ({t_cat}). Our maintenance team is currently working on it for Unit {unit}!"
+                )
+        else:
+            reply = f"Hello {name}! I am your Hamsayaa Concierge for Unit {unit}. You currently have no open complaints logged. How can I assist you today?"
+
+        res_payload = {"status": "success", "reply_text": reply}
         return self._dispatch_response(res_payload, resident, message_text)
-
-gemini_engine = GeminiEngine()
 
 gemini_engine = GeminiEngine()
