@@ -16,13 +16,16 @@ class WhatsAppService:
         """
         Dispatches outbound text message to resident via Meta WhatsApp Cloud API.
         """
-        if not self.access_token:
+        token = settings.WHATSAPP_ACCESS_TOKEN
+        phone_id = settings.WHATSAPP_PHONE_NUMBER_ID or "1229806946879920"
+
+        if not token:
             logger.warning(f"Simulating WhatsApp text dispatch to {recipient_phone}: {message_text}")
             return {"status": "simulated", "recipient": recipient_phone, "text": message_text}
 
-        url = f"{self.base_url}/{self.phone_number_id}/messages"
+        url = f"{self.base_url}/{phone_id}/messages"
         headers = {
-            "Authorization": f"Bearer {self.access_token}",
+            "Authorization": f"Bearer {token}",
             "Content-Type": "application/json"
         }
         
