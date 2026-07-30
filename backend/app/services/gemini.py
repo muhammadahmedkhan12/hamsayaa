@@ -166,6 +166,65 @@ class GeminiEngine:
             }
             return self._dispatch_response(res_payload, resident, message_text)
 
+        # 2. Intent Parsing: Complaint Status Query (Handles "when", "status", "update", "progress", "resolve")
+        status_keywords = ["when", "status", "update", "fixed", "completed", "progress", "followup", "track", "resolve", "resolved"]
+        if any(w in text_lower for w in status_keywords):
+            recent_tickets = []
+            if resident and db_service.client:
+                try:
+                    tickets_res = db_service.client.table("complaints") \
+                        .select("*") \
+                        .eq("resident_id", resident.get("id")) \
+                        .order("created_at", desc=True) \
+                        .limit(5) \
+                        .execute()
+                    recent_tickets = tickets_res.data or []
+                except Exception as e:
+                    logger.error(f"Error fetching tickets: {e}")
+
+            if recent_tickets:
+                # Find matching complaint by keyword or default to latest
+                matching_tck = recent_tickets[0]
+                for t in recent_tickets:
+                    cat_lower = t.get("category", "").lower()
+                    desc_lower = t.get("description", "").lower()
+                    if any(kw in text_lower for kw in ["water", "plumb", "leak", "pipe"]) and any(kw in cat_lower or kw in desc_lower for kw in ["water", "plumb", "leak", "pipe"]):
+                        matching_tck = t
+                        break
+                    elif any(kw in text_lower for kw in ["electric", "light", "power"]) and any(kw in cat_lower or kw in desc_lower for kw in ["electric", "light", "power"]):
+                        matching_tck = t
+                        break
+                    elif any(kw in text_lower for kw in ["lift", "elevator"]) and any(kw in cat_lower or kw in desc_lower for kw in ["lift", "elevator"]):
+                        matching_tck = t
+                        break
+
+                t_num = matching_tck.get("ticket_number", "TCK-XXXX")
+                t_cat = matching_tck.get("category", "Maintenance")
+                t_status = matching_tck.get("status", "open").replace("_", " ").title()
+                t_desc = matching_tck.get("description", "Issue report")
+
+                res_payload = {
+                    "status": "success",
+                    "intent": "ticket_status",
+                    "reply_text": (
+                        f"📊 *HAMSAYAA TICKET STATUS UPDATE*\n\n"
+                        f"Hello {name}, here is the live status of your complaint:\n"
+                        f"• *Ticket ID:* `{t_num}`\n"
+                        f"• *Category:* {t_cat}\n"
+                        f"• *Status:* 🟡 {t_status}\n"
+                        f"• *Logged Description:* \"{t_desc}\"\n\n"
+                        f"📌 *Estimated Resolution:* Our on-duty maintenance staff is currently attending to your ticket. Standard turnaround time is within 2 to 4 hours."
+                    )
+                }
+                return self._dispatch_response(res_payload, resident, message_text)
+            else:
+                res_payload = {
+                    "status": "success",
+                    "intent": "ticket_status",
+                    "reply_text": f"Hello {name}, you currently have no open complaints logged in our system. If you are facing an issue (e.g. water leak, power fault), please describe it and I will open a ticket for you immediately!"
+                }
+                return self._dispatch_response(res_payload, resident, message_text)
+
         # 3. Handle Visitor Pass Generation (Check Parameters)
         if any(w in text_lower for w in ["pass", "visitor", "guest", "entry", "cnic", "gatepass", "invite"]):
             import re
