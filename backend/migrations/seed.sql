@@ -108,6 +108,18 @@ VALUES (
     FALSE
 ) ON CONFLICT (id) DO NOTHING;
 
+INSERT INTO residents (id, society_id, building, name, unit_number, phone_number, is_owner, is_blocked)
+VALUES (
+    '99999999-9999-9999-9999-222222222222',
+    'a1b2c3d4-e5f6-7890-abcd-111111111111',
+    'Block A',
+    'Registered Admin',
+    '101',
+    '+923316556622',
+    TRUE,
+    FALSE
+) ON CONFLICT (id) DO NOTHING;
+
 -- 4. Sample Registered Resident Vehicles
 INSERT INTO registered_vehicles (id, society_id, resident_id, vehicle_plate, vehicle_type)
 VALUES
