@@ -19,22 +19,21 @@ except ImportError:
         USING_NEW_GENAI = False
 
 HAMSAYAA_SYSTEM_PROMPT = """
-You are Hamsayaa AI Concierge (ہمسایہ AI), a professional, polite, and efficient operational AI assistant for gated communities and apartment societies.
+You are Hamsayaa AI Concierge (ہمسایہ AI), a professional, polite, empathetic, and highly efficient operational AI assistant for gated communities, residential societies, and apartment complexes.
 
 YOUR MANDATE:
-You assist verified residents strictly with community operations:
-1. Registering complaints & service tickets (plumbing, electrical, water, elevator, gate, security).
-2. Generating guest visitor passes (visitor name, visitor CNIC, vehicle plate, validity window).
-3. Looking up monthly cumulative bills & society payment bank account details.
-4. Answering questions about community amenities (gym timings, hall rules, pool capacity).
+You assist verified residents with all community operations, complaints, and society inquiries:
+1. Registering & tracking complaints/service tickets for any society issue (water leaks, plumbing, electrical outages, elevator faults, gate security, waste management, noise disputes, parking problems, generator issues).
+2. Generating guest visitor passes (requiring visitor name, visitor CNIC/ID, vehicle plate, validity window).
+3. Looking up monthly cumulative bills, maintenance dues breakdown, and society payment bank account details.
+4. Answering operational questions regarding community amenities (gym timings, swimming pool rules, event hall bookings).
 5. Recording resident votes for active community polls.
 
-STRICT GUARDRAILS & RULES:
-- You ONLY process queries related to society management and community operations.
-- If an inbound message is off-topic, abusive, political, or unrelated to society operations (e.g. weather, jokes, general knowledge, sales), politely refuse by stating:
-  "I am the Hamsayaa Society Concierge. I can only assist with community operations (complaints, visitor passes, maintenance dues, amenities, and community polls)."
-- Match the resident's language (English, Urdu, or Roman Urdu).
-- Be concise and clear.
+COMPLAINT & ISSUE HANDLING GUIDELINES:
+- When a resident reports ANY issue or complaint regarding their unit or society infrastructure, immediately acknowledge their problem with empathy.
+- Provide a clear, structured confirmation detailing the Ticket ID (e.g. TCK-XXXX), Category, Resident Unit, and assurance that the maintenance team has been notified.
+- Support queries in English, Urdu, or Roman Urdu seamlessly.
+- Be clear, professional, and reassuring.
 """
 
 class GeminiEngine:
@@ -69,7 +68,7 @@ class GeminiEngine:
         failed_attempts: int = 0
     ) -> dict:
         """
-        Processes inbound resident WhatsApp message through Gemini 1.5 Flash AI Engine.
+        Processes inbound resident WhatsApp message through Gemini AI Engine.
         Executes domain logic and returns WhatsApp response payload.
         """
         text_lower = message_text.lower().strip()
@@ -95,11 +94,30 @@ class GeminiEngine:
                 "reply_text": "I am the Hamsayaa Society Concierge. I can only assist with community operations (complaints, visitor passes, maintenance dues, amenities, and community polls)."
             }
 
-        # 2. Intent Parsing: Complaint Registration
-        if any(w in text_lower for w in ["complaint", "water", "plumb", "leak", "electric", "light", "lift", "gate", "broken", "issue", "repair"]):
+        # 2. Intent Parsing: Complaint & Society Issue Registration
+        complaint_keywords = [
+            "complaint", "water", "plumb", "leak", "electric", "light", "lift", "elevator", 
+            "gate", "broken", "issue", "repair", "maintenance", "problem", "outage", "garbage", 
+            "trash", "noise", "park", "security", "leakage", "dirty", "clean", "sewer", 
+            "drain", "pipe", "stuck", "generator", "tanker", "smell", "damage"
+        ]
+        if any(w in text_lower for w in complaint_keywords):
             ticket_num = self._generate_ticket_number()
-            category = "Water & Plumbing" if any(w in text_lower for w in ["water", "plumb", "leak"]) else "Electrical & Maintenance"
             
+            # Dynamic Category Determination
+            if any(w in text_lower for w in ["water", "plumb", "leak", "pipe", "drain", "sewer", "tanker"]):
+                category = "Water & Plumbing"
+            elif any(w in text_lower for w in ["electric", "light", "power", "outage", "generator"]):
+                category = "Electrical & Power"
+            elif any(w in text_lower for w in ["lift", "elevator", "stuck"]):
+                category = "Elevators & Lifts"
+            elif any(w in text_lower for w in ["garbage", "trash", "dirty", "clean", "smell"]):
+                category = "Sanitation & Waste"
+            elif any(w in text_lower for w in ["park", "security", "gate"]):
+                category = "Security & Parking"
+            else:
+                category = "General Maintenance & Repair"
+
             if resident and db_service.client:
                 try:
                     db_service.client.table("complaints").insert({
@@ -113,11 +131,23 @@ class GeminiEngine:
                 except Exception as e:
                     logger.error(f"Error writing complaint ticket: {e}")
 
+            building = resident.get('building', 'Block A') if resident else 'Block A'
+            unit = resident.get('unit_number', '101') if resident else '101'
+            name = resident.get('name', 'Resident') if resident else 'Resident'
+
             return {
                 "status": "success",
                 "intent": "complaint",
                 "ticket_number": ticket_num,
-                "reply_text": f"✅ Your complaint has been registered under Ticket ID *{ticket_num}*.\nCategory: {category}\nUnit: {resident.get('building', 'Block A')} - Unit {resident.get('unit_number', '101')}\n\nOur management team has been notified."
+                "reply_text": (
+                    f"🛠️ *HAMSAYAA TICKET REGISTERED*\n\n"
+                    f"Hello {name}, your society issue has been logged:\n"
+                    f"• *Ticket ID:* `{ticket_num}`\n"
+                    f"• *Category:* {category}\n"
+                    f"• *Location:* {building} - Unit {unit}\n"
+                    f"• *Details:* \"{message_text}\"\n\n"
+                    f"📌 *Status:* Open & Dispatched to Society Maintenance Team. Our team will attend to your unit shortly!"
+                )
             }
 
         # 3. Intent Parsing: Visitor Pass Generation
