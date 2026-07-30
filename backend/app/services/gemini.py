@@ -121,24 +121,49 @@ class GeminiEngine:
             }
 
         # 3. Intent Parsing: Visitor Pass Generation
-        if any(w in text_lower for w in ["pass", "visitor", "guest", "entry", "cnic", "gate", "gatepass", "car", "driver", "invite", "allow"]):
-            pass_code = self._generate_pass_code()
+        if any(w in text_lower for w in ["pass", "visitor", "guest", "entry", "cnic", "gate", "gatepass", "invite"]):
+            import re
             
-            # Calculate valid ISO timestamps
+            # Extract CNIC (e.g. 42101-1234567-1 or 4210112345671)
+            cnic_match = re.search(r'\d{5}[-\s]?\d{7}[-\s]?\d', message_text)
+            visitor_cnic = cnic_match.group(0) if cnic_match else None
+            
+            # Extract Vehicle Plate (e.g. KHI-1234 or LEB-9981)
+            plate_match = re.search(r'[A-Za-z]{2,3}[-\s]?\d{3,4}', message_text)
+            vehicle_plate = plate_match.group(0).upper() if plate_match else None
+            
+            # Extract Name (heuristic matching for "for X", "name X", "visitor X")
+            name_match = re.search(r'(?:name|visitor|for|guest)\s+([A-Za-z\s]{3,25})', message_text, re.IGNORECASE)
+            visitor_name = name_match.group(1).strip().title() if name_match else None
+
+            # Filter out plate or keyword tokens from name match if misidentified
+            if visitor_name and any(token in visitor_name.lower() for token in ["pass", "cnic", "gate", "car", "unit"]):
+                visitor_name = None
+
+            # Determine missing parameters
+            missing = []
+            if not visitor_name:
+                missing.append("1. *Visitor Full Name*")
+            if not visitor_cnic:
+                missing.append("2. *Visitor CNIC / ID Number* (e.g. 42101-9988776-5)")
+            if not vehicle_plate:
+                missing.append("3. *Vehicle License Plate* (e.g. KHI-8921)")
+
+            # Prompt resident for missing details before issuing pass
+            if missing:
+                missing_str = "\n".join(missing)
+                return {
+                    "status": "missing_information",
+                    "intent": "visitor_pass_incomplete",
+                    "reply_text": f"📋 *VISITOR PASS DETAILS REQUIRED*\nTo issue your gate pass, please reply with the following details:\n\n{missing_str}\n\n*Example:* Visitor Tariq Mahmood, CNIC 42101-9988776-5, Vehicle KHI-8921"
+                }
+
+            # All parameters supplied -> Create and issue visitor pass
+            pass_code = self._generate_pass_code()
             from datetime import datetime, timezone, timedelta
             now_utc = datetime.now(timezone.utc)
             valid_from = now_utc.isoformat()
             valid_until = (now_utc + timedelta(hours=4)).isoformat()
-
-            # Simple extraction for visitor name and vehicle plate
-            visitor_name = "Guest Visitor"
-            vehicle_plate = "GUEST-PASS"
-            
-            # Try to extract plate if present (e.g. KHI-1234, LEB-998)
-            import re
-            plate_match = re.search(r'[A-Za-z]{2,3}[-\s]?\d{3,4}', message_text)
-            if plate_match:
-                vehicle_plate = plate_match.group(0).upper()
 
             if resident and db_service.client:
                 try:
@@ -146,7 +171,7 @@ class GeminiEngine:
                         "society_id": resident.get("society_id"),
                         "resident_id": resident.get("id"),
                         "visitor_name": visitor_name,
-                        "visitor_cnic": "42101-0000000-0",
+                        "visitor_cnic": visitor_cnic,
                         "vehicle_plate": vehicle_plate,
                         "pass_code": pass_code,
                         "valid_from": valid_from,
@@ -159,7 +184,7 @@ class GeminiEngine:
                 "status": "success",
                 "intent": "visitor_pass",
                 "pass_code": pass_code,
-                "reply_text": f"🎫 *HAMSAYAA VISITOR PASS*\nPass Code: *{pass_code}*\nResident: {resident.get('name')} (Unit {resident.get('unit_number')})\nVehicle Plate: {vehicle_plate}\nValid Window: Next 4 Hours\n\n📌 *Gatekeeper Verification:* Present this pass code visually at the main gate."
+                "reply_text": f"🎫 *HAMSAYAA VISITOR PASS ISSUED*\nPass Code: *{pass_code}*\nVisitor: *{visitor_name}*\nCNIC: {visitor_cnic}\nVehicle Plate: {vehicle_plate}\nResident: {resident.get('name')} (Unit {resident.get('unit_number')})\nValid Window: Next 4 Hours\n\n📌 *Gatekeeper Verification:* Present this pass code visually at the main gate."
             }
 
         # 4. Intent Parsing: Dues & Bank Account Inquiry
