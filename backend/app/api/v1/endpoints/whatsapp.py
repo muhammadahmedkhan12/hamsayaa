@@ -135,11 +135,17 @@ async def handle_whatsapp_event(request: Request):
         )
 
         reply_text = ai_response.get("reply_text", "Thank you for contacting Hamsayaa Society Concierge.")
-        print(f"--> AI REPLY GENERATED: '{reply_text}'")
+        try:
+            print(f"--> AI REPLY GENERATED: '{reply_text.encode('ascii', 'replace').decode('ascii')}'")
+        except Exception:
+            pass
 
         # 5. Dispatch Outbound WhatsApp Response
         outbound_res = await whatsapp_service.send_text_message(formatted_phone, reply_text)
-        print(f"--> OUTBOUND DISPATCH RESULT: {outbound_res}")
+        try:
+            print(f"--> OUTBOUND DISPATCH RESULT: {outbound_res}")
+        except Exception:
+            pass
 
         return {
             "status": "success",

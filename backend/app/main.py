@@ -1,5 +1,18 @@
 import sys
+import io
 from pathlib import Path
+
+# Force UTF-8 encoding for Windows console logging
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
+    except Exception:
+        pass
+if hasattr(sys.stderr, "reconfigure"):
+    try:
+        sys.stderr.reconfigure(encoding="utf-8", errors="backslashreplace")
+    except Exception:
+        pass
 
 # Add backend directory to sys.path
 backend_dir = Path(__file__).resolve().parent.parent
