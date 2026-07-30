@@ -121,12 +121,30 @@ class GeminiEngine:
         failed_attempts: int = 0
     ) -> dict:
         """
-        Processes inbound resident WhatsApp message through Gemini AI Engine.
-        Executes domain logic and returns WhatsApp response payload.
+        Processes inbound resident WhatsApp message through Gemini AI Engine with Upstash Redis memory.
         """
         text_lower = message_text.lower().strip()
+        phone = resident.get("phone_number", "") if resident else ""
+        name = resident.get("name", "Resident") if resident else "Resident"
+        building = resident.get("building", "Block A") if resident else "Block A"
+        unit = resident.get("unit_number", "101") if resident else "101"
 
-        # 1. Check Guardrail: Off-Topic Detection
+        # 1. Load Upstash Redis Chat Memory & Active DB Tickets Context
+        history_context = self._get_chat_history(phone)
+        
+        active_tickets_summary = ""
+        recent_tickets = []
+        if resident and db_service.client:
+            try:
+                tck_res = db_service.client.table("complaints").select("*").eq("resident_id", resident.get("id")).order("created_at", desc=True).limit(3).execute()
+                recent_tickets = tck_res.data or []
+                if recent_tickets:
+                    t_lines = [f"- Ticket {t['ticket_number']} ({t['category']}): STATUS={t['status'].upper()} - \"{t['description']}\"" for t in recent_tickets]
+                    active_tickets_summary = "Resident Active Logged Tickets in Database:\n" + "\n".join(t_lines)
+            except Exception as e:
+                logger.error(f"Error fetching tickets context: {e}")
+
+        # 2. Check Guardrail: Off-Topic Detection
         off_topic_keywords = ["weather", "joke", "politics", "president", "crypto", "bitcoin", "buy", "sell"]
         if any(w in text_lower for w in off_topic_keywords):
             if resident and db_service.client:
@@ -142,69 +160,85 @@ class GeminiEngine:
                 except Exception as e:
                     logger.error(f"Error logging flagged complaint: {e}")
 
-            return {
+            res_payload = {
                 "status": "flagged_irrelevant",
                 "reply_text": "I am the Hamsayaa Society Concierge. I can only assist with community operations (complaints, visitor passes, maintenance dues, amenities, and community polls)."
             }
+            return self._dispatch_response(res_payload, resident, message_text)
 
-        # 1.5. Intent Parsing: Ticket Resolution Status Inquiry
-        status_keywords = ["when", "resolve", "status", "update", "fixed", "completed", "done", "ticket status", "progress", "ticket"]
-        if any(w in text_lower for w in status_keywords) and not any(w in text_lower for w in ["due", "bill", "pass", "gym", "leak", "plumb", "electric"]):
-            # Query recent complaints for this resident
-            recent_tickets = []
+        # 3. Handle Visitor Pass Generation (Check Parameters)
+        if any(w in text_lower for w in ["pass", "visitor", "guest", "entry", "cnic", "gatepass", "invite"]):
+            import re
+            cnic_match = re.search(r'\d{5}[-\s]?\d{7}[-\s]?\d', message_text)
+            visitor_cnic = cnic_match.group(0) if cnic_match else None
+            
+            plate_match = re.search(r'[A-Za-z]{2,3}[-\s]?\d{3,4}', message_text)
+            vehicle_plate = plate_match.group(0).upper() if plate_match else None
+            
+            name_match = re.search(r'(?:name|visitor|for|guest)\s+([A-Za-z\s]{3,25})', message_text, re.IGNORECASE)
+            visitor_name = name_match.group(1).strip().title() if name_match else None
+
+            if visitor_name and any(token in visitor_name.lower() for token in ["pass", "cnic", "gate", "car", "unit"]):
+                visitor_name = None
+
+            missing = []
+            if not visitor_name:
+                missing.append("1. *Visitor Full Name*")
+            if not visitor_cnic:
+                missing.append("2. *Visitor CNIC / ID Number* (e.g. 42101-9988776-5)")
+            if not vehicle_plate:
+                missing.append("3. *Vehicle License Plate* (e.g. KHI-8921)")
+
+            if missing:
+                missing_str = "\n".join(missing)
+                res_payload = {
+                    "status": "missing_information",
+                    "intent": "visitor_pass_incomplete",
+                    "reply_text": f"📋 *VISITOR PASS DETAILS REQUIRED*\nTo issue your gate pass, please reply with the following details:\n\n{missing_str}\n\n*Example:* Visitor Tariq Mahmood, CNIC 42101-9988776-5, Vehicle KHI-8921"
+                }
+                return self._dispatch_response(res_payload, resident, message_text)
+
+            pass_code = self._generate_pass_code()
+            from datetime import datetime, timezone, timedelta
+            now_utc = datetime.now(timezone.utc)
+            valid_from = now_utc.isoformat()
+            valid_until = (now_utc + timedelta(hours=4)).isoformat()
+
             if resident and db_service.client:
                 try:
-                    tickets_res = db_service.client.table("complaints") \
-                        .select("*") \
-                        .eq("resident_id", resident.get("id")) \
-                        .order("created_at", desc=True) \
-                        .limit(3) \
-                        .execute()
-                    recent_tickets = tickets_res.data or []
+                    db_service.client.table("visitor_passes").insert({
+                        "society_id": resident.get("society_id"),
+                        "resident_id": resident.get("id"),
+                        "visitor_name": visitor_name,
+                        "visitor_cnic": visitor_cnic,
+                        "vehicle_plate": vehicle_plate,
+                        "pass_code": pass_code,
+                        "valid_from": valid_from,
+                        "valid_until": valid_until
+                    }).execute()
                 except Exception as e:
-                    logger.error(f"Error fetching resident tickets: {e}")
+                    logger.error(f"Error writing visitor pass: {e}")
 
-            if recent_tickets:
-                latest_tck = recent_tickets[0]
-                t_num = latest_tck.get("ticket_number", "TCK-XXXX")
-                t_cat = latest_tck.get("category", "Maintenance")
-                t_status = latest_tck.get("status", "open").replace("_", " ").title()
-                t_desc = latest_tck.get("description", "Issue report")
+            res_payload = {
+                "status": "success",
+                "intent": "visitor_pass",
+                "pass_code": pass_code,
+                "reply_text": f"🎫 *HAMSAYAA VISITOR PASS ISSUED*\nPass Code: *{pass_code}*\nVisitor: *{visitor_name}*\nCNIC: {visitor_cnic}\nVehicle Plate: {vehicle_plate}\nResident: {name} (Unit {unit})\nValid Window: Next 4 Hours\n\n📌 *Gatekeeper Verification:* Present this pass code visually at the main gate."
+            }
+            return self._dispatch_response(res_payload, resident, message_text)
 
-                return {
-                    "status": "success",
-                    "intent": "ticket_status",
-                    "reply_text": (
-                        f"📊 *TICKET STATUS UPDATE*\n\n"
-                        f"Hello {resident.get('name')}, here is the live status of your logged complaint:\n"
-                        f"• *Ticket ID:* `{t_num}`\n"
-                        f"• *Category:* {t_cat}\n"
-                        f"• *Status:* 🟡 {t_status}\n"
-                        f"• *Reported Issue:* \"{t_desc}\"\n\n"
-                        f"📌 *Estimated Resolution:* Our on-duty maintenance staff is currently working on your unit/block. Standard resolution time is within 2 to 4 hours."
-                    )
-                }
-            else:
-                return {
-                    "status": "success",
-                    "intent": "ticket_status",
-                    "reply_text": (
-                        f"Hello {resident.get('name')}, you currently have no active open complaints or tickets logged.\n\n"
-                        f"If you are experiencing a new issue (e.g. water leakage, electrical fault, elevator problem), please describe it and I will register a ticket for you immediately!"
-                    )
-                }
-
-        # 2. Intent Parsing: Complaint & Society Issue Registration
+        # 4. Handle NEW Complaint Registration
         complaint_keywords = [
             "complaint", "water", "plumb", "leak", "electric", "light", "lift", "elevator", 
             "gate", "broken", "issue", "repair", "maintenance", "problem", "outage", "garbage", 
             "trash", "noise", "park", "security", "leakage", "dirty", "clean", "sewer", 
             "drain", "pipe", "stuck", "generator", "tanker", "smell", "damage"
         ]
-        if any(w in text_lower for w in complaint_keywords):
+        # Only register a new ticket if the message expresses a new complaint (not a follow-up status check)
+        is_followup = any(w in text_lower for w in ["when", "status", "update", "fixed", "completed", "progress", "followup"])
+        if any(w in text_lower for w in complaint_keywords) and not is_followup:
             ticket_num = self._generate_ticket_number()
             
-            # Dynamic Category Determination
             if any(w in text_lower for w in ["water", "plumb", "leak", "pipe", "drain", "sewer", "tanker"]):
                 category = "Water & Plumbing"
             elif any(w in text_lower for w in ["electric", "light", "power", "outage", "generator"]):
@@ -231,11 +265,7 @@ class GeminiEngine:
                 except Exception as e:
                     logger.error(f"Error writing complaint ticket: {e}")
 
-            building = resident.get('building', 'Block A') if resident else 'Block A'
-            unit = resident.get('unit_number', '101') if resident else '101'
-            name = resident.get('name', 'Resident') if resident else 'Resident'
-
-            return {
+            res_payload = {
                 "status": "success",
                 "intent": "complaint",
                 "ticket_number": ticket_num,
@@ -249,142 +279,51 @@ class GeminiEngine:
                     f"📌 *Status:* Open & Dispatched to Society Maintenance Team. Our team will attend to your unit shortly!"
                 )
             }
+            return self._dispatch_response(res_payload, resident, message_text)
 
-        # 3. Intent Parsing: Visitor Pass Generation
-        if any(w in text_lower for w in ["pass", "visitor", "guest", "entry", "cnic", "gate", "gatepass", "invite"]):
-            import re
-            
-            # Extract CNIC (e.g. 42101-1234567-1 or 4210112345671)
-            cnic_match = re.search(r'\d{5}[-\s]?\d{7}[-\s]?\d', message_text)
-            visitor_cnic = cnic_match.group(0) if cnic_match else None
-            
-            # Extract Vehicle Plate (e.g. KHI-1234 or LEB-9981)
-            plate_match = re.search(r'[A-Za-z]{2,3}[-\s]?\d{3,4}', message_text)
-            vehicle_plate = plate_match.group(0).upper() if plate_match else None
-            
-            # Extract Name (heuristic matching for "for X", "name X", "visitor X")
-            name_match = re.search(r'(?:name|visitor|for|guest)\s+([A-Za-z\s]{3,25})', message_text, re.IGNORECASE)
-            visitor_name = name_match.group(1).strip().title() if name_match else None
-
-            # Filter out plate or keyword tokens from name match if misidentified
-            if visitor_name and any(token in visitor_name.lower() for token in ["pass", "cnic", "gate", "car", "unit"]):
-                visitor_name = None
-
-            # Determine missing parameters
-            missing = []
-            if not visitor_name:
-                missing.append("1. *Visitor Full Name*")
-            if not visitor_cnic:
-                missing.append("2. *Visitor CNIC / ID Number* (e.g. 42101-9988776-5)")
-            if not vehicle_plate:
-                missing.append("3. *Vehicle License Plate* (e.g. KHI-8921)")
-
-            # Prompt resident for missing details before issuing pass
-            if missing:
-                missing_str = "\n".join(missing)
-                return {
-                    "status": "missing_information",
-                    "intent": "visitor_pass_incomplete",
-                    "reply_text": f"📋 *VISITOR PASS DETAILS REQUIRED*\nTo issue your gate pass, please reply with the following details:\n\n{missing_str}\n\n*Example:* Visitor Tariq Mahmood, CNIC 42101-9988776-5, Vehicle KHI-8921"
-                }
-
-            # All parameters supplied -> Create and issue visitor pass
-            pass_code = self._generate_pass_code()
-            from datetime import datetime, timezone, timedelta
-            now_utc = datetime.now(timezone.utc)
-            valid_from = now_utc.isoformat()
-            valid_until = (now_utc + timedelta(hours=4)).isoformat()
-
-            if resident and db_service.client:
-                try:
-                    db_service.client.table("visitor_passes").insert({
-                        "society_id": resident.get("society_id"),
-                        "resident_id": resident.get("id"),
-                        "visitor_name": visitor_name,
-                        "visitor_cnic": visitor_cnic,
-                        "vehicle_plate": vehicle_plate,
-                        "pass_code": pass_code,
-                        "valid_from": valid_from,
-                        "valid_until": valid_until
-                    }).execute()
-                except Exception as e:
-                    logger.error(f"Error writing visitor pass: {e}")
-
-            return {
-                "status": "success",
-                "intent": "visitor_pass",
-                "pass_code": pass_code,
-                "reply_text": f"🎫 *HAMSAYAA VISITOR PASS ISSUED*\nPass Code: *{pass_code}*\nVisitor: *{visitor_name}*\nCNIC: {visitor_cnic}\nVehicle Plate: {vehicle_plate}\nResident: {resident.get('name')} (Unit {resident.get('unit_number')})\nValid Window: Next 4 Hours\n\n📌 *Gatekeeper Verification:* Present this pass code visually at the main gate."
-            }
-
-        # 4. Intent Parsing: Dues & Bank Account Inquiry
-        if any(w in text_lower for w in ["due", "bill", "invoice", "bank", "account", "payment", "fee", "pay"]):
-            return {
-                "status": "success",
-                "intent": "dues_query",
-                "reply_text": f"💳 *CUMULATIVE DUES BREAKDOWN*\nResident: {resident.get('name')} (Unit {resident.get('unit_number')})\n- Society Maintenance Fee: Rs. 5,000\n- Hamsayaa SaaS Fee: Rs. 150\n- Utility Charges: Rs. 1,200\n*Total Due: Rs. 6,350*\nDue Date: 15th August 2026\n\n🏦 *Payment Account:* Meezan Bank - A/C 01020304050607 (Lakeview Maint Account)\n\nPlease send a screenshot/photo of your payment receipt here for admin verification."
-            }
-
-        # 5. Intent Parsing: Amenity Inquiry
-        if any(w in text_lower for w in ["gym", "pool", "hall", "timing", "rule", "capacity", "facility"]):
-            return {
-                "status": "success",
-                "intent": "amenity_info",
-                "reply_text": f"🏋️ *COMMUNITY AMENITIES INFO*\n- *Community Gym:* 6:00 AM – 10:00 PM (Daily)\n- *Swimming Pool:* 7:00 AM – 9:00 PM (Tues–Sun)\n- *Event Hall:* Bookable via Admin Dashboard (Cap: 150 guests)\n\nLet us know if you need specific booking rules."
-            }
-
-        # 6. Fallback Handling: 2 consecutive failures trigger human review
-        if failed_attempts >= 1:
-            ticket_num = self._generate_ticket_number()
-            if resident and db_service.client:
-                try:
-                    db_service.client.table("complaints").insert({
-                        "society_id": resident.get("society_id"),
-                        "resident_id": resident.get("id"),
-                        "ticket_number": ticket_num,
-                        "category": "Needs Human Review",
-                        "description": message_text,
-                        "status": "needs_human_review"
-                    }).execute()
-                except Exception as e:
-                    logger.error(f"Error logging human review ticket: {e}")
-
-            return {
-                "status": "needs_human_review",
-                "ticket_number": ticket_num,
-                "reply_text": f"I am forwarding your request to the Building Admin for human review. A ticket has been created under ID *{ticket_num}*. Our office will contact you shortly."
-            }
-
-        # 7. AI Model Generation via google.genai Client with Upstash Context
-        reply_payload = None
-        if self.client and USING_NEW_GENAI:
+        # 5. Gemini 2.0 Flash AI Contextual Processing (Uses Upstash Memory)
+        if self.client:
             try:
-                history_context = self._get_chat_history(resident.get("phone_number", ""))
-                prompt_content = f"Resident Name: {resident.get('name')}, Unit: {resident.get('unit_number')}.\n"
-                if history_context:
-                    prompt_content += f"\nRecent WhatsApp Conversation Context:\n{history_context}\n\n"
-                prompt_content += f"New Resident Message: {message_text}"
-
-                res = self.client.models.generate_content(
-                    model=settings.GEMINI_MODEL,
-                    contents=prompt_content,
-                    config=types.GenerateContentConfig(
-                        system_instruction=HAMSAYAA_SYSTEM_PROMPT
-                    )
+                full_prompt = (
+                    f"RESIDENT METADATA:\n"
+                    f"Name: {name}\n"
+                    f"Unit: {building} - Unit {unit}\n"
                 )
-                if res and res.text:
-                    reply_payload = {"status": "success", "reply_text": res.text}
+                if active_tickets_summary:
+                    full_prompt += f"\n{active_tickets_summary}\n"
+                if history_context:
+                    full_prompt += f"\nRECENT UPSTASH CHAT HISTORY CONTEXT:\n{history_context}\n"
+                
+                full_prompt += (
+                    f"\nNEW RESIDENT MESSAGE: \"{message_text}\"\n\n"
+                    f"INSTRUCTIONS:\n"
+                    f"- Answer the resident's message directly using the chat history and active ticket details above.\n"
+                    f"- If the resident asks a follow-up question (e.g. 'When will it be resolved?', 'Any update?', 'Is someone coming?'), look at their active tickets or previous messages and provide a helpful, specific update on their ticket status.\n"
+                    f"- DO NOT output a generic fallback greeting if you are in the middle of a conversation.\n"
+                    f"- Be concise, polite, empathetic, and professional."
+                )
+
+                if USING_NEW_GENAI:
+                    res = self.client.models.generate_content(
+                        model=settings.GEMINI_MODEL,
+                        contents=full_prompt,
+                        config=types.GenerateContentConfig(
+                            system_instruction=HAMSAYAA_SYSTEM_PROMPT
+                        )
+                    )
+                    if res and res.text:
+                        res_payload = {"status": "success", "reply_text": res.text}
+                        return self._dispatch_response(res_payload, resident, message_text)
             except Exception as e:
-                logger.error(f"Error calling google.genai API: {e}")
+                logger.error(f"Error executing contextual Gemini AI: {e}")
 
-        if not reply_payload:
-            reply_payload = {
-                "status": "success",
-                "reply_text": f"Hello {resident.get('name')}, I am the Hamsayaa AI Concierge for Unit {resident.get('unit_number')}. How can I assist you today? You can ask about complaints, guest passes, bill dues, or gym timings."
-            }
+        # Fallback handling
+        res_payload = {
+            "status": "success",
+            "reply_text": f"Hello {name}, I am assisting you with Unit {unit}. Let me check with building management and get back to you shortly regarding your query."
+        }
+        return self._dispatch_response(res_payload, resident, message_text)
 
-        # Persist conversation turn to Upstash Redis
-        self._save_chat_history(resident.get("phone_number", ""), message_text, reply_payload.get("reply_text", ""))
-        return reply_payload
+gemini_engine = GeminiEngine()
 
 gemini_engine = GeminiEngine()
