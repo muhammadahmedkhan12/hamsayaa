@@ -121,19 +121,36 @@ class GeminiEngine:
             }
 
         # 3. Intent Parsing: Visitor Pass Generation
-        if any(w in text_lower for w in ["pass", "visitor", "guest", "entry", "cnic", "gate pass"]):
+        if any(w in text_lower for w in ["pass", "visitor", "guest", "entry", "cnic", "gate", "gatepass", "car", "driver", "invite", "allow"]):
             pass_code = self._generate_pass_code()
+            
+            # Calculate valid ISO timestamps
+            from datetime import datetime, timezone, timedelta
+            now_utc = datetime.now(timezone.utc)
+            valid_from = now_utc.isoformat()
+            valid_until = (now_utc + timedelta(hours=4)).isoformat()
+
+            # Simple extraction for visitor name and vehicle plate
+            visitor_name = "Guest Visitor"
+            vehicle_plate = "GUEST-PASS"
+            
+            # Try to extract plate if present (e.g. KHI-1234, LEB-998)
+            import re
+            plate_match = re.search(r'[A-Za-z]{2,3}[-\s]?\d{3,4}', message_text)
+            if plate_match:
+                vehicle_plate = plate_match.group(0).upper()
+
             if resident and db_service.client:
                 try:
                     db_service.client.table("visitor_passes").insert({
                         "society_id": resident.get("society_id"),
                         "resident_id": resident.get("id"),
-                        "visitor_name": "Guest Visitor",
+                        "visitor_name": visitor_name,
                         "visitor_cnic": "42101-0000000-0",
-                        "vehicle_plate": "GUEST-01",
+                        "vehicle_plate": vehicle_plate,
                         "pass_code": pass_code,
-                        "valid_from": "now()",
-                        "valid_until": "now() + interval '4 hours'"
+                        "valid_from": valid_from,
+                        "valid_until": valid_until
                     }).execute()
                 except Exception as e:
                     logger.error(f"Error writing visitor pass: {e}")
@@ -142,7 +159,7 @@ class GeminiEngine:
                 "status": "success",
                 "intent": "visitor_pass",
                 "pass_code": pass_code,
-                "reply_text": f"🎫 *HAMSAYAA VISITOR PASS*\nPass Code: *{pass_code}*\nResident: {resident.get('name')} (Unit {resident.get('unit_number')})\nValid: Next 4 Hours\n\n📌 *Gate Verification:* Present this pass code visually to the gatekeeper upon entry."
+                "reply_text": f"🎫 *HAMSAYAA VISITOR PASS*\nPass Code: *{pass_code}*\nResident: {resident.get('name')} (Unit {resident.get('unit_number')})\nVehicle Plate: {vehicle_plate}\nValid Window: Next 4 Hours\n\n📌 *Gatekeeper Verification:* Present this pass code visually at the main gate."
             }
 
         # 4. Intent Parsing: Dues & Bank Account Inquiry
