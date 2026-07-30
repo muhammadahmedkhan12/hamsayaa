@@ -18,6 +18,15 @@ except ImportError:
         genai = None
         USING_NEW_GENAI = False
 
+import json
+
+try:
+    from upstash_redis import Redis
+    USING_UPSTASH = True
+except ImportError:
+    Redis = None
+    USING_UPSTASH = False
+
 HAMSAYAA_SYSTEM_PROMPT = """
 You are Hamsayaa AI Concierge (ہمسایہ AI), a professional, polite, empathetic, and highly efficient operational AI assistant for gated communities, residential societies, and apartment complexes.
 
@@ -39,6 +48,7 @@ COMPLAINT & ISSUE HANDLING GUIDELINES:
 class GeminiEngine:
     def __init__(self):
         self.client = None
+        self.redis = None
         if settings.GEMINI_API_KEY and genai is not None:
             try:
                 if USING_NEW_GENAI:
@@ -52,6 +62,49 @@ class GeminiEngine:
             except Exception as e:
                 logger.error(f"Failed to initialize Gemini API client: {e}")
                 self.client = None
+
+        if USING_UPSTASH and settings.UPSTASH_REDIS_REST_URL and settings.UPSTASH_REDIS_REST_TOKEN:
+            try:
+                self.redis = Redis(url=settings.UPSTASH_REDIS_REST_URL, token=settings.UPSTASH_REDIS_REST_TOKEN)
+            except Exception as e:
+                logger.error(f"Failed to initialize Upstash Redis: {e}")
+
+    def _get_chat_history(self, phone: str) -> str:
+        if not self.redis or not phone:
+            return ""
+        try:
+            key = f"chat_history:{phone}"
+            raw_items = self.redis.lrange(key, -6, -1) or []
+            context_lines = []
+            for item in raw_items:
+                try:
+                    obj = json.loads(item) if isinstance(item, str) else item
+                    role = "Resident" if obj.get("role") == "user" else "AI Concierge"
+                    context_lines.append(f"{role}: {obj.get('text')}")
+                except Exception:
+                    pass
+            return "\n".join(context_lines)
+        except Exception as e:
+            logger.error(f"Error fetching Upstash Redis chat history: {e}")
+            return ""
+
+    def _save_chat_history(self, phone: str, user_text: str, assistant_reply: str):
+        if not self.redis or not phone:
+            return
+        try:
+            clean_phone = phone.replace("+", "").replace(" ", "").replace("-", "")
+            key = f"chat_history:{clean_phone}"
+            self.redis.rpush(key, json.dumps({"role": "user", "text": user_text}))
+            self.redis.rpush(key, json.dumps({"role": "assistant", "text": assistant_reply}))
+            self.redis.expire(key, 86400) # 24 hour conversation memory
+        except Exception as e:
+            logger.error(f"Error saving Upstash Redis chat history: {e}")
+
+    def _dispatch_response(self, payload: dict, resident: dict, user_text: str) -> dict:
+        if resident and payload.get("reply_text"):
+            phone = resident.get("phone_number", "")
+            self._save_chat_history(phone, user_text, payload["reply_text"])
+        return payload
 
     def _generate_ticket_number(self) -> str:
         num = random.randint(1000, 9999)
@@ -93,6 +146,53 @@ class GeminiEngine:
                 "status": "flagged_irrelevant",
                 "reply_text": "I am the Hamsayaa Society Concierge. I can only assist with community operations (complaints, visitor passes, maintenance dues, amenities, and community polls)."
             }
+
+        # 1.5. Intent Parsing: Ticket Resolution Status Inquiry
+        status_keywords = ["when", "resolve", "status", "update", "fixed", "completed", "done", "ticket status", "progress", "ticket"]
+        if any(w in text_lower for w in status_keywords) and not any(w in text_lower for w in ["due", "bill", "pass", "gym", "leak", "plumb", "electric"]):
+            # Query recent complaints for this resident
+            recent_tickets = []
+            if resident and db_service.client:
+                try:
+                    tickets_res = db_service.client.table("complaints") \
+                        .select("*") \
+                        .eq("resident_id", resident.get("id")) \
+                        .order("created_at", desc=True) \
+                        .limit(3) \
+                        .execute()
+                    recent_tickets = tickets_res.data or []
+                except Exception as e:
+                    logger.error(f"Error fetching resident tickets: {e}")
+
+            if recent_tickets:
+                latest_tck = recent_tickets[0]
+                t_num = latest_tck.get("ticket_number", "TCK-XXXX")
+                t_cat = latest_tck.get("category", "Maintenance")
+                t_status = latest_tck.get("status", "open").replace("_", " ").title()
+                t_desc = latest_tck.get("description", "Issue report")
+
+                return {
+                    "status": "success",
+                    "intent": "ticket_status",
+                    "reply_text": (
+                        f"📊 *TICKET STATUS UPDATE*\n\n"
+                        f"Hello {resident.get('name')}, here is the live status of your logged complaint:\n"
+                        f"• *Ticket ID:* `{t_num}`\n"
+                        f"• *Category:* {t_cat}\n"
+                        f"• *Status:* 🟡 {t_status}\n"
+                        f"• *Reported Issue:* \"{t_desc}\"\n\n"
+                        f"📌 *Estimated Resolution:* Our on-duty maintenance staff is currently working on your unit/block. Standard resolution time is within 2 to 4 hours."
+                    )
+                }
+            else:
+                return {
+                    "status": "success",
+                    "intent": "ticket_status",
+                    "reply_text": (
+                        f"Hello {resident.get('name')}, you currently have no active open complaints or tickets logged.\n\n"
+                        f"If you are experiencing a new issue (e.g. water leakage, electrical fault, elevator problem), please describe it and I will register a ticket for you immediately!"
+                    )
+                }
 
         # 2. Intent Parsing: Complaint & Society Issue Registration
         complaint_keywords = [
@@ -255,10 +355,16 @@ class GeminiEngine:
                 "reply_text": f"I am forwarding your request to the Building Admin for human review. A ticket has been created under ID *{ticket_num}*. Our office will contact you shortly."
             }
 
-        # 7. AI Model Generation via google.genai Client
+        # 7. AI Model Generation via google.genai Client with Upstash Context
+        reply_payload = None
         if self.client and USING_NEW_GENAI:
             try:
-                prompt_content = f"Resident Name: {resident.get('name')}, Unit: {resident.get('unit_number')}. Message: {message_text}"
+                history_context = self._get_chat_history(resident.get("phone_number", ""))
+                prompt_content = f"Resident Name: {resident.get('name')}, Unit: {resident.get('unit_number')}.\n"
+                if history_context:
+                    prompt_content += f"\nRecent WhatsApp Conversation Context:\n{history_context}\n\n"
+                prompt_content += f"New Resident Message: {message_text}"
+
                 res = self.client.models.generate_content(
                     model=settings.GEMINI_MODEL,
                     contents=prompt_content,
@@ -267,14 +373,18 @@ class GeminiEngine:
                     )
                 )
                 if res and res.text:
-                    return {"status": "success", "reply_text": res.text}
+                    reply_payload = {"status": "success", "reply_text": res.text}
             except Exception as e:
                 logger.error(f"Error calling google.genai API: {e}")
 
-        # Default fallback response
-        return {
-            "status": "success",
-            "reply_text": f"Hello {resident.get('name')}, I am the Hamsayaa AI Concierge for Unit {resident.get('unit_number')}. How can I assist you today? You can ask about complaints, guest passes, bill dues, or gym timings."
-        }
+        if not reply_payload:
+            reply_payload = {
+                "status": "success",
+                "reply_text": f"Hello {resident.get('name')}, I am the Hamsayaa AI Concierge for Unit {resident.get('unit_number')}. How can I assist you today? You can ask about complaints, guest passes, bill dues, or gym timings."
+            }
+
+        # Persist conversation turn to Upstash Redis
+        self._save_chat_history(resident.get("phone_number", ""), message_text, reply_payload.get("reply_text", ""))
+        return reply_payload
 
 gemini_engine = GeminiEngine()
