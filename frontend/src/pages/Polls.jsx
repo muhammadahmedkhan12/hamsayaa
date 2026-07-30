@@ -214,7 +214,12 @@ export default function Polls() {
           {polls.map((poll) => {
             const timeRemaining = getTimeRemaining(poll.expiry_timestamp);
             const isClosed = poll.is_closed || timeRemaining === 'Expired';
-            const options = poll.options || [];
+            const rawOptions = poll.options;
+            const options = Array.isArray(rawOptions)
+              ? rawOptions
+              : (rawOptions && typeof rawOptions === 'object')
+                ? Object.values(rawOptions)
+                : [];
             const voteData = poll.votes || {};
 
             return (
