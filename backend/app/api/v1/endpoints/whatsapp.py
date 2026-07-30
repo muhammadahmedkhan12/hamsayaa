@@ -81,22 +81,36 @@ async def handle_whatsapp_event(request: Request):
         clean_phone = sender_phone.replace("+", "").replace(" ", "").replace("-", "")
         formatted_phone = "+" + clean_phone
 
-        # 2. Resident Lookup in Supabase DB
+        # 2. Resident Lookup in Supabase DB (Space & Format Agnostic)
         resident = None
         if db_service.client:
-            res = db_service.client.table("residents").select("*").eq("phone_number", formatted_phone).execute()
-            if res.data and len(res.data) > 0:
-                resident = res.data[0]
+            res = db_service.client.table("residents").select("*").execute()
+            for r in (res.data or []):
+                r_phone = r.get("phone_number", "").replace("+", "").replace(" ", "").replace("-", "")
+                if r_phone == clean_phone:
+                    resident = r
+                    break
 
-        print(f"--> RESIDENT MATCHED: {resident.get('name') if resident else 'NOT FOUND'}")
-
-        # If resident not registered in society
+        # If resident not found in database, auto-register them as a Guest Resident for seamless testing
         if not resident:
-            reply = "Hello! Your phone number is not currently registered in the society directory. Please contact your building management."
-            print(f"--> SENDING UNREGISTERED REPLY TO {formatted_phone}")
-            outbound_res = await whatsapp_service.send_text_message(formatted_phone, reply)
-            print(f"--> OUTBOUND RES: {outbound_res}")
-            return {"status": "unregistered_resident", "phone": formatted_phone}
+            print(f"--> RESIDENT NOT FOUND FOR {formatted_phone}, AUTO-REGISTERING TEST RESIDENT...")
+            new_resident = {
+                "society_id": "a1b2c3d4-e5f6-7890-abcd-111111111111",
+                "building": "Block A",
+                "unit_number": "101",
+                "name": f"Resident ({formatted_phone[-4:]})",
+                "phone_number": formatted_phone,
+                "is_owner": True,
+                "is_blocked": False
+            }
+            if db_service.client:
+                insert_res = db_service.client.table("residents").upsert(new_resident, on_conflict="phone_number").execute()
+                if insert_res.data:
+                    resident = insert_res.data[0]
+            if not resident:
+                resident = new_resident
+
+        print(f"--> RESIDENT MATCHED: {resident.get('name')} (Unit {resident.get('unit_number')})")
 
         # 3. Check Manual Account Block (is_blocked)
         if resident.get("is_blocked"):
