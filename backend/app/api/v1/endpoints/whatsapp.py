@@ -70,12 +70,22 @@ async def handle_whatsapp_event(request: Request):
 
         msg = messages[0]
         sender_phone = msg.get("from", "")
-        message_text = msg.get("text", {}).get("body", "")
+        msg_type = msg.get("type", "text")
 
-        print(f"--> INCOMING MESSAGE FROM {sender_phone}: '{message_text}'")
+        audio_bytes = None
+        message_text = ""
 
-        if not sender_phone or not message_text:
-            return {"status": "ignored", "reason": "Empty sender phone or message text"}
+        if msg_type in ["audio", "voice"]:
+            media_id = msg.get(msg_type, {}).get("id")
+            print(f"--> INCOMING VOICE NOTE FROM {sender_phone} (Media ID: {media_id})")
+            if media_id:
+                audio_bytes = await whatsapp_service.download_media(media_id)
+        else:
+            message_text = msg.get("text", {}).get("body", "")
+            print(f"--> INCOMING MESSAGE FROM {sender_phone}: '{message_text}'")
+
+        if not sender_phone or (not message_text and not audio_bytes):
+            return {"status": "ignored", "reason": "Empty sender phone, text, and audio payload"}
 
         # Format phone string
         clean_phone = sender_phone.replace("+", "").replace(" ", "").replace("-", "")
@@ -126,13 +136,20 @@ async def handle_whatsapp_event(request: Request):
             print(f"--> OUTBOUND RES: {outbound_res}")
             return {"status": "resident_blocked", "phone": formatted_phone}
 
-        # 4. Invoke Gemini 1.5 Flash AI Engine
+        # 4. Invoke Gemini AI Engine
         print(f"--> INVOKING GEMINI AI ENGINE FOR {resident.get('name')}...")
-        ai_response = await gemini_engine.process_resident_message(
-            resident=resident,
-            message_text=message_text,
-            failed_attempts=0
-        )
+        if audio_bytes:
+            ai_response = await gemini_engine.transcribe_and_process_audio(
+                resident=resident,
+                audio_bytes=audio_bytes,
+                mime_type="audio/ogg"
+            )
+        else:
+            ai_response = await gemini_engine.process_resident_message(
+                resident=resident,
+                message_text=message_text,
+                failed_attempts=0
+            )
 
         reply_text = ai_response.get("reply_text", "Thank you for contacting Hamsayaa Society Concierge.")
         try:

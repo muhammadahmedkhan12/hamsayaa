@@ -219,4 +219,32 @@ class DatabaseService:
         res = self.client.table("polls").update({"is_closed": True}).eq("id", poll_id).execute()
         return res.data[0] if res.data else None
 
+    # VOICE NOTES & MEDIA STORAGE
+    def upload_voice_note(self, audio_bytes: bytes, filename: str) -> str | None:
+        """
+        Uploads raw audio binary bytes to Supabase Storage bucket 'society-voice-notes'
+        and returns the public access URL for playback on the dashboard.
+        """
+        if not self.client or not audio_bytes:
+            return None
+        bucket_name = "society-voice-notes"
+        try:
+            try:
+                self.client.storage.create_bucket(bucket_name, options={"public": True})
+            except Exception:
+                pass
+
+            storage_path = f"voice_notes/{filename}"
+            self.client.storage.from_(bucket_name).upload(
+                file=audio_bytes,
+                path=storage_path,
+                file_options={"content-type": "audio/ogg", "upsert": "true"}
+            )
+            public_url = self.client.storage.from_(bucket_name).get_public_url(storage_path)
+            logger.info(f"Uploaded voice note to Supabase Storage: {public_url}")
+            return public_url
+        except Exception as e:
+            logger.error(f"Error uploading voice note to Supabase storage: {e}")
+            return None
+
 db_service = DatabaseService()

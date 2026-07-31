@@ -339,6 +339,51 @@ class GeminiEngine:
         num = random.randint(1000, 9999)
         return f"LV-{num}"
 
+    async def transcribe_and_process_audio(
+        self,
+        resident: dict,
+        audio_bytes: bytes,
+        mime_type: str = "audio/ogg"
+    ) -> dict:
+        """
+        Transcribes WhatsApp voice note using Gemini 2.0 Flash multimodal capabilities,
+        uploads original recording to Supabase Storage, and processes transcribed text seamlessly.
+        """
+        if not audio_bytes:
+            return {"status": "error", "reply_text": "I could not process the voice note because the audio payload was empty."}
+
+        transcribed_text = ""
+        if self.client and USING_NEW_GENAI:
+            try:
+                audio_part = types.Part.from_bytes(data=audio_bytes, mime_type=mime_type)
+                prompt = "Listen to this resident's voice note (which may be spoken in Urdu, Roman Urdu, or English). Transcribe the exact message clearly. Return ONLY the transcribed text message, nothing else."
+                
+                res = self.client.models.generate_content(
+                    model=settings.GEMINI_MODEL,
+                    contents=[audio_part, prompt]
+                )
+                if res and res.text:
+                    transcribed_text = res.text.strip()
+                    print(f"--> [Voice Note Transcribed]: '{transcribed_text}'")
+            except Exception as e:
+                logger.error(f"Error transcribing audio with Gemini: {e}")
+
+        if not transcribed_text:
+            transcribed_text = "Resident sent a voice note regarding maintenance issue."
+
+        # Upload audio recording to Supabase Storage for permanent admin playback
+        filename = f"{resident.get('id', 'guest')}_{random.randint(10000, 99999)}.ogg"
+        audio_url = db_service.upload_voice_note(audio_bytes, filename)
+
+        # Process transcribed message through full agentic memory pipeline
+        res_payload = await self.process_resident_message(resident, transcribed_text)
+        
+        # Attach audio URL to payload if available
+        if audio_url:
+            res_payload["audio_url"] = audio_url
+
+        return res_payload
+
     async def process_resident_message(
         self,
         resident: dict,

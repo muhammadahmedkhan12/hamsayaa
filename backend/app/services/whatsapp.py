@@ -85,4 +85,41 @@ class WhatsAppService:
                 logger.error(f"Error sending WhatsApp media: {e}")
                 return {"status": "error", "message": str(e)}
 
+    async def download_media(self, media_id: str) -> bytes:
+        """
+        Fetches media URL from Meta Graph API for a given media_id,
+        then downloads and returns the raw binary audio/media bytes.
+        """
+        token = settings.WHATSAPP_ACCESS_TOKEN
+        if not token or not media_id:
+            logger.warning(f"No access token or media ID provided for media download: {media_id}")
+            return b""
+
+        headers = {"Authorization": f"Bearer {token}"}
+        url = f"{self.base_url}/{media_id}"
+
+        async with httpx.AsyncClient() as client:
+            try:
+                res = await client.get(url, headers=headers, timeout=10.0)
+                if res.status_code != 200:
+                    logger.error(f"Meta Graph API error fetching media URL: {res.status_code} - {res.text}")
+                    return b""
+                
+                media_info = res.json()
+                download_url = media_info.get("url")
+                if not download_url:
+                    logger.error(f"No URL returned for media ID {media_id}")
+                    return b""
+
+                media_res = await client.get(download_url, headers=headers, timeout=15.0)
+                if media_res.status_code == 200:
+                    logger.info(f"Successfully downloaded {len(media_res.content)} bytes for media ID {media_id}")
+                    return media_res.content
+                else:
+                    logger.error(f"Failed downloading media binary: {media_res.status_code}")
+                    return b""
+            except Exception as e:
+                logger.error(f"Exception downloading WhatsApp media {media_id}: {e}")
+                return b""
+
 whatsapp_service = WhatsAppService()
