@@ -392,7 +392,8 @@ class GeminiEngine:
     ) -> dict:
         """
         Processes inbound resident WhatsApp message through Gemini AI Engine with Upstash Redis memory.
-        Differentiates dynamically between conversational inquiries/follow-ups and new ticket/pass creations.
+        Primary Flow: Executes Gemini 2.0 Flash LLM first for intelligent, natural conversational responses.
+        Fallback Flow: If LLM API encounters rate limits/errors, executes deterministic python fallback handlers.
         """
         text_lower = message_text.lower().strip()
         phone = resident.get("phone_number", "") if resident else ""
@@ -411,11 +412,41 @@ class GeminiEngine:
                 recent_tickets = tck_res.data or []
                 if recent_tickets:
                     t_lines = [f"- Ticket {t['ticket_number']} ({t['category']}): STATUS={t['status'].upper()} - Details: \"{t['description']}\"" for t in recent_tickets]
-                    active_tickets_summary = "Resident Logged Tickets in Database:\n" + "\n".join(t_lines)
+                    active_tickets_summary = "Resident Active Logged Tickets in Database:\n" + "\n".join(t_lines)
             except Exception as e:
                 logger.error(f"Error fetching tickets context: {e}")
 
-        # 2. Guardrail: Off-Topic Detection
+        # 2. PRIMARY FLOW: Call Gemini 2.0 Flash AI Engine First
+        if self.client and USING_NEW_GENAI:
+            try:
+                full_prompt = (
+                    f"RESIDENT PROFILE:\n"
+                    f"Name: {name}\n"
+                    f"Unit: {building} - Unit {unit}\n"
+                )
+                if active_tickets_summary:
+                    full_prompt += f"\n{active_tickets_summary}\n"
+                if history_context:
+                    full_prompt += f"\nRECENT CONVERSATION HISTORY (UPSTASH MEMORY):\n{history_context}\n"
+                
+                full_prompt += f"\nNEW RESIDENT MESSAGE: \"{message_text}\""
+
+                res = self.client.models.generate_content(
+                    model=settings.GEMINI_MODEL,
+                    contents=full_prompt,
+                    config=types.GenerateContentConfig(
+                        system_instruction=HAMSAYAA_SYSTEM_PROMPT
+                    )
+                )
+                if res and res.text:
+                    res_payload = {"status": "success", "reply_text": res.text}
+                    return self._dispatch_response(res_payload, resident, message_text)
+            except Exception as e:
+                logger.error(f"Gemini API offline / rate-limited, executing fallback handler: {e}")
+
+        # 3. FALLBACK FLOW (Executed ONLY when Gemini API fails/times out/429)
+
+        # Fallback 3A: Off-Topic Guardrail
         off_topic_keywords = ["weather", "joke", "politics", "president", "crypto", "bitcoin", "buy", "sell"]
         if any(w in text_lower for w in off_topic_keywords):
             if resident and db_service.client:
@@ -437,7 +468,7 @@ class GeminiEngine:
             }
             return self._dispatch_response(res_payload, resident, message_text)
 
-        # 3. Explicit Visitor Pass Request Handling (Check Parameters)
+        # Fallback 3B: Visitor Pass Creation
         is_pass_request = any(w in text_lower for w in ["visitor pass", "guest pass", "gate pass", "generate pass", "issue pass", "need a pass"])
         if is_pass_request:
             import re
@@ -499,8 +530,7 @@ class GeminiEngine:
             }
             return self._dispatch_response(res_payload, resident, message_text)
 
-        # 4. Explicit NEW Complaint Reporting (e.g., "Water is leaking in my kitchen", "Elevator in Block B is broken")
-        # Only register a new ticket if the resident is explicitly reporting a NEW problem, NOT asking a question/follow-up
+        # Fallback 3C: Complaint Ticket Logging
         is_question = any(w in text_lower for w in ["what", "when", "how", "why", "where", "who", "which", "can u", "can you", "is there", "status", "timeline", "update", "progress"])
         new_issue_keywords = ["water leak", "leakage", "plumbing", "broken", "not working", "no light", "outage", "stuck elevator", "garbage not collected", "noise complaint", "overflow", "repair needed", "file a complaint", "log a complaint", "register complaint", "report an issue", "report issue"]
         
@@ -551,44 +581,7 @@ class GeminiEngine:
             }
             return self._dispatch_response(res_payload, resident, message_text)
 
-        # 5. Dynamic LLM Reasoning Engine for Questions, Context Inquiries, & Follow-Ups (Uses Upstash Memory)
-        if self.client:
-            try:
-                full_prompt = (
-                    f"RESIDENT PROFILE:\n"
-                    f"Name: {name}\n"
-                    f"Unit: {building} - Unit {unit}\n"
-                )
-                if active_tickets_summary:
-                    full_prompt += f"\n{active_tickets_summary}\n"
-                if history_context:
-                    full_prompt += f"\nRECENT CONVERSATION HISTORY (UPSTASH MEMORY):\n{history_context}\n"
-                
-                full_prompt += (
-                    f"\nNEW RESIDENT MESSAGE: \"{message_text}\"\n\n"
-                    f"STRICT BEHAVIOR INSTRUCTIONS FOR AI CONCIERGE:\n"
-                    f"1. You are a personal, warm, and highly professional concierge manager for {name}.\n"
-                    f"2. Read the conversation history and active tickets above carefully.\n"
-                    f"3. If the resident asks a question about existing complaints (e.g. 'what complaint i have registered?', 'can u give a timeline for this to get resolved?'), answer them in a conversational, personalized tone using their exact ticket details. DO NOT output structured template boxes for conversational follow-ups.\n"
-                    f"4. If the resident is asking for a timeline on an open ticket, give a realistic, reassuring estimated turnaround time (e.g., 1 to 2 hours) and explain that the maintenance team is attending to their block.\n"
-                    f"5. Maintain context across turns seamlessly. Keep your response concise, polite, and directly relevant."
-                )
-
-                if USING_NEW_GENAI:
-                    res = self.client.models.generate_content(
-                        model=settings.GEMINI_MODEL,
-                        contents=full_prompt,
-                        config=types.GenerateContentConfig(
-                            system_instruction=HAMSAYAA_SYSTEM_PROMPT
-                        )
-                    )
-                    if res and res.text:
-                        res_payload = {"status": "success", "reply_text": res.text}
-                        return self._dispatch_response(res_payload, resident, message_text)
-            except Exception as e:
-                logger.error(f"Gemini API rate-limited / error, using Smart Agentic Resolver: {e}")
-
-        # 6. Smart Agentic Resolver (Guarantees personalized context even if LLM API is rate-limited)
+        # Fallback 3D: Status & General Response
         if recent_tickets:
             latest = recent_tickets[0]
             t_id = latest.get("ticket_number", "TCK-XXXX")
@@ -598,19 +591,19 @@ class GeminiEngine:
 
             if any(w in text_lower for w in ["what", "list", "show", "registered", "my complaint"]):
                 reply = (
-                    f"Hello {name}! You currently have active complaint **{t_id}** logged for Unit {unit}:\n"
+                    f"Hello {name}! You currently have active complaint *{t_id}* logged for Unit {unit}:\n"
                     f"• *Category:* {t_cat}\n"
                     f"• *Issue Details:* \"{t_desc}\"\n"
                     f"• *Current Status:* {t_status}"
                 )
             elif any(w in text_lower for w in ["timeline", "when", "time", "resolved", "fixed", "status", "long"]):
                 reply = (
-                    f"Hello {name}, regarding your open ticket **{t_id}** ({t_cat}):\n"
-                    f"Our society maintenance staff is currently attending to {building}. The estimated resolution time is within **1 to 2 hours**."
+                    f"Hello {name}, regarding your open ticket *{t_id}* ({t_cat}):\n"
+                    f"Our society maintenance staff is currently attending to {building}. The estimated resolution time is within *1 to 2 hours*."
                 )
             else:
                 reply = (
-                    f"Hello {name}, I am tracking your ticket **{t_id}** ({t_cat}). Our maintenance team is currently working on it for Unit {unit}!"
+                    f"Hello {name}, I am tracking your ticket *{t_id}* ({t_cat}). Our maintenance team is currently working on it for Unit {unit}!"
                 )
         else:
             reply = f"Hello {name}! I am your Hamsayaa Concierge for Unit {unit}. You currently have no open complaints logged. How can I assist you today?"
