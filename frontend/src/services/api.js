@@ -184,6 +184,22 @@ export async function fetchComplaints(status = 'All') {
   return mockComplaints;
 }
 
+export async function updateComplaintStatus(complaintId, newStatus) {
+  try {
+    const res = await fetch(`${API_BASE}/complaints/${complaintId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus }),
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn('Error updating complaint status:', err);
+  }
+  return null;
+}
+
 // POLLS API
 export async function fetchPolls() {
   try {
