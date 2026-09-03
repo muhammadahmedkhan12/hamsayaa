@@ -58,6 +58,8 @@ class DatabaseService:
         query = self.client.table("complaints").select("*, residents(name, unit_number, building)").eq("society_id", society_id)
         if status and status != "All":
             query = query.eq("status", status)
+        else:
+            query = query.neq("status", "flagged_irrelevant")
         res = query.order("created_at", desc=True).execute()
         return res.data
 

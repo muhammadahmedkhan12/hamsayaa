@@ -2,6 +2,8 @@ from app.core.config import settings
 from app.db.supabase import db_service
 import random
 import logging
+import re
+from datetime import datetime, timezone, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -392,8 +394,12 @@ class GeminiEngine:
     ) -> dict:
         """
         Processes inbound resident WhatsApp message through Gemini AI Engine with Upstash Redis memory.
-        Primary Flow: Executes Gemini 2.0 Flash LLM first for intelligent, natural conversational responses.
-        Fallback Flow: If LLM API encounters rate limits/errors, executes deterministic python fallback handlers.
+        1. Context Hydration: Loads Upstash conversation memory and active complaints from Supabase.
+        2. Off-Topic Guardrail: Rejects unrelated spam politely without writing to database.
+        3. Resident Ticket Closure: Allows members to close any of their open complaints on demand.
+        4. Visitor Pass Issuance: Generates gated visitor access passes with parameter validation.
+        5. New Complaint & Smart Duplicate Matching: Evaluates issues, links duplicate community complaints to existing ticket, logs new tickets.
+        6. Conversational AI Reasoning: Powered by Gemini 2.0 Flash for questions, follow-ups, and community interactions.
         """
         text_lower = message_text.lower().strip()
         phone = resident.get("phone_number", "") if resident else ""
@@ -406,72 +412,133 @@ class GeminiEngine:
         
         active_tickets_summary = ""
         recent_tickets = []
+        open_tickets = []
         if resident and db_service.client:
             try:
-                tck_res = db_service.client.table("complaints").select("*").eq("resident_id", resident.get("id")).order("created_at", desc=True).limit(5).execute()
+                tck_res = db_service.client.table("complaints").select("*").eq("resident_id", resident.get("id")).order("created_at", desc=True).limit(10).execute()
                 recent_tickets = tck_res.data or []
+                open_tickets = [t for t in recent_tickets if t.get("status") in ["open", "in_progress", "needs_human_review"]]
                 if recent_tickets:
                     t_lines = [f"- Ticket {t['ticket_number']} ({t['category']}): STATUS={t['status'].upper()} - Details: \"{t['description']}\"" for t in recent_tickets]
                     active_tickets_summary = "Resident Active Logged Tickets in Database:\n" + "\n".join(t_lines)
             except Exception as e:
                 logger.error(f"Error fetching tickets context: {e}")
 
-        # 2. PRIMARY FLOW: Call Gemini 2.0 Flash AI Engine First
-        if self.client and USING_NEW_GENAI:
-            try:
-                full_prompt = (
-                    f"RESIDENT PROFILE:\n"
-                    f"Name: {name}\n"
-                    f"Unit: {building} - Unit {unit}\n"
-                )
-                if active_tickets_summary:
-                    full_prompt += f"\n{active_tickets_summary}\n"
-                if history_context:
-                    full_prompt += f"\nRECENT CONVERSATION HISTORY (UPSTASH MEMORY):\n{history_context}\n"
-                
-                full_prompt += f"\nNEW RESIDENT MESSAGE: \"{message_text}\""
-
-                res = self.client.models.generate_content(
-                    model=settings.GEMINI_MODEL,
-                    contents=full_prompt,
-                    config=types.GenerateContentConfig(
-                        system_instruction=HAMSAYAA_SYSTEM_PROMPT
-                    )
-                )
-                if res and res.text:
-                    res_payload = {"status": "success", "reply_text": res.text}
-                    return self._dispatch_response(res_payload, resident, message_text)
-            except Exception as e:
-                logger.error(f"Gemini API offline / rate-limited, executing fallback handler: {e}")
-
-        # 3. FALLBACK FLOW (Executed ONLY when Gemini API fails/times out/429)
-
-        # Fallback 3A: Off-Topic Guardrail
-        off_topic_keywords = ["weather", "joke", "politics", "president", "crypto", "bitcoin", "buy", "sell"]
+        # 2. ACTION: Off-Topic Guardrail (NO DATABASE WRITES!)
+        off_topic_keywords = ["weather", "joke", "politics", "president", "crypto", "bitcoin", "stock market", "buy car", "sell car"]
         if any(w in text_lower for w in off_topic_keywords):
-            if resident and db_service.client:
-                try:
-                    db_service.client.table("complaints").insert({
-                        "society_id": resident.get("society_id"),
-                        "resident_id": resident.get("id"),
-                        "ticket_number": self._generate_ticket_number(),
-                        "category": "Off-Topic / Flagged",
-                        "description": message_text,
-                        "status": "flagged_irrelevant"
-                    }).execute()
-                except Exception as e:
-                    logger.error(f"Error logging flagged complaint: {e}")
-
             res_payload = {
                 "status": "flagged_irrelevant",
                 "reply_text": f"Hello {name}, I am your Hamsayaa Society Concierge. I am dedicated to helping you with society operations (complaints, visitor passes, maintenance dues, amenities, and community polls)."
             }
             return self._dispatch_response(res_payload, resident, message_text)
 
-        # Fallback 3B: Visitor Pass Creation
+        # 3. ACTION: Resident-Led Complaint Closure / Cancellation Flow
+        tck_match = re.search(r'TCK-\d{4}', message_text, re.IGNORECASE)
+        closure_keywords = [
+            "close complaint", "cancel complaint", "close ticket", "cancel ticket",
+            "close my complaint", "cancel my complaint", "close my ticket", "cancel my ticket",
+            "close my", "cancel my", "resolve my", "fixed now", "issue is fixed",
+            "issue is resolved", "problem is resolved", "resolved on its own",
+            "already fixed", "never mind", "problem solved", "fixed it",
+            "cancel it", "close it", "mark resolved"
+        ]
+        has_closure_intent = any(kw in text_lower for kw in closure_keywords) or (
+            any(w in text_lower for w in ["close", "cancel", "resolved", "solved"])
+            and any(w in text_lower for w in ["complaint", "ticket", "issue"])
+        )
+
+        if has_closure_intent or (tck_match and any(w in text_lower for w in ["close", "cancel", "resolve", "resolved", "fixed"])):
+            if tck_match:
+                target_tck_num = tck_match.group(0).upper()
+                target_ticket = next((t for t in open_tickets if t.get("ticket_number") == target_tck_num), None)
+                
+                # If not in the resident's recent cache, do a fresh query for this resident
+                if not target_ticket and resident and db_service.client:
+                    try:
+                        q_res = db_service.client.table("complaints").select("*").eq("resident_id", resident.get("id")).eq("ticket_number", target_tck_num).in_("status", ["open", "in_progress", "needs_human_review"]).execute()
+                        if q_res.data:
+                            target_ticket = q_res.data[0]
+                    except Exception as e:
+                        logger.error(f"Error checking specific ticket for closure: {e}")
+
+                if target_ticket:
+                    if db_service.client:
+                        try:
+                            db_service.client.table("complaints").update({"status": "resolved"}).eq("id", target_ticket.get("id")).execute()
+                        except Exception as e:
+                            logger.error(f"Error closing complaint in database: {e}")
+                    
+                    res_payload = {
+                        "status": "success",
+                        "intent": "complaint_closed",
+                        "ticket_number": target_tck_num,
+                        "reply_text": (
+                            f"✅ *COMPLAINT CLOSED*\n\n"
+                            f"Hello {name}, your complaint has been marked as resolved at your request:\n"
+                            f"• *Ticket ID:* `{target_tck_num}`\n"
+                            f"• *Category:* {target_ticket.get('category', 'Maintenance')}\n"
+                            f"• *Issue:* \"{target_ticket.get('description', '')}\"\n"
+                            f"• *Status:* ✅ Resolved\n\n"
+                            f"Glad everything is sorted out! Feel free to message anytime if you need help."
+                        )
+                    }
+                    return self._dispatch_response(res_payload, resident, message_text)
+                else:
+                    res_payload = {
+                        "status": "not_found",
+                        "reply_text": f"Hello {name}, I couldn't find an open complaint with Ticket ID *{target_tck_num}* registered under your unit. It may already be resolved or closed!"
+                    }
+                    return self._dispatch_response(res_payload, resident, message_text)
+
+            # No specific ticket ID provided in message:
+            if len(open_tickets) == 1:
+                target = open_tickets[0]
+                t_num = target.get("ticket_number", "TCK-XXXX")
+                if db_service.client:
+                    try:
+                        db_service.client.table("complaints").update({"status": "resolved"}).eq("id", target.get("id")).execute()
+                    except Exception as e:
+                        logger.error(f"Error closing single open complaint: {e}")
+
+                res_payload = {
+                    "status": "success",
+                    "intent": "complaint_closed",
+                    "ticket_number": t_num,
+                    "reply_text": (
+                        f"✅ *COMPLAINT CLOSED*\n\n"
+                        f"Hello {name}, your active complaint has been marked as resolved at your request:\n"
+                        f"• *Ticket ID:* `{t_num}`\n"
+                        f"• *Category:* {target.get('category', 'Maintenance')}\n"
+                        f"• *Issue:* \"{target.get('description', '')}\"\n"
+                        f"• *Status:* ✅ Resolved\n\n"
+                        f"Glad to know the issue is resolved! Let us know if you need anything else. 🏠"
+                    )
+                }
+                return self._dispatch_response(res_payload, resident, message_text)
+
+            elif len(open_tickets) > 1:
+                t_lines = "\n".join([f"• *{t.get('ticket_number')}* ({t.get('category')}): \"{t.get('description')}\"" for t in open_tickets])
+                res_payload = {
+                    "status": "multiple_tickets",
+                    "reply_text": (
+                        f"Hello {name}, you currently have {len(open_tickets)} open complaints:\n\n"
+                        f"{t_lines}\n\n"
+                        f"Which one would you like to close? Please reply with the Ticket ID (e.g. *Close {open_tickets[0].get('ticket_number')}*)."
+                    )
+                }
+                return self._dispatch_response(res_payload, resident, message_text)
+
+            else:
+                res_payload = {
+                    "status": "no_open_tickets",
+                    "reply_text": f"Hello {name}, you currently have no open complaints to close. Everything under your unit is all clear! Let me know if you need any other assistance."
+                }
+                return self._dispatch_response(res_payload, resident, message_text)
+
+        # 4. ACTION: Visitor Pass Request Handling (Check Parameters)
         is_pass_request = any(w in text_lower for w in ["visitor pass", "guest pass", "gate pass", "generate pass", "issue pass", "need a pass"])
         if is_pass_request:
-            import re
             cnic_match = re.search(r'\d{5}[-\s]?\d{7}[-\s]?\d', message_text)
             visitor_cnic = cnic_match.group(0) if cnic_match else None
             
@@ -502,7 +569,6 @@ class GeminiEngine:
                 return self._dispatch_response(res_payload, resident, message_text)
 
             pass_code = self._generate_pass_code()
-            from datetime import datetime, timezone, timedelta
             now_utc = datetime.now(timezone.utc)
             valid_from = now_utc.isoformat()
             valid_until = (now_utc + timedelta(hours=4)).isoformat()
@@ -530,28 +596,72 @@ class GeminiEngine:
             }
             return self._dispatch_response(res_payload, resident, message_text)
 
-        # Fallback 3C: Complaint Ticket Logging
-        is_question = any(w in text_lower for w in ["what", "when", "how", "why", "where", "who", "which", "can u", "can you", "is there", "status", "timeline", "update", "progress"])
-        new_issue_keywords = ["water leak", "leakage", "plumbing", "broken", "not working", "no light", "outage", "stuck elevator", "garbage not collected", "noise complaint", "overflow", "repair needed", "file a complaint", "log a complaint", "register complaint", "report an issue", "report issue"]
+        # 5. ACTION: New Complaint Reporting with Smart Duplicate Matching
+        is_question = any(w in text_lower for w in ["what", "when", "how", "why", "where", "who", "which", "can u", "can you", "is there", "status", "timeline", "update", "progress", "tell me"])
+        new_issue_keywords = ["water leak", "leakage", "plumbing", "broken", "not working", "no light", "outage", "stuck elevator", "garbage not collected", "noise complaint", "overflow", "repair needed", "file a complaint", "log a complaint", "register complaint", "report an issue", "report issue", "missing", "asleep", "dark", "burst", "faulty", "smell", "dirt", "no water", "no guard"]
         
-        is_new_complaint = any(kw in text_lower for kw in new_issue_keywords) or (any(w in text_lower for w in ["complaint", "issue", "leak", "broken"]) and not is_question)
+        fault_tokens = ["stuck", "broken", "leak", "leaking", "outage", "damage", "damaged", "repair", "not working", "not moving", "spark", "sparking", "burst", "overflow", "smell", "dirt", "noise", "missing", "asleep", "dark", "faulty", "choked", "tripped", "beeping", "stopped"]
+        system_tokens = ["elevator", "lift", "light", "lights", "tap", "pipe", "water", "electricity", "power", "generator", "tanker", "gate", "guard", "door", "pump", "drain", "gutter", "garbage", "trash", "intercom", "wiring", "fan", "ac"]
+
+        has_fault_and_system = any(f in text_lower for f in fault_tokens) and any(s in text_lower for s in system_tokens)
+        has_direct_complaint_kw = any(kw in text_lower for kw in ["complaint", "issue", "problem", "fault", "file complaint", "register complaint", "report issue", "fix this"]) or any(kw in text_lower for kw in new_issue_keywords)
+
+        is_new_complaint = (has_fault_and_system or has_direct_complaint_kw) and not is_question
 
         if is_new_complaint and not is_question:
-            ticket_num = self._generate_ticket_number()
-            
             if any(w in text_lower for w in ["water", "plumb", "leak", "pipe", "drain", "sewer", "tanker"]):
                 category = "Water & Plumbing"
             elif any(w in text_lower for w in ["electric", "light", "power", "outage", "generator"]):
                 category = "Electrical & Power"
             elif any(w in text_lower for w in ["lift", "elevator", "stuck"]):
                 category = "Elevators & Lifts"
-            elif any(w in text_lower for w in ["garbage", "trash", "dirty", "clean", "smell"]):
+            elif any(w in text_lower for w in ["garbage", "trash", "dirty", "clean", "smell", "waste"]):
                 category = "Sanitation & Waste"
-            elif any(w in text_lower for w in ["park", "security", "gate"]):
+            elif any(w in text_lower for w in ["park", "security", "gate", "guard"]):
                 category = "Security & Parking"
             else:
                 category = "General Maintenance & Repair"
 
+            # SMART DUPLICATE MATCHING:
+            # Check active open tickets in the society to see if this is already an ongoing reported problem
+            existing_match = None
+            if resident and db_service.client:
+                try:
+                    soc_tcks = db_service.client.table("complaints").select("*").eq("society_id", resident.get("society_id")).in_("status", ["open", "in_progress"]).order("created_at", desc=True).limit(20).execute()
+                    active_soc_tickets = soc_tcks.data or []
+                    
+                    common_tokens = ["guard", "gate", "lift", "elevator", "generator", "power", "electricity", "tanker", "water supply", "corridor", "hallway", "parking", "garbage", "trash", "security", "pump"]
+                    matched_tokens = [tok for tok in common_tokens if tok in text_lower]
+
+                    if matched_tokens:
+                        for t in active_soc_tickets:
+                            t_desc_lower = (t.get("description") or "").lower()
+                            if any(tok in t_desc_lower for tok in matched_tokens):
+                                existing_match = t
+                                break
+                except Exception as e:
+                    logger.error(f"Error checking duplicate complaints: {e}")
+
+            if existing_match:
+                match_tck_num = existing_match.get("ticket_number", "TCK-XXXX")
+                res_payload = {
+                    "status": "success",
+                    "intent": "complaint_duplicate_matched",
+                    "ticket_number": match_tck_num,
+                    "reply_text": (
+                        f"ℹ️ *COMPLAINT ALREADY LOGGED & IN PROGRESS*\n\n"
+                        f"Hello {name}, our management team is already aware of this issue and actively working on it:\n"
+                        f"• *Ticket ID:* `{match_tck_num}`\n"
+                        f"• *Category:* {existing_match.get('category')}\n"
+                        f"• *Issue Details:* \"{existing_match.get('description')}\"\n"
+                        f"• *Status:* 🟡 In Progress\n\n"
+                        f"Our maintenance team has been dispatched. You can track this issue anytime by asking for the status of *{match_tck_num}*!"
+                    )
+                }
+                return self._dispatch_response(res_payload, resident, message_text)
+
+            # Not a duplicate -> Create new ticket!
+            ticket_num = self._generate_ticket_number()
             if resident and db_service.client:
                 try:
                     db_service.client.table("complaints").insert({
@@ -581,7 +691,44 @@ class GeminiEngine:
             }
             return self._dispatch_response(res_payload, resident, message_text)
 
-        # Fallback 3D: Status & General Response
+        # 6. CONVERSATIONAL REASONING FLOW (Gemini 2.0 Flash)
+        # Handles questions, status inquiries, timelines, amenity queries, and general chat.
+        # NEVER inserts into complaints table!
+        if self.client and USING_NEW_GENAI:
+            try:
+                full_prompt = (
+                    f"RESIDENT PROFILE:\n"
+                    f"Name: {name}\n"
+                    f"Unit: {building} - Unit {unit}\n"
+                )
+                if active_tickets_summary:
+                    full_prompt += f"\n{active_tickets_summary}\n"
+                if history_context:
+                    full_prompt += f"\nRECENT CONVERSATION HISTORY (UPSTASH MEMORY):\n{history_context}\n"
+                
+                full_prompt += (
+                    f"\nNEW RESIDENT MESSAGE: \"{message_text}\"\n\n"
+                    f"STRICT BEHAVIOR INSTRUCTIONS FOR AI CONCIERGE:\n"
+                    f"1. You are a personal, warm, and highly professional concierge manager for {name}.\n"
+                    f"2. Read the conversation history and active tickets above carefully.\n"
+                    f"3. If the resident asks a question about complaints, status, timelines, or amenities, answer conversationally in a natural, personalized tone without rigid templates.\n"
+                    f"4. If asking about a timeline, give an estimated turnaround of 1 to 2 hours with reassuring updates."
+                )
+
+                res = self.client.models.generate_content(
+                    model=settings.GEMINI_MODEL,
+                    contents=full_prompt,
+                    config=types.GenerateContentConfig(
+                        system_instruction=HAMSAYAA_SYSTEM_PROMPT
+                    )
+                )
+                if res and res.text:
+                    res_payload = {"status": "success", "reply_text": res.text}
+                    return self._dispatch_response(res_payload, resident, message_text)
+            except Exception as e:
+                logger.error(f"Gemini API offline / rate-limited, using Smart Agentic Resolver: {e}")
+
+        # 7. Smart Agentic Resolver Fallback (For Questions/Status when LLM is unavailable)
         if recent_tickets:
             latest = recent_tickets[0]
             t_id = latest.get("ticket_number", "TCK-XXXX")
