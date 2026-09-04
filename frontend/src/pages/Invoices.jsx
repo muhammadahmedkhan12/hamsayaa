@@ -27,7 +27,8 @@ import {
   RotateCw,
   UserCheck,
   Calendar,
-  CreditCard
+  CreditCard,
+  RefreshCw
 } from 'lucide-react';
 import { mockInvoices, mockBuildings } from '../services/mockData';
 import {
@@ -403,6 +404,17 @@ export default function Invoices() {
         </div>
 
         <div className="flex items-center gap-2.5">
+          {/* Action 0: Refresh Button */}
+          <button
+            onClick={loadInvoicesData}
+            disabled={loading}
+            className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 font-semibold text-xs rounded-lg shadow-2xs transition-colors disabled:opacity-50"
+            title="Refresh invoices and delivery notices"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-brand-600' : 'text-slate-500'}`} />
+            <span>Refresh</span>
+          </button>
+
           {/* Action 1: Edit Voucher Form */}
           <button
             onClick={() => setShowEditVoucherModal(true)}
@@ -429,26 +441,44 @@ export default function Invoices() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <div className="metric-card border-l-4 border-l-emerald-500">
           <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Collection</span>
-          <div className="mt-2 text-2xl font-bold text-navy">Rs. {totalCollected.toLocaleString()}</div>
+          {loading ? (
+            <div className="mt-2 h-8 w-32 bg-slate-200 animate-pulse rounded"></div>
+          ) : (
+            <div className="mt-2 text-2xl font-bold text-navy">Rs. {totalCollected.toLocaleString()}</div>
+          )}
           <p className="text-xs text-emerald-600 font-semibold mt-1">Direct Society Bank Account</p>
         </div>
 
         <div className="metric-card border-l-4 border-l-red-500">
           <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Overdue Dues</span>
-          <div className="mt-2 text-2xl font-bold text-navy">Rs. {totalOverdue.toLocaleString()}</div>
+          {loading ? (
+            <div className="mt-2 h-8 w-32 bg-slate-200 animate-pulse rounded"></div>
+          ) : (
+            <div className="mt-2 text-2xl font-bold text-navy">Rs. {totalOverdue.toLocaleString()}</div>
+          )}
           <p className="text-xs text-red-600 font-semibold mt-1">Automated WhatsApp notices</p>
         </div>
 
         <div className="metric-card border-l-4 border-l-amber-500">
           <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Pending Verification</span>
-          <div className="mt-2 text-2xl font-bold text-navy">{pendingReceiptsCount} Receipts</div>
+          {loading ? (
+            <div className="mt-2 h-8 w-24 bg-slate-200 animate-pulse rounded"></div>
+          ) : (
+            <div className="mt-2 text-2xl font-bold text-navy">{pendingReceiptsCount} Receipts</div>
+          )}
           <p className="text-xs text-amber-600 font-semibold mt-1">WhatsApp Receipt Photos Sent</p>
         </div>
 
         <div className="metric-card border-l-4 border-l-navy">
           <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Collection Rate</span>
-          <div className="mt-2 text-2xl font-bold text-navy">{collectionRate}%</div>
-          <p className="text-xs text-slate-500 mt-1">{paidCount} of {invoices.length} units settled</p>
+          {loading ? (
+            <div className="mt-2 h-8 w-20 bg-slate-200 animate-pulse rounded"></div>
+          ) : (
+            <div className="mt-2 text-2xl font-bold text-navy">{collectionRate}%</div>
+          )}
+          <p className="text-xs text-slate-500 mt-1">
+            {loading ? 'Calculating settlement rate...' : `${paidCount} of ${invoices.length} units settled`}
+          </p>
         </div>
       </div>
 
@@ -502,7 +532,9 @@ export default function Invoices() {
         <div className="p-4 border-b border-surface-border bg-slate-50/50 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Receipt className="w-4 h-4 text-brand-600" />
-            <h2 className="font-bold text-navy text-sm">Resident Maintenance Vouchers ({filteredInvoices.length})</h2>
+            <h2 className="font-bold text-navy text-sm">
+              Resident Maintenance Vouchers {loading ? '' : `(${filteredInvoices.length})`}
+            </h2>
           </div>
           <span className="text-xs text-slate-500 font-medium">Full Collector & Timestamp Accountability</span>
         </div>
@@ -520,7 +552,16 @@ export default function Invoices() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredInvoices.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-12 text-center text-slate-500">
+                    <div className="flex flex-col items-center justify-center gap-2.5">
+                      <RefreshCw className="w-5 h-5 text-brand-600 animate-spin" />
+                      <span className="text-xs font-medium text-slate-600">Loading society maintenance vouchers...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : filteredInvoices.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
                     No vouchers found matching your filters.
