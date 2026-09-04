@@ -13,7 +13,8 @@ import {
   Wrench,
   Sparkles,
   Settings as SettingsIcon,
-  Building2
+  Building2,
+  Receipt
 } from 'lucide-react';
 import { mockAdminUser } from '../services/mockData';
 
@@ -22,6 +23,7 @@ const navItems = [
   { name: 'Residents', path: '/residents', icon: Users },
   { name: 'Gate Logs', path: '/vehicles', icon: Car },
   { name: 'Tickets', path: '/complaints', icon: AlertCircle },
+  { name: 'Finance', path: '/invoices', icon: Receipt },
   { name: 'Polls', path: '/polls', icon: Vote },
   { name: 'Employees', path: '/employees', icon: Contact },
   { name: 'Assets', path: '/assets', icon: Wrench },

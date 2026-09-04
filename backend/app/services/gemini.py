@@ -300,7 +300,7 @@ class GeminiEngine:
         the engine seamlessly cascades to the next available model.
         """
         candidates = [settings.GEMINI_MODEL]
-        for fallback in ["gemini-flash-latest", "gemini-3.6-flash", "gemini-3-flash-preview"]:
+        for fallback in ["gemini-flash-latest", "gemini-3.6-flash", "gemini-3-flash-preview", "gemini-3.5-flash-lite"]:
             if fallback not in candidates:
                 candidates.append(fallback)
         return candidates
@@ -529,7 +529,9 @@ class GeminiEngine:
             "4. 'cast_poll_vote': Select when the resident is casting a vote for an active society poll.\n"
             "5. 'reply': Select for ALL questions, inquiries, status checks, dues/bill requests, amenities info, off-topic boundaries, life safety emergency advice, or general conversation. Craft a warm, helpful reply_text matching their language (English, Urdu, or Roman Urdu). Use *bold* and _italic_ for WhatsApp formatting.\n"
             "6. EMERGENCY: If resident describes fire, gas leak, medical emergency, or active intruder, immediately advise calling 1122/16/15 in reply_text AND select action 'create_complaint' with category 'Emergency & Life Safety'.\n"
-            "7. NEVER invent dues, bank accounts, or ticket IDs. Use only values from the context."
+            "7. NEVER invent dues, bank accounts, or ticket IDs. Use only values from the context.\n"
+            "8. NEVER claim that a maintenance team or technician has been dispatched unless the context explicitly states that. Keep status factual: 'logged and routed to society management'.\n"
+            "9. IN-UNIT COMPLAINT INTEGRITY: If the resident is reporting a maintenance problem for their apartment (such as a water leak, electrical issue, etc.), select 'create_complaint'. Do NOT treat different issues (e.g. water leak vs no water supply) as duplicates."
         )
 
         # 3. Invoke LLM Cascade
@@ -574,38 +576,7 @@ class GeminiEngine:
             category = llm_data.get("complaint_category") or "General Maintenance & Repair"
             description = llm_data.get("complaint_description") or message_text
 
-            # Smart duplicate check in active society tickets
-            existing_match = None
-            if resident and db_service.client:
-                try:
-                    soc_tcks = db_service.client.table("complaints").select("*").eq("society_id", resident.get("society_id")).in_("status", ["open", "in_progress"]).order("created_at", desc=True).limit(20).execute()
-                    for t in (soc_tcks.data or []):
-                        if t.get("category") == category and t.get("category") != "Emergency & Life Safety":
-                            desc_lower = (t.get("description") or "").lower()
-                            if any(w in desc_lower and w in description.lower() for w in ["lift", "elevator", "generator", "gate", "guard", "tanker", "water", "pump", "power"]):
-                                existing_match = t
-                                break
-                except Exception as e:
-                    logger.error(f"Error checking duplicate complaints: {e}")
-
-            if existing_match:
-                t_num = existing_match.get("ticket_number", "TCK-XXXX")
-                res_payload = {
-                    "status": "success",
-                    "intent": "complaint_duplicate_matched",
-                    "ticket_number": t_num,
-                    "reply_text": (
-                        f"ℹ️ *COMPLAINT ALREADY LOGGED & IN PROGRESS*\n\n"
-                        f"Hello {name}, our management team is already aware of this issue and actively working on it:\n"
-                        f"• *Ticket ID:* `{t_num}`\n"
-                        f"• *Category:* {existing_match.get('category')}\n"
-                        f"• *Status:* 🟡 In Progress\n\n"
-                        f"Our maintenance team has been dispatched. You can track this issue anytime by asking for *{t_num}*!"
-                    )
-                }
-                return self._dispatch_response(res_payload, resident, message_text)
-
-            # Insert new complaint
+            # Insert new complaint directly based on LLM decision
             ticket_num = self._generate_ticket_number()
             if resident and db_service.client:
                 try:
@@ -632,7 +603,7 @@ class GeminiEngine:
                     f"• *Category:* {category}\n"
                     f"• *Location:* {building} - Unit {unit}\n"
                     f"• *Details:* \"{description}\"\n\n"
-                    f"📌 *Status:* Open & Dispatched to Maintenance Team. Our team will attend to your unit shortly!"
+                    f"📌 *Status:* Open (Notified to society management office)"
                 )
             else:
                 # Ensure ticket number is mentioned in AI confirmation

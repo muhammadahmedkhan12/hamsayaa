@@ -9,9 +9,16 @@ import logging
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+# Persistent Redis Deduplication Client
+try:
+    from upstash_redis import Redis
+    redis_client = Redis(url=settings.UPSTASH_REDIS_REST_URL, token=settings.UPSTASH_REDIS_REST_TOKEN) if (settings.UPSTASH_REDIS_REST_URL and settings.UPSTASH_REDIS_REST_TOKEN) else None
+except Exception:
+    redis_client = None
+
 DEFAULT_SOCIETY_ID = "a1b2c3d4-e5f6-7890-abcd-111111111111"
 
-# In-memory deduplication cache for Meta webhooks
+# In-memory fallback cache for Meta webhooks
 PROCESSED_MESSAGE_IDS = set()
 MAX_PROCESSED_CACHE = 1000
 
@@ -176,11 +183,21 @@ async def handle_whatsapp_event(request: Request, background_tasks: BackgroundTa
         msg_type = msg.get("type", "text")
 
         # 2. Deduplication Check: Prevent processing identical retries from Meta
-        if msg_id and msg_id in PROCESSED_MESSAGE_IDS:
-            print(f"--> DUPLICATE WEBHOOK DETECTED (ID: {msg_id}). IGNORED TO PREVENT RACE CONDITIONS.")
-            return {"status": "ignored", "reason": "Duplicate message ID"}
-
         if msg_id:
+            if redis_client:
+                try:
+                    # SET with nx=True sets only if key doesn't exist, with 24-hour expiration
+                    is_new = redis_client.set(f"processed_wamid:{msg_id}", "1", ex=86400, nx=True)
+                    if not is_new:
+                        print(f"--> DUPLICATE WEBHOOK RETRY DROPPED VIA REDIS (ID: {msg_id})")
+                        return {"status": "ignored", "reason": "Duplicate message ID"}
+                except Exception as e:
+                    logger.warning(f"Redis deduplication check failed: {e}")
+
+            if msg_id in PROCESSED_MESSAGE_IDS:
+                print(f"--> DUPLICATE WEBHOOK DETECTED IN RAM (ID: {msg_id}). IGNORED TO PREVENT RACE CONDITIONS.")
+                return {"status": "ignored", "reason": "Duplicate message ID"}
+
             PROCESSED_MESSAGE_IDS.add(msg_id)
             if len(PROCESSED_MESSAGE_IDS) > MAX_PROCESSED_CACHE:
                 PROCESSED_MESSAGE_IDS.pop()
@@ -190,10 +207,10 @@ async def handle_whatsapp_event(request: Request, background_tasks: BackgroundTa
 
         if msg_type in ["audio", "voice"]:
             media_id = msg.get(msg_type, {}).get("id")
-            print(f"--> INCOMING VOICE NOTE FROM {sender_phone} (Media ID: {media_id})")
+            print(f"--> INCOMING VOICE NOTE FROM {sender_phone} (Msg ID: {msg_id}, Media ID: {media_id})")
         else:
             message_text = msg.get("text", {}).get("body", "")
-            print(f"--> INCOMING MESSAGE FROM {sender_phone}: '{message_text}'")
+            print(f"--> INCOMING MESSAGE FROM {sender_phone} (Msg ID: {msg_id}): '{message_text}'")
 
         if not sender_phone or (not message_text and not media_id):
             return {"status": "ignored", "reason": "Empty sender phone, text, and audio payload"}

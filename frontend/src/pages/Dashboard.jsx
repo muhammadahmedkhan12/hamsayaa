@@ -142,7 +142,7 @@ export default function Dashboard() {
         </div>
 
         {/* Card 2: Overdue Maintenance Dues */}
-        <div className="metric-card border-l-4 border-l-red-500">
+        <Link to="/invoices" className="metric-card border-l-4 border-l-red-500 hover:shadow-md transition-shadow cursor-pointer block">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Overdue Dues</span>
             <div className="w-8 h-8 rounded-lg bg-red-50 text-red-600 flex items-center justify-center">
@@ -153,8 +153,11 @@ export default function Dashboard() {
             <span className="text-2xl font-bold text-navy">Rs. {overdueTotal.toLocaleString()}</span>
             <span className="text-xs font-bold text-red-600 font-mono">{overdueCount} Units</span>
           </div>
-          <p className="text-xs text-slate-500 mt-2 font-medium">Manual Block Control Available</p>
-        </div>
+          <p className="text-xs text-slate-500 mt-2 font-medium flex items-center justify-between">
+            <span>Manual Block Control</span>
+            <span className="text-brand-600 font-semibold hover:underline">View Invoices →</span>
+          </p>
+        </Link>
 
         {/* Card 3: Active Guest Passes */}
         <div className="metric-card border-l-4 border-l-brand-500">
