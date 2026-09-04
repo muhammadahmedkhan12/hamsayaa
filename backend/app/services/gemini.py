@@ -643,6 +643,27 @@ class GeminiEngine:
                     }
                     return self._dispatch_response(res_payload, resident, message_text)
 
+            # Check if resident wants to close ALL tickets at once
+            is_close_all = any(w in text_lower for w in ["all", "every", "both", "saari", "tamam", "sab"])
+            if is_close_all and open_tickets:
+                if db_service.client:
+                    try:
+                        ticket_ids = [t.get("id") for t in open_tickets if t.get("id")]
+                        db_service.client.table("complaints").update({"status": "resolved"}).in_("id", ticket_ids).execute()
+                    except Exception as e:
+                        logger.error(f"Error closing all complaints in database: {e}")
+
+                res_payload = {
+                    "status": "success",
+                    "intent": "all_complaints_closed",
+                    "reply_text": (
+                        f"✅ *ALL {len(open_tickets)} COMPLAINTS CLOSED*\n\n"
+                        f"Hello {name}, all {len(open_tickets)} of your active complaints have been marked as resolved at your request.\n\n"
+                        f"Glad everything is sorted out! Feel free to message anytime if you need help with anything else. 🏠"
+                    )
+                }
+                return self._dispatch_response(res_payload, resident, message_text)
+
             # No specific ticket ID provided in message:
             if len(open_tickets) == 1:
                 target = open_tickets[0]
@@ -676,7 +697,7 @@ class GeminiEngine:
                     "reply_text": (
                         f"Hello {name}, you currently have {len(open_tickets)} open complaints:\n\n"
                         f"{t_lines}\n\n"
-                        f"Which one would you like to close? Please reply with the Ticket ID (e.g. *Close {open_tickets[0].get('ticket_number')}*)."
+                        f"Which one would you like to close? Reply with the Ticket ID (e.g. *Close {open_tickets[0].get('ticket_number')}*), or reply *\"Close all\"* to resolve all of them."
                     )
                 }
                 return self._dispatch_response(res_payload, resident, message_text)
