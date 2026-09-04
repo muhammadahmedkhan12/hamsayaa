@@ -95,11 +95,11 @@ export default function Invoices() {
   // Load Invoices
   useEffect(() => {
     loadInvoicesData();
-  }, [selectedStatus]);
+  }, []);
 
   const loadInvoicesData = async () => {
     setLoading(true);
-    const data = await fetchInvoices(selectedStatus);
+    const data = await fetchInvoices();
     setInvoices(data || mockInvoices);
     setLoading(false);
   };
@@ -326,6 +326,19 @@ export default function Invoices() {
     );
     setShowReceiptModal(false);
     await verifyInvoiceReceiptApi(invId);
+  };
+
+  // Format Date Helper
+  const formatTimestamp = (ts) => {
+    if (!ts) return null;
+    try {
+      return new Date(ts).toLocaleString('en-PK', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      });
+    } catch (e) {
+      return ts;
+    }
   };
 
   // Skeleton shimmer block (matching Dashboard tab)

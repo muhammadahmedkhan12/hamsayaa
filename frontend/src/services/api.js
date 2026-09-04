@@ -78,12 +78,12 @@ export async function bulkImportResidentsApi(file) {
 export async function fetchInvoices(status = 'All') {
   try {
     const url = status && status !== 'All' 
-      ? `${API_BASE}/invoices?status=${encodeURIComponent(status)}`
+      ? `${API_BASE}/invoices?status=${encodeURIComponent(status.toLowerCase())}`
       : `${API_BASE}/invoices`;
     const res = await fetch(url);
     if (res.ok) {
       const data = await res.json();
-      if (data && Array.isArray(data.invoices) && data.invoices.length > 0) {
+      if (data && Array.isArray(data.invoices)) {
         return data.invoices;
       }
     }
