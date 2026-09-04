@@ -102,22 +102,33 @@ class DatabaseService:
         if not self.client:
             return []
         residents = self.get_residents(society_id)
+        
+        # Check existing invoices for this society and due_date to avoid duplicate rows
+        existing_res = self.client.table("invoices").select("id, resident_id, due_date, status").eq("society_id", society_id).eq("due_date", due_date).execute()
+        existing_map = {row["resident_id"]: row for row in (existing_res.data or [])}
+
         new_invoices = []
+        existing_invoices = []
         for r in residents:
-            new_invoices.append({
-                "society_id": society_id,
-                "resident_id": r["id"],
-                "society_maintenance_fee": maintenance_fee,
-                "hamsayaa_saas_fee": saas_fee,
-                "utility_charges": utility_charges,
-                "due_date": due_date,
-                "status": "unpaid",
-                "account_shown": account_shown,
-            })
+            r_id = r["id"]
+            if r_id in existing_map:
+                existing_invoices.append(existing_map[r_id])
+            else:
+                new_invoices.append({
+                    "society_id": society_id,
+                    "resident_id": r_id,
+                    "society_maintenance_fee": maintenance_fee,
+                    "hamsayaa_saas_fee": saas_fee,
+                    "utility_charges": utility_charges,
+                    "due_date": due_date,
+                    "status": "unpaid",
+                    "account_shown": account_shown,
+                })
         if new_invoices:
             res = self.client.table("invoices").insert(new_invoices).execute()
-            return res.data
-        return []
+            return (res.data or []) + existing_invoices
+        return existing_invoices
+
 
     # VEHICLE LOGS & PASSES
     def get_vehicle_logs(self, society_id: str):

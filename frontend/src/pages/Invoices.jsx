@@ -23,10 +23,18 @@ import {
   Send,
   Sliders,
   Settings,
-  Edit3
+  Edit3,
+  RotateCw
 } from 'lucide-react';
 import { mockInvoices, mockBuildings } from '../services/mockData';
-import { fetchInvoices, generateCycleInvoicesApi, verifyInvoiceReceiptApi, payInvoiceApi } from '../services/api';
+import {
+  fetchInvoices,
+  generateCycleInvoicesApi,
+  verifyInvoiceReceiptApi,
+  payInvoiceApi,
+  retryFailedVouchersApi,
+  resendSingleVoucherApi
+} from '../services/api';
 
 export default function Invoices() {
   const [invoices, setInvoices] = useState([]);
@@ -42,6 +50,8 @@ export default function Invoices() {
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [payingInvoiceId, setPayingInvoiceId] = useState(null);
   const [isSendingVouchers, setIsSendingVouchers] = useState(false);
+  const [isRetryingFailed, setIsRetryingFailed] = useState(false);
+  const [resendingId, setResendingId] = useState(null);
   const [sendWhatsAppToggle, setSendWhatsAppToggle] = useState(true);
   const [bannerNotice, setBannerNotice] = useState(null);
 
@@ -127,6 +137,11 @@ export default function Invoices() {
   const paidCount = invoices.filter((i) => i.status === 'paid' || i.status === 'verified').length;
   const collectionRate = invoices.length > 0 ? Math.round((paidCount / invoices.length) * 100) : 0;
 
+  // Failed Vouchers Count
+  const failedVouchersCount = invoices.filter(
+    (i) => i.whatsapp_delivery?.status === 'failed'
+  ).length;
+
   // Handle Save Voucher Template (Only updates settings, does NOT send)
   const handleSaveTemplate = (e) => {
     e.preventDefault();
@@ -159,15 +174,16 @@ export default function Invoices() {
     try {
       const res = await generateCycleInvoicesApi(payload);
       setShowSendConfirmModal(false);
+      
+      const sent = res.whatsapp_sent_count ?? 0;
+      const already = res.whatsapp_already_delivered_count ?? 0;
+      const failed = res.whatsapp_failed_count ?? 0;
+
       setBannerNotice({
-        type: 'success',
-        message: `Vouchers issued successfully on the portal! ${
-          sendWhatsAppToggle
-            ? `WhatsApp bills dispatched to residents.`
-            : 'Portal updated (WhatsApp dispatch skipped).'
-        }`,
+        type: failed > 0 ? 'warning' : 'success',
+        message: `Vouchers processed! Sent: ${sent} newly delivered, ${already} previously received (skipped), ${failed} failed.`,
       });
-      setTimeout(() => setBannerNotice(null), 7000);
+      setTimeout(() => setBannerNotice(null), 8000);
       await loadInvoicesData();
     } catch (err) {
       console.error('Error sending vouchers:', err);
@@ -177,6 +193,58 @@ export default function Invoices() {
       });
     } finally {
       setIsSendingVouchers(false);
+    }
+  };
+
+  // Handle Dedicated "Retry Failed" Broadcast
+  const handleRetryFailed = async () => {
+    setIsRetryingFailed(true);
+    try {
+      const res = await retryFailedVouchersApi({
+        ...voucherForm,
+        society_maintenance_fee: totalMaintenanceFee,
+      });
+      setBannerNotice({
+        type: res.still_failed_count > 0 ? 'warning' : 'success',
+        message: `Retry completed: ${res.retried_count || 0} successfully delivered, ${res.still_failed_count || 0} still failed.`,
+      });
+      setTimeout(() => setBannerNotice(null), 7000);
+      await loadInvoicesData();
+    } catch (err) {
+      console.error('Error retrying failed vouchers:', err);
+    } finally {
+      setIsRetryingFailed(false);
+    }
+  };
+
+  // Handle Resend Single Voucher
+  const handleResendSingle = async (invId) => {
+    setResendingId(invId);
+    try {
+      const res = await resendSingleVoucherApi(invId);
+      if (res.status === 'success') {
+        setInvoices((prev) =>
+          prev.map((i) =>
+            i.id === invId
+              ? { ...i, whatsapp_delivery: { status: 'delivered' } }
+              : i
+          )
+        );
+        setBannerNotice({
+          type: 'success',
+          message: res.message || 'Voucher resent successfully!',
+        });
+      } else {
+        setBannerNotice({
+          type: 'error',
+          message: res.message || 'Delivery failed. Check resident number or Meta window.',
+        });
+      }
+      setTimeout(() => setBannerNotice(null), 5000);
+    } catch (err) {
+      console.error('Error resending single voucher:', err);
+    } finally {
+      setResendingId(null);
     }
   };
 
@@ -212,12 +280,16 @@ export default function Invoices() {
           className={`p-3.5 rounded-lg border text-xs font-semibold flex items-center justify-between shadow-xs ${
             bannerNotice.type === 'success'
               ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+              : bannerNotice.type === 'warning'
+              ? 'bg-amber-50 text-amber-800 border-amber-200'
               : 'bg-red-50 text-red-800 border-red-200'
           }`}
         >
           <div className="flex items-center gap-2">
             {bannerNotice.type === 'success' ? (
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            ) : bannerNotice.type === 'warning' ? (
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
             ) : (
               <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
             )}
@@ -228,6 +300,27 @@ export default function Invoices() {
             className="text-slate-400 hover:text-slate-700 ml-4"
           >
             <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* DEDICATED RETRY FAILED BAR (Appears ONLY if any units failed delivery) */}
+      {failedVouchersCount > 0 && (
+        <div className="p-3.5 rounded-lg border border-amber-300 bg-amber-50/90 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs animate-in fade-in duration-200">
+          <div className="flex items-center gap-2.5 text-amber-950 font-medium">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>
+              <strong>{failedVouchersCount} voucher{failedVouchersCount > 1 ? 's' : ''}</strong> failed to deliver via WhatsApp (e.g. resident outside 24-hr care window or phone issue).
+            </span>
+          </div>
+          <button
+            onClick={handleRetryFailed}
+            disabled={isRetryingFailed}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded shadow-xs text-xs transition-colors shrink-0 disabled:opacity-50"
+            title="Retry WhatsApp dispatch ONLY for the failed units"
+          >
+            <RotateCw className={`w-3.5 h-3.5 ${isRetryingFailed ? 'animate-spin' : ''}`} />
+            <span>{isRetryingFailed ? 'Retrying Failed...' : `Retry Failed (${failedVouchersCount})`}</span>
           </button>
         </div>
       )}
@@ -256,7 +349,7 @@ export default function Invoices() {
           <button
             onClick={() => setShowSendConfirmModal(true)}
             className="flex items-center gap-1.5 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold text-xs rounded-lg shadow-sm transition-colors"
-            title="Issue monthly vouchers on the portal and broadcast WhatsApp bills to all residents"
+            title="Issue monthly vouchers on the portal and broadcast WhatsApp bills to residents"
           >
             <Send className="w-3.5 h-3.5" />
             <span>Send Vouchers</span>
@@ -351,10 +444,10 @@ export default function Invoices() {
             <thead className="bg-slate-100 text-slate-600 uppercase font-semibold border-b border-slate-200">
               <tr>
                 <th className="px-4 py-3">Resident & Unit</th>
-                <th className="px-4 py-3">Monthly Maintenance Due</th>
+                <th className="px-4 py-3">Monthly Due</th>
                 <th className="px-4 py-3">Due Date</th>
-                <th className="px-4 py-3">Society Account</th>
-                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">WhatsApp Notice</th>
+                <th className="px-4 py-3">Payment Status</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
@@ -372,9 +465,9 @@ export default function Invoices() {
                   const name = inv.residentName || inv.residents?.name || 'Resident';
                   const total = inv.totalAmount || inv.total_amount || inv.societyMaintenanceFee || inv.society_maintenance_fee || 0;
                   const dueDate = inv.dueDate || inv.due_date || 'N/A';
-                  const account = inv.accountShown || inv.account_shown || 'Meezan Bank - Society Account';
                   const receiptUrl = inv.receiptImageUrl || inv.receipt_image_url;
                   const isSettled = inv.status === 'verified' || inv.status === 'paid';
+                  const delivery = inv.whatsapp_delivery || { status: 'pending' };
 
                   return (
                     <tr key={inv.id} className="hover:bg-slate-50/80 transition-colors">
@@ -386,9 +479,36 @@ export default function Invoices() {
                         Rs. {total.toLocaleString()}
                       </td>
                       <td className="px-4 py-3 text-slate-600">{dueDate}</td>
-                      <td className="px-4 py-3 text-slate-500 text-[11px] truncate max-w-xs" title={account}>
-                        {account}
+                      
+                      {/* WhatsApp Delivery Status Column */}
+                      <td className="px-4 py-3">
+                        {delivery.status === 'delivered' ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Delivered
+                          </span>
+                        ) : delivery.status === 'failed' ? (
+                          <div className="flex items-center gap-1.5">
+                            <span
+                              className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-700 bg-red-50 px-2 py-0.5 rounded border border-red-200 cursor-help"
+                              title={delivery.error || 'WhatsApp delivery failed (Outside 24h window or phone issue)'}
+                            >
+                              <AlertTriangle className="w-3 h-3 text-red-600" /> Failed
+                            </span>
+                            <button
+                              onClick={() => handleResendSingle(inv.id)}
+                              disabled={resendingId === inv.id}
+                              className="p-1 text-slate-500 hover:text-brand-600 hover:bg-slate-100 rounded transition-colors disabled:opacity-50"
+                              title="Resend WhatsApp voucher to this unit"
+                            >
+                              <RotateCw className={`w-3.5 h-3.5 ${resendingId === inv.id ? 'animate-spin text-brand-600' : ''}`} />
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 text-[11px] font-medium">— Pending</span>
+                        )}
                       </td>
+
+                      {/* Payment Status */}
                       <td className="px-4 py-3">
                         {inv.status === 'verified' ? (
                           <span className="status-pill status-pill-paid flex items-center gap-1 w-fit">
@@ -404,6 +524,8 @@ export default function Invoices() {
                           <span className="status-pill status-pill-unpaid">UNPAID</span>
                         )}
                       </td>
+
+                      {/* Actions */}
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-2">
                           {/* Receipt Preview */}
@@ -671,7 +793,7 @@ export default function Invoices() {
                     Broadcast WhatsApp bills to residents
                   </p>
                   <p className="text-[11px] text-emerald-700 mt-0.5">
-                    Sends the itemized bill with bank details directly to each resident's WhatsApp number.
+                    Sends the itemized bill with bank details directly to each resident's WhatsApp number. Units that already received it will be safely skipped.
                   </p>
                 </div>
               </label>

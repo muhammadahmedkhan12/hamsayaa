@@ -2,9 +2,12 @@ from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import date
+import json
+import logging
+
 from app.db.supabase import db_service
 from app.services.whatsapp import whatsapp_service
-import logging
+from app.api.v1.endpoints.whatsapp import redis_client
 
 logger = logging.getLogger(__name__)
 
@@ -32,16 +35,49 @@ class InvoiceUpdateRequest(BaseModel):
 class ReceiptVerifyRequest(BaseModel):
     verified_by: Optional[str] = None
 
+
+def get_delivery_status(invoice_id: str) -> dict:
+    if not redis_client:
+        return {"status": "pending"}
+    try:
+        raw = redis_client.get(f"whatsapp_delivery:{invoice_id}")
+        if raw:
+            if isinstance(raw, str):
+                return json.loads(raw)
+            elif isinstance(raw, dict):
+                return raw
+    except Exception as e:
+        logger.debug(f"Redis get delivery error: {e}")
+    return {"status": "pending"}
+
+
+def set_delivery_status(invoice_id: str, status: str, error: str = None):
+    if not redis_client:
+        return
+    try:
+        payload = {
+            "status": status,
+            "timestamp": date.today().isoformat(),
+            "error": error
+        }
+        redis_client.set(f"whatsapp_delivery:{invoice_id}", json.dumps(payload), ex=30 * 86400)
+    except Exception as e:
+        logger.debug(f"Redis set delivery error: {e}")
+
+
 @router.get("/")
 async def list_invoices(
     society_id: str = Query(DEFAULT_SOCIETY_ID),
     status: Optional[str] = Query(None)
 ):
     """
-    List resident cumulative invoices for a society.
+    List resident cumulative invoices for a society with WhatsApp delivery status.
     """
     invoices = db_service.get_invoices(society_id=society_id, status=status)
+    for inv in invoices:
+        inv["whatsapp_delivery"] = get_delivery_status(inv["id"])
     return {"invoices": invoices}
+
 
 @router.post("/generate")
 async def generate_cycle_invoices(
@@ -50,7 +86,7 @@ async def generate_cycle_invoices(
 ):
     """
     Generate standard monthly cycle maintenance vouchers for all active units in a society
-    and optionally broadcast itemized notifications to residents via WhatsApp.
+    and broadcast itemized notifications to residents via WhatsApp with idempotency.
     """
     # Calculate total maintenance fee from service line items if not directly supplied
     total_fee = payload.society_maintenance_fee
@@ -73,15 +109,28 @@ async def generate_cycle_invoices(
     )
 
     whatsapp_sent = 0
+    whatsapp_already_delivered = 0
     whatsapp_failed = 0
+    failed_details = []
 
     if payload.send_whatsapp:
+        # Map invoice ID by resident ID from the generation result
+        inv_by_resident = {inv["resident_id"]: inv["id"] for inv in result if "resident_id" in inv}
         residents = db_service.get_residents(society_id)
+        
         for r in residents:
+            r_id = r.get("id")
             phone = r.get("phone_number")
-            if not phone:
+            inv_id = inv_by_resident.get(r_id)
+            if not phone or not inv_id:
                 continue
-            
+
+            # Idempotency check: Has this resident already received this cycle's voucher?
+            delivery = get_delivery_status(inv_id)
+            if delivery.get("status") == "delivered":
+                whatsapp_already_delivered += 1
+                continue
+
             name = r.get("name", "Resident")
             building = r.get("building", "Block")
             unit = r.get("unit_number", "")
@@ -107,19 +156,28 @@ async def generate_cycle_invoices(
                 dispatch_res = await whatsapp_service.send_text_message(phone, voucher_msg)
                 if dispatch_res.get("status") != "error":
                     whatsapp_sent += 1
+                    set_delivery_status(inv_id, "delivered")
                 else:
+                    err_msg = dispatch_res.get("response") or dispatch_res.get("message") or "Meta dispatch error"
                     whatsapp_failed += 1
+                    set_delivery_status(inv_id, "failed", err_msg)
+                    failed_details.append({"invoice_id": inv_id, "name": name, "phone": phone, "error": err_msg})
             except Exception as e:
+                err_str = str(e)
                 logger.warning(f"Failed to dispatch voucher to {phone}: {e}")
                 whatsapp_failed += 1
+                set_delivery_status(inv_id, "failed", err_str)
+                failed_details.append({"invoice_id": inv_id, "name": name, "phone": phone, "error": err_str})
 
     return {
         "status": "success",
-        "message": f"Monthly vouchers issued for {len(result)} units. WhatsApp notices sent: {whatsapp_sent}.",
+        "message": f"Monthly vouchers issued for {len(result)} units. WhatsApp: {whatsapp_sent} sent, {whatsapp_already_delivered} already delivered, {whatsapp_failed} failed.",
         "total_maintenance_fee": total_fee,
         "units_count": len(result),
         "whatsapp_sent_count": whatsapp_sent,
+        "whatsapp_already_delivered_count": whatsapp_already_delivered,
         "whatsapp_failed_count": whatsapp_failed,
+        "failed_details": failed_details,
         "breakdown": {
             "guard_fee": payload.guard_fee,
             "sweeper_fee": payload.sweeper_fee,
@@ -131,10 +189,152 @@ async def generate_cycle_invoices(
     }
 
 
+@router.post("/retry-failed")
+async def retry_failed_vouchers(
+    payload: InvoiceGenerateRequest,
+    society_id: str = Query(DEFAULT_SOCIETY_ID)
+):
+    """
+    Retry WhatsApp dispatch ONLY for vouchers that previously failed delivery.
+    Already-delivered residents are strictly skipped.
+    """
+    invoices = db_service.get_invoices(society_id=society_id)
+    residents = db_service.get_residents(society_id)
+    resident_map = {r["id"]: r for r in residents}
+
+    total_fee = payload.society_maintenance_fee
+    if total_fee is None:
+        total_fee = (
+            payload.guard_fee +
+            payload.sweeper_fee +
+            payload.water_fee +
+            payload.generator_fee +
+            payload.misc_fee
+        )
+
+    retried_count = 0
+    still_failed_count = 0
+
+    for inv in invoices:
+        inv_id = inv["id"]
+        delivery = get_delivery_status(inv_id)
+        if delivery.get("status") != "failed":
+            continue  # Skip delivered and pending
+
+        r = resident_map.get(inv.get("resident_id")) or inv.get("residents") or {}
+        phone = r.get("phone_number")
+        if not phone:
+            continue
+
+        name = r.get("name", "Resident")
+        building = r.get("building", "Block")
+        unit = r.get("unit_number", "")
+
+        voucher_msg = (
+            f"🧾 *MONTHLY MAINTENANCE VOUCHER*\n"
+            f"Hello *{name}* ({building} - Unit {unit}),\n\n"
+            f"Your society maintenance voucher for this month has been issued:\n\n"
+            f"• 🛡️ Guard & Security: Rs. {payload.guard_fee:,.0f}\n"
+            f"• 🧹 Sweeper & Sanitation: Rs. {payload.sweeper_fee:,.0f}\n"
+            f"• 🚰 Water Supply: Rs. {payload.water_fee:,.0f}\n"
+            f"• ⚡ Generator Backup: Rs. {payload.generator_fee:,.0f}\n"
+            f"• 🔧 Common Maintenance: Rs. {payload.misc_fee:,.0f}\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"*TOTAL DUE:* *Rs. {total_fee:,.0f}*\n"
+            f"*DUE DATE:* {payload.due_date}\n\n"
+            f"*Society Bank Account:*\n"
+            f"{payload.account_shown}\n\n"
+            f"_Please reply here with a photo/screenshot of your payment receipt once transferred._"
+        )
+
+        try:
+            dispatch_res = await whatsapp_service.send_text_message(phone, voucher_msg)
+            if dispatch_res.get("status") != "error":
+                retried_count += 1
+                set_delivery_status(inv_id, "delivered")
+            else:
+                err_msg = dispatch_res.get("response") or dispatch_res.get("message") or "Meta dispatch error"
+                still_failed_count += 1
+                set_delivery_status(inv_id, "failed", err_msg)
+        except Exception as e:
+            still_failed_count += 1
+            set_delivery_status(inv_id, "failed", str(e))
+
+    return {
+        "status": "success",
+        "message": f"Retry complete: {retried_count} successfully delivered, {still_failed_count} still failed.",
+        "retried_count": retried_count,
+        "still_failed_count": still_failed_count
+    }
+
+
+@router.post("/{invoice_id}/resend")
+async def resend_single_voucher(
+    invoice_id: str,
+    society_id: str = Query(DEFAULT_SOCIETY_ID)
+):
+    """
+    Resend WhatsApp voucher to a single resident directly from the dashboard table.
+    """
+    invoices = db_service.get_invoices(society_id=society_id)
+    target_inv = next((inv for inv in invoices if inv["id"] == invoice_id), None)
+    if not target_inv:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    r = target_inv.get("residents") or {}
+    phone = r.get("phone_number")
+    if not phone:
+        raise HTTPException(status_code=400, detail="Resident does not have a valid phone number")
+
+    name = r.get("name", "Resident")
+    building = r.get("building", "Block")
+    unit = r.get("unit_number", "")
+    total = target_inv.get("total_amount") or target_inv.get("society_maintenance_fee") or 0.0
+    due_date = target_inv.get("due_date", "")
+    account_shown = target_inv.get("account_shown") or "Meezan Bank - Society Account"
+
+    voucher_msg = (
+        f"🧾 *MONTHLY MAINTENANCE VOUCHER*\n"
+        f"Hello *{name}* ({building} - Unit {unit}),\n\n"
+        f"Your society maintenance voucher for this month:\n\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"*TOTAL DUE:* *Rs. {total:,.0f}*\n"
+        f"*DUE DATE:* {due_date}\n\n"
+        f"*Society Bank Account:*\n"
+        f"{account_shown}\n\n"
+        f"_Please reply here with a photo/screenshot of your payment receipt once transferred._"
+    )
+
+    try:
+        dispatch_res = await whatsapp_service.send_text_message(phone, voucher_msg)
+        if dispatch_res.get("status") != "error":
+            set_delivery_status(invoice_id, "delivered")
+            return {
+                "status": "success",
+                "message": f"Voucher successfully resent to {name} ({phone})",
+                "delivery": {"status": "delivered"}
+            }
+        else:
+            err_msg = dispatch_res.get("response") or dispatch_res.get("message") or "Meta dispatch error"
+            set_delivery_status(invoice_id, "failed", err_msg)
+            return {
+                "status": "error",
+                "message": f"Delivery failed: {err_msg}",
+                "delivery": {"status": "failed", "error": err_msg}
+            }
+    except Exception as e:
+        set_delivery_status(invoice_id, "failed", str(e))
+        return {
+            "status": "error",
+            "message": f"Delivery exception: {str(e)}",
+            "delivery": {"status": "failed", "error": str(e)}
+        }
+
+
 @router.patch("/{invoice_id}")
 async def edit_invoice(invoice_id: str, payload: InvoiceUpdateRequest):
     """
-    Admin edit capability for resident invoices (maintenance fee, Hamsayaa SaaS fee, utility charges, due date, account details).
+    Admin edit capability for resident invoices.
     """
     update_data = payload.dict(exclude_unset=True)
     if not update_data:
@@ -173,4 +373,5 @@ async def mark_invoice_as_paid(invoice_id: str):
         "message": "Invoice marked as paid",
         "data": result
     }
+
 

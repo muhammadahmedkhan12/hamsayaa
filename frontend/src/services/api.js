@@ -156,6 +156,38 @@ export async function payInvoiceApi(invoiceId) {
   return { status: 'success', invoice_id: invoiceId, message: 'Marked as paid' };
 }
 
+export async function retryFailedVouchersApi(payload) {
+  try {
+    const res = await fetch(`${API_BASE}/invoices/retry-failed`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn('API error during retry-failed vouchers:', err);
+  }
+  return { status: 'success', message: 'Retried failed vouchers' };
+}
+
+export async function resendSingleVoucherApi(invoiceId) {
+  try {
+    const res = await fetch(`${API_BASE}/invoices/${invoiceId}/resend`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn('API error during single voucher resend:', err);
+  }
+  return { status: 'success', invoice_id: invoiceId, message: 'Voucher resent' };
+}
+
+
 
 // COMPLAINTS & DASHBOARD SUMMARY API
 export async function fetchDashboardSummary() {
