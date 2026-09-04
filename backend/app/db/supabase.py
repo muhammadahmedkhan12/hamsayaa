@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import re
 from supabase import create_client, Client
 from app.core.config import settings
 import logging
@@ -28,57 +29,107 @@ class DatabaseService:
     def get_residents(self, society_id: str, building: str | None = None):
         if not self.client:
             return []
-        query = self.client.table("residents").select("*, registered_vehicles(*)").eq("society_id", society_id)
-        if building and building != "All":
-            query = query.eq("building", building)
-        res = query.order("building").order("unit_number").execute()
-        return res.data
+        try:
+            query = self.client.table("residents").select("*, registered_vehicles(*)").eq("society_id", society_id)
+            if building and building != "All":
+                query = query.eq("building", building)
+            res = query.order("building").order("unit_number").execute()
+            return res.data or []
+        except Exception as e:
+            logger.error(f"Error fetching residents (database may be paused or unreachable): {e}")
+            return []
+
+    def get_resident_by_phone(self, phone: str):
+        """
+        Fast indexed resident lookup by phone number with fallback digit matching.
+        """
+        if not self.client or not phone:
+            return None
+        try:
+            # 1. Clean digits and test standardized format
+            clean_digits = re.sub(r"[^\d]", "", phone.strip())
+            formatted = f"+{clean_digits}"
+            res = self.client.table("residents").select("*").eq("phone_number", formatted).execute()
+            if res.data and len(res.data) > 0:
+                return res.data[0]
+            # 2. Try without leading +
+            res = self.client.table("residents").select("*").eq("phone_number", clean_digits).execute()
+            if res.data and len(res.data) > 0:
+                return res.data[0]
+            return None
+        except Exception as e:
+            logger.error(f"Error looking up resident by phone: {e}")
+            return None
 
     def create_resident(self, resident_data: dict):
         if not self.client:
             return None
-        res = self.client.table("residents").insert(resident_data).execute()
-        return res.data
+        try:
+            res = self.client.table("residents").insert(resident_data).execute()
+            return res.data
+        except Exception as e:
+            logger.error(f"Error creating resident: {e}")
+            return None
 
     def toggle_resident_block(self, resident_id: str, is_blocked: bool):
         if not self.client:
             return None
-        res = self.client.table("residents").update({"is_blocked": is_blocked}).eq("id", resident_id).execute()
-        return res.data
+        try:
+            res = self.client.table("residents").update({"is_blocked": is_blocked}).eq("id", resident_id).execute()
+            return res.data
+        except Exception as e:
+            logger.error(f"Error toggling resident block: {e}")
+            return None
 
     def bulk_upsert_residents(self, residents_list: list[dict]):
         if not self.client or not residents_list:
             return []
-        res = self.client.table("residents").upsert(residents_list, on_conflict="society_id,building,unit_number,phone_number").execute()
-        return res.data
+        try:
+            res = self.client.table("residents").upsert(residents_list, on_conflict="society_id,building,unit_number,phone_number").execute()
+            return res.data
+        except Exception as e:
+            logger.error(f"Error bulk upserting residents: {e}")
+            return []
 
     # COMPLAINTS & TICKETS
     def get_complaints(self, society_id: str, status: str | None = None):
         if not self.client:
             return []
-        query = self.client.table("complaints").select("*, residents(name, unit_number, building)").eq("society_id", society_id)
-        if status and status != "All":
-            query = query.eq("status", status)
-        else:
-            query = query.neq("status", "flagged_irrelevant")
-        res = query.order("created_at", desc=True).execute()
-        return res.data
+        try:
+            query = self.client.table("complaints").select("*, residents(name, unit_number, building)").eq("society_id", society_id)
+            if status and status != "All":
+                query = query.eq("status", status)
+            else:
+                query = query.neq("status", "flagged_irrelevant")
+            res = query.order("created_at", desc=True).execute()
+            return res.data or []
+        except Exception as e:
+            logger.error(f"Error fetching complaints (database may be paused or unreachable): {e}")
+            return []
 
     def update_complaint_status(self, complaint_id: str, status: str):
         if not self.client:
             return None
-        res = self.client.table("complaints").update({"status": status}).eq("id", complaint_id).execute()
-        return res.data
+        try:
+            res = self.client.table("complaints").update({"status": status}).eq("id", complaint_id).execute()
+            return res.data
+        except Exception as e:
+            logger.error(f"Error updating complaint status: {e}")
+            return None
 
     # INVOICES & DUES
     def get_invoices(self, society_id: str, status: str | None = None):
         if not self.client:
             return []
-        query = self.client.table("invoices").select("*, residents(id, name, unit_number, building, phone_number)").eq("society_id", society_id)
-        if status and status != "All":
-            query = query.eq("status", status)
-        res = query.order("created_at", desc=True).execute()
-        return res.data
+        try:
+            query = self.client.table("invoices").select("*, residents(id, name, unit_number, building, phone_number)").eq("society_id", society_id)
+            if status and status != "All":
+                query = query.eq("status", status)
+            res = query.order("created_at", desc=True).execute()
+            return res.data or []
+        except Exception as e:
+            logger.error(f"Error fetching invoices (database may be paused or unreachable): {e}")
+            return []
 
     def update_invoice(self, invoice_id: str, update_data: dict):
         if not self.client:
@@ -221,85 +272,136 @@ class DatabaseService:
     def get_dashboard_summary(self, society_id: str):
         if not self.client:
             return {
-                "open_tickets_count": 5,
-                "needs_human_review_count": 1,
-                "overdue_dues_total": 145000,
-                "overdue_count": 8,
-                "active_passes_count": 8,
-                "flagged_overstays_count": 2,
+                "open_tickets_count": 0,
+                "needs_human_review_count": 0,
+                "overdue_dues_total": 0,
+                "overdue_count": 0,
+                "active_passes_count": 0,
+                "flagged_overstays_count": 0,
+                "recent_complaints": [],
+                "vehicle_logs": []
             }
 
-        complaints = self.get_complaints(society_id)
-        open_tickets = [c for c in complaints if c.get("status") in ["open", "in_progress", "needs_human_review"]]
-        human_review = [c for c in complaints if c.get("status") == "needs_human_review"]
+        try:
+            complaints = self.get_complaints(society_id)
+            open_tickets = [c for c in complaints if c.get("status") in ["open", "in_progress", "needs_human_review"]]
+            human_review = [c for c in complaints if c.get("status") == "needs_human_review"]
 
-        invoices = self.get_invoices(society_id)
-        overdue_invs = [i for i in invoices if i.get("status") == "overdue"]
-        overdue_total = sum(i.get("total_amount", 0) for i in overdue_invs)
+            invoices = self.get_invoices(society_id)
+            overdue_invs = [i for i in invoices if i.get("status") == "overdue"]
+            overdue_total = sum(i.get("total_amount", 0) for i in overdue_invs)
 
-        passes = self.get_visitor_passes(society_id)
-        overstays = self.get_unregistered_overstays(society_id)
+            passes = self.get_visitor_passes(society_id)
+            overstays = self.get_unregistered_overstays(society_id)
 
-        return {
-            "open_tickets_count": len(open_tickets),
-            "needs_human_review_count": len(human_review),
-            "overdue_dues_total": overdue_total,
-            "overdue_count": len(overdue_invs),
-            "active_passes_count": len(passes),
-            "flagged_overstays_count": len(overstays),
-            "recent_complaints": complaints[:5],
-            "vehicle_logs": self.get_vehicle_logs(society_id)[:5]
-        }
+            return {
+                "open_tickets_count": len(open_tickets),
+                "needs_human_review_count": len(human_review),
+                "overdue_dues_total": overdue_total,
+                "overdue_count": len(overdue_invs),
+                "active_passes_count": len(passes),
+                "flagged_overstays_count": len(overstays),
+                "recent_complaints": complaints[:5],
+                "vehicle_logs": self.get_vehicle_logs(society_id)[:5]
+            }
+        except Exception as e:
+            logger.error(f"Error computing dashboard summary (database may be paused or unreachable): {e}")
+            return {
+                "open_tickets_count": 0,
+                "needs_human_review_count": 0,
+                "overdue_dues_total": 0,
+                "overdue_count": 0,
+                "active_passes_count": 0,
+                "flagged_overstays_count": 0,
+                "recent_complaints": [],
+                "vehicle_logs": []
+            }
 
     # POLLS & VOTING
-    def get_polls(self, society_id: str):
+    def get_polls(self, society_id: str, resident_id: str | None = None):
         if not self.client:
             return []
-        polls_res = self.client.table("polls").select("*").eq("society_id", society_id).order("created_at", desc=True).execute()
-        polls_list = polls_res.data
-        if not polls_list:
+        try:
+            polls_res = self.client.table("polls").select("*").eq("society_id", society_id).order("created_at", desc=True).execute()
+            polls_list = polls_res.data or []
+            if not polls_list:
+                return []
+            
+            poll_ids = [p["id"] for p in polls_list]
+            votes_res = self.client.table("poll_votes").select("poll_id, selected_option, resident_id").in_("poll_id", poll_ids).execute()
+            all_votes = votes_res.data or []
+            
+            votes_by_poll = {}
+            for v in all_votes:
+                p_id = v.get("poll_id")
+                if p_id not in votes_by_poll:
+                    votes_by_poll[p_id] = []
+                votes_by_poll[p_id].append(v)
+            
+            for p in polls_list:
+                p_id = p["id"]
+                p_votes = votes_by_poll.get(p_id, [])
+                p["total_votes"] = len(p_votes)
+                
+                opts = p.get("options") or []
+                counts = {opt: 0 for opt in opts}
+                for v in p_votes:
+                    opt = v.get("selected_option")
+                    if opt in counts:
+                        counts[opt] += 1
+                    if resident_id and str(v.get("resident_id")) == str(resident_id):
+                        p["resident_voted_option"] = opt
+                p["votes"] = counts
+                
+            return polls_list
+        except Exception as e:
+            logger.error(f"Error fetching polls (database may be paused or unreachable): {e}")
             return []
-        
-        for p in polls_list:
-            votes_res = self.client.table("poll_votes").select("selected_option").eq("poll_id", p["id"]).execute()
-            votes = votes_res.data or []
-            p["total_votes"] = len(votes)
-            
-            # Options format might be list or dictionary/JSON
-            opts = p.get("options") or []
-            counts = {opt: 0 for opt in opts}
-            for v in votes:
-                opt = v.get("selected_option")
-                if opt in counts:
-                    counts[opt] += 1
-            p["votes"] = counts
-            
-        return polls_list
 
     def create_poll(self, poll_data: dict):
         if not self.client:
             return None
-        res = self.client.table("polls").insert(poll_data).execute()
-        return res.data[0] if res.data else None
+        try:
+            res = self.client.table("polls").insert(poll_data).execute()
+            return res.data[0] if res.data else None
+        except Exception as e:
+            logger.error(f"Error creating poll: {e}")
+            return None
 
     def cast_vote(self, poll_id: str, resident_id: str, selected_option: str):
         if not self.client:
             return None
-        res = self.client.table("poll_votes").upsert(
-            {
+        try:
+            # Check if resident has already cast a vote for this poll
+            existing = self.client.table("poll_votes").select("id, selected_option").eq("poll_id", poll_id).eq("resident_id", resident_id).execute()
+            if existing.data and len(existing.data) > 0:
+                return {
+                    "status": "already_voted",
+                    "existing_option": existing.data[0].get("selected_option")
+                }
+            
+            res = self.client.table("poll_votes").insert({
                 "poll_id": poll_id,
                 "resident_id": resident_id,
                 "selected_option": selected_option
-            },
-            on_conflict="poll_id,resident_id"
-        ).execute()
-        return res.data[0] if res.data else None
+            }).execute()
+            return {
+                "status": "success",
+                "vote": res.data[0] if res.data else None
+            }
+        except Exception as e:
+            logger.error(f"Error casting vote: {e}")
+            return {"status": "error", "error": str(e)}
 
     def close_poll(self, poll_id: str):
         if not self.client:
             return None
-        res = self.client.table("polls").update({"is_closed": True}).eq("id", poll_id).execute()
-        return res.data[0] if res.data else None
+        try:
+            res = self.client.table("polls").update({"is_closed": True}).eq("id", poll_id).execute()
+            return res.data[0] if res.data else None
+        except Exception as e:
+            logger.error(f"Error closing poll: {e}")
+            return None
 
     # VOICE NOTES & MEDIA STORAGE
     def upload_voice_note(self, audio_bytes: bytes, filename: str) -> str | None:

@@ -11,7 +11,7 @@ export async function fetchResidents(building = 'All') {
     const res = await fetch(url);
     if (res.ok) {
       const data = await res.json();
-      if (data && Array.isArray(data.residents) && data.residents.length > 0) {
+      if (data && Array.isArray(data.residents)) {
         return data.residents;
       }
     }
@@ -224,7 +224,7 @@ export async function fetchComplaints(status = 'All') {
     const res = await fetch(url);
     if (res.ok) {
       const data = await res.json();
-      if (data && Array.isArray(data.complaints) && data.complaints.length > 0) {
+      if (data && Array.isArray(data.complaints)) {
         return data.complaints;
       }
     }
@@ -256,7 +256,7 @@ export async function fetchPolls() {
     const res = await fetch(`${API_BASE}/polls`);
     if (res.ok) {
       const data = await res.json();
-      if (data && Array.isArray(data.polls) && data.polls.length > 0) {
+      if (data && Array.isArray(data.polls)) {
         return data.polls;
       }
     }
@@ -320,7 +320,7 @@ export async function fetchEmployees() {
     const res = await fetch(`${API_BASE}/employees`);
     if (res.ok) {
       const data = await res.json();
-      if (data && Array.isArray(data.employees) && data.employees.length > 0) {
+      if (data && Array.isArray(data.employees)) {
         return data.employees;
       }
     }
@@ -382,7 +382,7 @@ export async function fetchAssets() {
     const res = await fetch(`${API_BASE}/assets`);
     if (res.ok) {
       const data = await res.json();
-      if (data && Array.isArray(data.assets) && data.assets.length > 0) {
+      if (data && Array.isArray(data.assets)) {
         return data.assets;
       }
     }
@@ -503,7 +503,7 @@ export async function fetchSettingsApi() {
       security_gate_intercom: '100'
     },
     ai_engine: {
-      gemini_model: 'gemini-2.0-flash',
+      gemini_model: 'gemini-3.5-flash-lite',
       languages: ['English', 'Urdu', 'Roman Urdu'],
       resident_self_closure: true,
       smart_duplicate_matching: true,
@@ -545,7 +545,7 @@ export async function fetchVehicleLogs() {
     const res = await fetch(`${API_BASE}/vehicles/logs`);
     if (res.ok) {
       const data = await res.json();
-      if (data && Array.isArray(data.logs) && data.logs.length > 0) {
+      if (data && Array.isArray(data.logs)) {
         return data.logs;
       }
     }
@@ -658,7 +658,7 @@ export async function fetchAmenities() {
     const res = await fetch(`${API_BASE}/amenities`);
     if (res.ok) {
       const data = await res.json();
-      if (data && Array.isArray(data.amenities) && data.amenities.length > 0) {
+      if (data && Array.isArray(data.amenities)) {
         return data.amenities;
       }
     }

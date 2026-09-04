@@ -3,11 +3,34 @@ from pydantic import BaseModel, Field
 from typing import Optional
 import csv
 import io
+import re
 from app.db.supabase import db_service
 
 router = APIRouter()
 
 DEFAULT_SOCIETY_ID = "a1b2c3d4-e5f6-7890-abcd-111111111111"  # Lakeview Apartments
+
+def normalize_phone_number(raw_phone: str) -> str:
+    """
+    Sanitizes and standardizes phone numbers into E.164-like format (e.g. +923001234567).
+    - Strips whitespace, dashes, dots, parentheses.
+    - Standardizes Pakistani numbers (03xx -> +923xx, 92xx -> +92xx).
+    - Ensures leading '+'.
+    """
+    if not raw_phone:
+        return ""
+    cleaned = re.sub(r"[^\d+]", "", raw_phone.strip())
+    if cleaned.startswith("00"):
+        cleaned = "+" + cleaned[2:]
+    if cleaned.startswith("03") and len(cleaned) == 11:
+        cleaned = "+92" + cleaned[1:]
+    elif cleaned.startswith("3") and len(cleaned) == 10:
+        cleaned = "+92" + cleaned
+    elif cleaned.startswith("92") and not cleaned.startswith("+"):
+        cleaned = "+" + cleaned
+    elif not cleaned.startswith("+") and cleaned:
+        cleaned = "+" + cleaned
+    return cleaned
 
 class ResidentCreate(BaseModel):
     building: str = Field(default="Block A", example="Block A")
@@ -38,10 +61,9 @@ async def create_resident(payload: ResidentCreate, society_id: str = Query(DEFAU
     """
     Create a new resident record under a specified Building/Block and Unit Number.
     """
-    # Clean phone number
-    clean_phone = payload.phone_number.strip()
-    if not clean_phone.startswith("+"):
-        clean_phone = "+" + clean_phone
+    clean_phone = normalize_phone_number(payload.phone_number)
+    if not clean_phone or len(clean_phone) < 8:
+        raise HTTPException(status_code=400, detail="Invalid phone number format.")
         
     data = {
         "society_id": society_id,
@@ -94,21 +116,20 @@ async def bulk_import_residents(
             bld = row.get("building") or row.get("Building") or "Block A"
             unit = row.get("unit_number") or row.get("Unit") or row.get("Unit Number") or "101"
             name = row.get("name") or row.get("Name") or "Resident"
-            phone = row.get("phone_number") or row.get("Phone") or ""
-            if not phone:
+            raw_phone = row.get("phone_number") or row.get("Phone") or ""
+            phone = normalize_phone_number(raw_phone)
+            if not phone or len(phone) < 8:
                 continue
-            if not phone.startswith("+"):
-                phone = "+" + phone
                 
             residents_to_insert.append({
                 "society_id": society_id,
                 "building": bld.strip(),
                 "unit_number": str(unit).strip(),
                 "name": name.strip(),
-                "phone_number": phone.strip(),
-                "cnic": row.get("cnic") or row.get("CNIC"),
-                "is_owner": row.get("is_owner", "true").lower() == "true",
-                "is_tenant": row.get("is_tenant", "false").lower() == "true",
+                "phone_number": phone,
+                "cnic": (row.get("cnic") or row.get("CNIC") or "").strip() or None,
+                "is_owner": str(row.get("is_owner", "true")).lower() == "true",
+                "is_tenant": str(row.get("is_tenant", "false")).lower() == "true",
                 "is_blocked": False,
             })
 

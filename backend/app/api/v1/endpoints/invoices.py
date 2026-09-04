@@ -107,11 +107,48 @@ async def list_invoices(
 ):
     """
     List resident cumulative invoices for a society with WhatsApp delivery status and payment audit trail.
+    Uses batched Redis mget to avoid N+1 network roundtrips.
     """
     invoices = db_service.get_invoices(society_id=society_id, status=status)
+    if not invoices:
+        return {"invoices": []}
+
+    inv_ids = [inv["id"] for inv in invoices if "id" in inv]
+    
+    delivery_map = {}
+    audit_map = {}
+
+    if redis_client and inv_ids:
+        try:
+            delivery_keys = [f"whatsapp_delivery:{iid}" for iid in inv_ids]
+            raw_deliveries = redis_client.mget(*delivery_keys)
+            if raw_deliveries:
+                for iid, raw in zip(inv_ids, raw_deliveries):
+                    if raw:
+                        try:
+                            delivery_map[iid] = json.loads(raw) if isinstance(raw, str) else raw
+                        except Exception:
+                            delivery_map[iid] = {"status": "pending"}
+        except Exception as e:
+            logger.debug(f"Redis mget delivery error: {e}")
+
+        try:
+            audit_keys = [f"payment_audit:{iid}" for iid in inv_ids]
+            raw_audits = redis_client.mget(*audit_keys)
+            if raw_audits:
+                for iid, raw in zip(inv_ids, raw_audits):
+                    if raw:
+                        try:
+                            audit_map[iid] = json.loads(raw) if isinstance(raw, str) else raw
+                        except Exception:
+                            audit_map[iid] = {}
+        except Exception as e:
+            logger.debug(f"Redis mget payment audit error: {e}")
+
     for inv in invoices:
-        inv["whatsapp_delivery"] = get_delivery_status(inv["id"])
-        audit = get_payment_audit(inv["id"])
+        iid = inv.get("id")
+        inv["whatsapp_delivery"] = delivery_map.get(iid, {"status": "pending"})
+        audit = audit_map.get(iid, {})
         if audit:
             inv["payment_audit"] = audit
             inv["verified_by"] = audit.get("collector")

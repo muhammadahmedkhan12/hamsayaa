@@ -57,9 +57,10 @@ async def process_inbound_message(
         clean_phone = sender_phone.replace("+", "").replace(" ", "").replace("-", "")
         formatted_phone = "+" + clean_phone
 
-        # 1. Resident Lookup in Supabase DB
-        resident = None
-        if db_service.client:
+        # 1. Fast Indexed Resident Lookup in Supabase DB
+        resident = db_service.get_resident_by_phone(sender_phone)
+        if not resident and db_service.client:
+            # Fallback scan for unformatted legacy entries
             res = db_service.client.table("residents").select("*").execute()
             for r in (res.data or []):
                 r_phone = r.get("phone_number", "").replace("+", "").replace(" ", "").replace("-", "")

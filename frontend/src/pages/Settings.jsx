@@ -451,7 +451,7 @@ export default function Settings() {
               <span className="text-xs text-slate-400 font-medium">Active LLM Model</span>
               <div className="font-bold text-navy text-sm font-mono flex items-center gap-1.5">
                 <Sparkles className="w-4 h-4 text-amber-500" />
-                {settingsData?.ai_engine?.gemini_model || 'gemini-2.0-flash'}
+                {settingsData?.ai_engine?.gemini_model || 'gemini-3.5-flash-lite'}
               </div>
               <p className="text-[11px] text-slate-500">Multimodal reasoning for text, Urdu audio, and Roman Urdu understanding.</p>
             </div>

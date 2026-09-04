@@ -62,9 +62,15 @@ async def cast_poll_vote(poll_id: str, payload: VoteCast):
         resident_id=payload.resident_id,
         selected_option=payload.selected_option
     )
-    if not result:
-        raise HTTPException(status_code=500, detail="Failed to cast vote or duplicate vote detected")
-    return {"status": "success", "vote": result}
+    if not result or result.get("status") == "error":
+        raise HTTPException(status_code=500, detail="Failed to cast vote")
+    if result.get("status") == "already_voted":
+        return {
+            "status": "already_voted",
+            "message": f"Resident has already voted for '{result.get('existing_option')}'.",
+            "existing_option": result.get("existing_option")
+        }
+    return {"status": "success", "vote": result.get("vote")}
 
 @router.get("/{poll_id}/report")
 async def export_poll_report(poll_id: str, format: str = Query("pdf")):

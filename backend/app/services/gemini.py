@@ -658,13 +658,15 @@ class GeminiEngine:
         active_polls = []
         if resident and resident.get("society_id"):
             try:
-                polls_list = db_service.get_polls(resident.get("society_id"))
+                polls_list = db_service.get_polls(resident.get("society_id"), resident_id=resident.get("id"))
                 active_polls = [p for p in polls_list if not p.get("is_closed")]
                 if active_polls:
-                    p_lines = [
-                        f"- Poll ID: {p.get('id')} - \"{p.get('title')}\" (Options: {', '.join(p.get('options') or [])}) - Total Votes: {p.get('total_votes', 0)}"
-                        for p in active_polls
-                    ]
+                    p_lines = []
+                    for p in active_polls:
+                        line = f"- Poll UUID: {p.get('id')} | Question: \"{p.get('title')}\" | Options: {', '.join(p.get('options') or [])} | Total Votes: {p.get('total_votes', 0)}"
+                        if p.get("resident_voted_option"):
+                            line += f" [ALREADY VOTED: '{p.get('resident_voted_option')}']"
+                        p_lines.append(line)
                     polls_summary = "Active Community Polls:\n" + "\n".join(p_lines)
             except Exception as e:
                 logger.error(f"Error fetching polls context: {e}")
@@ -724,7 +726,7 @@ class GeminiEngine:
             "1. 'create_complaint': Select ONLY when the resident is explicitly reporting or filing a genuine new issue/maintenance fault for their unit or building. Do NOT select this if the resident is just asking about existing complaints or inquiring about status!\n"
             "2. 'close_complaints': Select when the resident wants to close/resolve/cancel their complaint(s). Set close_all=true if they want to close all/every ticket, or list specific ticket IDs in ticket_numbers.\n"
             "3. 'issue_visitor_pass': Select when the resident wants to issue a visitor pass AND has provided visitor details. If required details (name, CNIC/plate) are missing, select 'reply' and ask conversationally for the missing details.\n"
-            "4. 'cast_poll_vote': Select when the resident is casting a vote for an active society poll.\n"
+            "4. 'cast_poll_vote': Select when the resident is casting a vote for an active society poll. CRITICAL: 'poll_id' MUST be the exact 36-character Poll UUID (e.g. 'c3d4e5f6-...') copied directly from 'Poll UUID:' in the Active Community Polls section above, NEVER the question text. 'poll_option' must match one of the listed options. If the poll context shows [ALREADY VOTED], do NOT select 'cast_poll_vote' — instead select 'reply' and inform the resident they have already voted.\n"
             "5. 'reply': Select for ALL questions, inquiries, status checks, dues/bill requests, amenities info, off-topic boundaries, life safety emergency advice, or general conversation. Craft a warm, helpful reply_text matching their language (English, Urdu, or Roman Urdu). Use *bold* and _italic_ for WhatsApp formatting.\n"
             "6. EMERGENCY: If resident describes fire, gas leak, medical emergency, or active intruder, immediately advise calling 1122/16/15 in reply_text AND select action 'create_complaint' with category 'Emergency & Life Safety'.\n"
             "7. NEVER invent dues, bank accounts, or ticket IDs. Use only values from the context.\n"
@@ -899,9 +901,27 @@ class GeminiEngine:
         elif action == "cast_poll_vote":
             poll_id = llm_data.get("poll_id")
             poll_opt = llm_data.get("poll_option")
+            
+            # Defensive check: if poll_id is a question title or substring, match against active_polls
+            if poll_id and active_polls:
+                for p in active_polls:
+                    p_id = str(p.get("id", ""))
+                    p_title = str(p.get("title", "")).lower()
+                    poll_str = str(poll_id).lower()
+                    if p_id == str(poll_id) or poll_str in p_title or p_title in poll_str:
+                        poll_id = p.get("id")
+                        break
+
             if poll_id and poll_opt and resident:
                 try:
-                    db_service.cast_vote(poll_id, resident.get("id"), poll_opt)
+                    vote_res = db_service.cast_vote(poll_id, resident.get("id"), poll_opt)
+                    if vote_res and vote_res.get("status") == "already_voted":
+                        prev_opt = vote_res.get("existing_option")
+                        reply_text = (
+                            f"Aap pehle hi is poll mein vote darj kar chuke hain (*{prev_opt}* ke liye). "
+                            "Ek unit se sirf ek vote ki ijazat hai. Shukriya!\n\n"
+                            f"_(You have already cast your vote for *{prev_opt}*. Multiple votes are not permitted per unit.)_"
+                        )
                 except Exception as e:
                     logger.error(f"Error casting poll vote: {e}")
 
