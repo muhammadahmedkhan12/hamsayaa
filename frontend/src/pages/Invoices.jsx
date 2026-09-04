@@ -19,7 +19,11 @@ import {
   Trash2,
   Droplets,
   Zap,
-  Wrench
+  Wrench,
+  Send,
+  Sliders,
+  Settings,
+  Edit3
 } from 'lucide-react';
 import { mockInvoices, mockBuildings } from '../services/mockData';
 import { fetchInvoices, generateCycleInvoicesApi, verifyInvoiceReceiptApi, payInvoiceApi } from '../services/api';
@@ -32,20 +36,30 @@ export default function Invoices() {
   const [loading, setLoading] = useState(true);
 
   // Modals
-  const [showGenerateModal, setShowGenerateModal] = useState(false);
+  const [showEditVoucherModal, setShowEditVoucherModal] = useState(false);
+  const [showSendConfirmModal, setShowSendConfirmModal] = useState(false);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [payingInvoiceId, setPayingInvoiceId] = useState(null);
+  const [isSendingVouchers, setIsSendingVouchers] = useState(false);
+  const [sendWhatsAppToggle, setSendWhatsAppToggle] = useState(true);
+  const [bannerNotice, setBannerNotice] = useState(null);
 
-  // Society Standard Voucher Template State
-  const [voucherForm, setVoucherForm] = useState({
-    guard_fee: 2500,
-    sweeper_fee: 1000,
-    water_fee: 1500,
-    generator_fee: 1000,
-    misc_fee: 500,
-    due_date: '2026-09-15',
-    account_shown: 'Meezan Bank - A/C 01020304050607 - Lakeview Maint Account',
+  // Society Standard Voucher Template State (persisted locally)
+  const [voucherForm, setVoucherForm] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hamsayaa_voucher_template');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return {
+      guard_fee: 2500,
+      sweeper_fee: 1000,
+      water_fee: 1500,
+      generator_fee: 1000,
+      misc_fee: 500,
+      due_date: '2026-09-15',
+      account_shown: 'Meezan Bank - A/C 01020304050607 - Lakeview Maint Account',
+    };
   });
 
   // Calculate total voucher amount dynamically
@@ -113,9 +127,23 @@ export default function Invoices() {
   const paidCount = invoices.filter((i) => i.status === 'paid' || i.status === 'verified').length;
   const collectionRate = invoices.length > 0 ? Math.round((paidCount / invoices.length) * 100) : 0;
 
-  // Handle Generate Submit (Single Society Voucher issued to all units)
-  const handleGenerateSubmit = async (e) => {
+  // Handle Save Voucher Template (Only updates settings, does NOT send)
+  const handleSaveTemplate = (e) => {
     e.preventDefault();
+    try {
+      localStorage.setItem('hamsayaa_voucher_template', JSON.stringify(voucherForm));
+    } catch (err) {}
+    setShowEditVoucherModal(false);
+    setBannerNotice({
+      type: 'success',
+      message: `Voucher template updated: Total Rs. ${totalMaintenanceFee.toLocaleString()} / unit. Click 'Send Vouchers' whenever you're ready to dispatch.`,
+    });
+    setTimeout(() => setBannerNotice(null), 6000);
+  };
+
+  // Handle Send Vouchers (Updates portal records AND dispatches WhatsApp messages)
+  const handleSendVouchers = async () => {
+    setIsSendingVouchers(true);
     const payload = {
       guard_fee: parseFloat(voucherForm.guard_fee) || 0,
       sweeper_fee: parseFloat(voucherForm.sweeper_fee) || 0,
@@ -125,12 +153,31 @@ export default function Invoices() {
       society_maintenance_fee: totalMaintenanceFee,
       due_date: voucherForm.due_date,
       account_shown: voucherForm.account_shown,
+      send_whatsapp: sendWhatsAppToggle,
     };
 
-    await generateCycleInvoicesApi(payload);
-    alert(`Monthly cycle vouchers issued successfully (Rs. ${totalMaintenanceFee.toLocaleString()} / unit) for all community units!`);
-    setShowGenerateModal(false);
-    loadInvoicesData();
+    try {
+      const res = await generateCycleInvoicesApi(payload);
+      setShowSendConfirmModal(false);
+      setBannerNotice({
+        type: 'success',
+        message: `Vouchers issued successfully on the portal! ${
+          sendWhatsAppToggle
+            ? `WhatsApp bills dispatched to residents.`
+            : 'Portal updated (WhatsApp dispatch skipped).'
+        }`,
+      });
+      setTimeout(() => setBannerNotice(null), 7000);
+      await loadInvoicesData();
+    } catch (err) {
+      console.error('Error sending vouchers:', err);
+      setBannerNotice({
+        type: 'error',
+        message: 'Failed to issue vouchers. Please check server connection.',
+      });
+    } finally {
+      setIsSendingVouchers(false);
+    }
   };
 
   // Handle Mark as Paid (Cash / Direct Transfer collected at society office)
@@ -159,22 +206,62 @@ export default function Invoices() {
 
   return (
     <div className="space-y-6">
-      {/* Header Bar */}
+      {/* Banner Notice */}
+      {bannerNotice && (
+        <div
+          className={`p-3.5 rounded-lg border text-xs font-semibold flex items-center justify-between shadow-xs ${
+            bannerNotice.type === 'success'
+              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+              : 'bg-red-50 text-red-800 border-red-200'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {bannerNotice.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            ) : (
+              <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+            )}
+            <span>{bannerNotice.message}</span>
+          </div>
+          <button
+            onClick={() => setBannerNotice(null)}
+            className="text-slate-400 hover:text-slate-700 ml-4"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Header Bar with Distinct "Edit Voucher" & "Send Vouchers" Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-navy tracking-tight">Finance & Maintenance Vouchers</h1>
           <p className="text-sm text-slate-500 mt-0.5">
-            Single standard monthly voucher for all units, itemized maintenance services, and bank receipt verification.
+            Single standard voucher for all units: Rs. {totalMaintenanceFee.toLocaleString()} / unit (Due: {voucherForm.due_date}).
           </p>
         </div>
 
-        <button
-          onClick={() => setShowGenerateModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold text-sm rounded-lg shadow-sm transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Issue Monthly Cycle Voucher</span>
-        </button>
+        <div className="flex items-center gap-2.5">
+          {/* Action 1: Edit Voucher Form */}
+          <button
+            onClick={() => setShowEditVoucherModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 font-semibold text-xs rounded-lg shadow-2xs transition-colors"
+            title="Configure monthly maintenance services and society bank account"
+          >
+            <Settings className="w-3.5 h-3.5 text-slate-500" />
+            <span>Edit Voucher</span>
+          </button>
+
+          {/* Action 2: Send Vouchers (Updates portal & sends WhatsApp messages) */}
+          <button
+            onClick={() => setShowSendConfirmModal(true)}
+            className="flex items-center gap-1.5 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold text-xs rounded-lg shadow-sm transition-colors"
+            title="Issue monthly vouchers on the portal and broadcast WhatsApp bills to all residents"
+          >
+            <Send className="w-3.5 h-3.5" />
+            <span>Send Vouchers</span>
+          </button>
+        </div>
       </div>
 
       {/* 4 Summary Metric Cards */}
@@ -358,23 +445,23 @@ export default function Invoices() {
         </div>
       </div>
 
-      {/* SINGLE SOCIETY VOUCHER CONFIGURATION & ISSUE MODAL */}
-      {showGenerateModal && (
+      {/* MODAL 1: EDIT VOUCHER TEMPLATE (Just to edit the voucher) */}
+      {showEditVoucherModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
           <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col border border-slate-200 overflow-hidden my-auto">
             {/* Fixed Header */}
             <div className="p-4 sm:p-5 bg-navy text-white flex items-center justify-between shrink-0">
               <div>
                 <h3 className="font-bold text-base flex items-center gap-2">
-                  <Receipt className="w-5 h-5 text-brand-400" /> Issue Monthly Cycle Voucher
+                  <Settings className="w-5 h-5 text-brand-400" /> Edit Monthly Voucher Template
                 </h3>
                 <p className="text-xs text-slate-300 mt-0.5">
-                  Single standardized voucher applied uniformly to all society units.
+                  Configure the itemized maintenance fee breakdown and payment instructions.
                 </p>
               </div>
               <button 
                 type="button"
-                onClick={() => setShowGenerateModal(false)} 
+                onClick={() => setShowEditVoucherModal(false)} 
                 className="text-slate-400 hover:text-white p-1 rounded transition-colors"
               >
                 <X className="w-5 h-5" />
@@ -382,10 +469,10 @@ export default function Invoices() {
             </div>
 
             {/* Form with Scrollable Body and Fixed Footer */}
-            <form onSubmit={handleGenerateSubmit} className="flex flex-col flex-1 overflow-hidden">
+            <form onSubmit={handleSaveTemplate} className="flex flex-col flex-1 overflow-hidden">
               <div className="p-4 sm:p-5 space-y-4 text-xs overflow-y-auto flex-1">
                 <div className="text-slate-600 font-medium">
-                  Set itemized breakdown for society maintenance services:
+                  Set the itemized breakdown for society maintenance services:
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-lg border border-slate-200">
@@ -493,21 +580,21 @@ export default function Invoices() {
                 </div>
               </div>
 
-              {/* Fixed Footer with Visible Action Buttons */}
+              {/* Fixed Footer with "Save Voucher Settings" */}
               <div className="p-4 border-t border-slate-200 bg-slate-50/80 flex justify-end gap-3 shrink-0">
                 <button
                   type="button"
-                  onClick={() => setShowGenerateModal(false)}
+                  onClick={() => setShowEditVoucherModal(false)}
                   className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-medium rounded-lg transition-colors text-xs"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold rounded-lg shadow flex items-center gap-1.5 transition-colors text-xs"
+                  className="px-4 py-2 bg-navy hover:bg-navy/90 text-white font-semibold rounded-lg shadow flex items-center gap-1.5 transition-colors text-xs"
                 >
-                  <Receipt className="w-4 h-4" />
-                  <span>Issue Voucher to All Units</span>
+                  <Check className="w-4 h-4 text-emerald-400" />
+                  <span>Save Voucher Settings</span>
                 </button>
               </div>
             </form>
@@ -515,7 +602,106 @@ export default function Invoices() {
         </div>
       )}
 
-      {/* MODAL 2: RECEIPT PREVIEW & VERIFICATION */}
+      {/* MODAL 2: SEND VOUCHERS CONFIRMATION (Sends WhatsApp message and updates portal) */}
+      {showSendConfirmModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] flex flex-col border border-slate-200 overflow-hidden my-auto">
+            {/* Header */}
+            <div className="p-4 sm:p-5 bg-brand-500 text-white flex items-center justify-between shrink-0">
+              <div>
+                <h3 className="font-bold text-base flex items-center gap-2">
+                  <Send className="w-5 h-5" /> Send Monthly Vouchers
+                </h3>
+                <p className="text-xs text-brand-100 mt-0.5">
+                  Update the portal and broadcast bills to all community units.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSendConfirmModal(false)}
+                className="text-white/80 hover:text-white p-1 rounded transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Confirmation Details */}
+            <div className="p-5 space-y-4 text-xs overflow-y-auto flex-1">
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-2.5">
+                <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                  <span className="text-slate-500 font-medium">Total Payable per Unit:</span>
+                  <span className="text-base font-bold text-navy font-mono">
+                    Rs. {totalMaintenanceFee.toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-[11px] text-slate-600">
+                  <span>Payment Due Date:</span>
+                  <span className="font-semibold text-slate-800">{voucherForm.due_date}</span>
+                </div>
+                <div className="flex justify-between items-start text-[11px] text-slate-600">
+                  <span>Bank Account:</span>
+                  <span className="font-mono text-slate-800 text-right max-w-[200px] truncate" title={voucherForm.account_shown}>
+                    {voucherForm.account_shown}
+                  </span>
+                </div>
+              </div>
+
+              {/* Service Breakdown Summary */}
+              <div className="text-slate-500 text-[11px] space-y-1">
+                <span className="font-bold text-slate-700">Included Services Breakdown:</span>
+                <div className="grid grid-cols-2 gap-1 text-[10px] text-slate-600 bg-slate-100/70 p-2 rounded">
+                  <span>🛡️ Guard: Rs. {voucherForm.guard_fee}</span>
+                  <span>🧹 Sweeper: Rs. {voucherForm.sweeper_fee}</span>
+                  <span>🚰 Water: Rs. {voucherForm.water_fee}</span>
+                  <span>⚡ Generator: Rs. {voucherForm.generator_fee}</span>
+                  <span className="col-span-2">🔧 Misc: Rs. {voucherForm.misc_fee}</span>
+                </div>
+              </div>
+
+              {/* WhatsApp Broadcast Checkbox */}
+              <label className="flex items-start gap-2.5 p-3 bg-emerald-50/70 border border-emerald-200 rounded-lg cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={sendWhatsAppToggle}
+                  onChange={(e) => setSendWhatsAppToggle(e.target.checked)}
+                  className="mt-0.5 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                />
+                <div>
+                  <p className="font-bold text-emerald-900 text-xs">
+                    Broadcast WhatsApp bills to residents
+                  </p>
+                  <p className="text-[11px] text-emerald-700 mt-0.5">
+                    Sends the itemized bill with bank details directly to each resident's WhatsApp number.
+                  </p>
+                </div>
+              </label>
+            </div>
+
+            {/* Actions */}
+            <div className="p-4 border-t border-slate-200 bg-slate-50/80 flex justify-end gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowSendConfirmModal(false)}
+                disabled={isSendingVouchers}
+                className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-medium rounded-lg transition-colors text-xs disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSendVouchers}
+                disabled={isSendingVouchers}
+                className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold rounded-lg shadow flex items-center gap-1.5 transition-colors text-xs disabled:opacity-50"
+              >
+                <Send className="w-4 h-4" />
+                <span>{isSendingVouchers ? 'Sending Vouchers...' : 'Confirm & Send Vouchers'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: RECEIPT PREVIEW & VERIFICATION */}
       {showReceiptModal && selectedInvoice && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] flex flex-col border border-slate-200 overflow-hidden my-auto">
@@ -577,7 +763,6 @@ export default function Invoices() {
           </div>
         </div>
       )}
-
     </div>
   );
 }
