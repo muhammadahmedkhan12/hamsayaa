@@ -11,8 +11,9 @@ Welcome to **Hamsayaa (ہمسایہ)**. This document serves as the single sourc
   - **Paying Customer:** Society Management Committees, Real Estate Developers, Building Admin Offices.
   - **End Users:** Verified residents/tenants living in the residential society.
 - **The Core Innovation (Zero-Install UX):**
-  - Residents interact exclusively through **WhatsApp** (text & voice notes). No mobile app download required.
-  - Society administrators manage operations, verify dues, and track tickets through a modern **React Web Dashboard**.
+  - Residents interact exclusively through **WhatsApp** (text, voice notes, and images/receipts). No mobile app download required.
+  - Society administrators manage operations, verify dues, track tickets, and dispatch vouchers through a modern **React Web Dashboard**.
+  - Zero resident exposure of B2B SaaS platform fees (residents only see direct society maintenance line items).
 
 ---
 
@@ -21,12 +22,13 @@ Welcome to **Hamsayaa (ہمسایہ)**. This document serves as the single sourc
 | Layer | Technology | Details |
 |---|---|---|
 | **Backend API** | **FastAPI** (Python 3.12 / Uvicorn) | Async REST API running on port `8000` (`app/main.py`). |
-| **Frontend Dashboard** | **React 18 + Vite** | Single Page App running on port `3000` / `3001` (`frontend/`). |
-| **AI LLM Engine** | **Google Gemini 2.0 Flash** (`gemini-2.0-flash`) | Intent parsing, conversation reasoning, multilingual understanding (English, Urdu, Roman Urdu). |
+| **Frontend Dashboard** | **React 18 + Vite** | Single Page App running on port `3000` (`frontend/`). |
+| **AI LLM Engine** | **Google Gemini 3.x** (`gemini-3.5-flash-lite`, `gemini-3.7-flash`, `gemini-3.6-flash`, `gemini-flash-latest`) | Multimodal intent reasoning, vision OCR, multilingual (English, Urdu, Roman Urdu). *Note: `gemini-2.0` and `2.5` are deprecated/retired.* |
 | **Audio Processing** | **Gemini Multimodal Audio** | Native binary transcription of WhatsApp voice notes (`.ogg` / `.opus`). |
+| **Vision & Image OCR** | **Gemini Multimodal Vision** | Native visual inspection of payment bank slips and maintenance damage photos. |
 | **Database** | **Supabase** (Managed PostgreSQL) | Relational database with Row Level Security (RLS) and PostgREST. |
-| **Session Memory** | **Upstash Redis** (Serverless REST) | 24-hour sliding window chat history per resident (`chat_history:{phone}`). |
-| **Object Storage** | **Supabase Storage** | Public bucket `society-voice-notes` for resident voice recordings. |
+| **Session Memory & Cache** | **Upstash Redis** (Serverless REST) | 24-hr chat history, atomic webhook deduplication, delivery tracking, and payment audit trail. |
+| **Object Storage** | **Supabase Storage** | Public buckets: `society-voice-notes` (audio recordings), `society-receipts` (payment slips & defect photos). |
 | **Local Tunneling** | **ngrok** | Exposes local FastAPI port 8000 to Meta WhatsApp Cloud API webhooks. |
 | **Error Monitoring** | **Sentry SDK** | Backend observability and exception tracking. |
 
@@ -34,8 +36,14 @@ Welcome to **Hamsayaa (ہمسایہ)**. This document serves as the single sourc
 
 ## 3. Architecture & Engine Pipelines
 
-### A. LLM-First Messaging Architecture (`backend/app/services/gemini.py`)
-Every inbound resident WhatsApp message follows a **Pure LLM-First pipeline**:
+### A. Atomic Webhook Deduplication (`backend/app/api/v1/endpoints/whatsapp.py`)
+To prevent duplicate processing caused by Meta Cloud API retries or rapid retransmissions:
+1. Meta webhook delivers inbound message with a unique `wamid` (`message.id`).
+2. An atomic Upstash Redis `SETNX` (`processed_wamid:{msg_id}`) with 24-hour TTL (86,400s) checks if the message was already received.
+3. If the key already exists, the duplicate is dropped immediately at the gateway before hitting any LLM or database logic.
+
+### B. LLM-First Messaging Architecture (`backend/app/services/gemini.py`)
+Every inbound resident WhatsApp text message follows a **Pure LLM-First pipeline**:
 1. **Context Hydration:** Inbound message triggers `process_resident_message()`. The engine fetches:
    - Upstash Redis conversation history (last 6 turns).
    - Resident profile metadata (name, unit number, building).
@@ -51,39 +59,64 @@ Every inbound resident WhatsApp message follows a **Pure LLM-First pipeline**:
      - `issue_visitor_pass`: Logs visitor details and generates gate pass.
      - `cast_poll_vote`: Records community poll vote.
 3. **Multi-Model Cascade & Outage Handling:**
-   - The engine cascades seamlessly through candidate models (`gemini-flash-latest` -> `gemini-3.6-flash` -> `gemini-3-flash-preview`).
+   - Active cascade: `gemini-3.5-flash-lite` -> `gemini-3.7-flash` -> `gemini-3.6-flash` -> `gemini-flash-latest` -> `gemini-3-flash-preview`.
    - ZERO hardcoded keyword or regex fallback arrays.
-   - If (and only if) all candidate models fail due to API limits or outages, the system sends a transparent, polite service-busy notification with office intercom/helpline details instead of guessing or fabricating responses.
-4. **Memory Persistence:** Both resident input and generated AI replies are saved back to Upstash Redis with an 86,400-second (24-hour) TTL via `_save_chat_history()`.
+   - If all candidate models fail due to API limits or outages, the system sends a transparent service-busy notice with society helpline details.
+4. **Memory Persistence:** Both resident input and generated AI replies are saved back to Upstash Redis with a 24-hour TTL via `_save_chat_history()`.
 
-### B. Voice Note Processing Pipeline
+### C. Multimodal Image & Payment Slip Pipeline
+1. Resident sends an image via WhatsApp (bank transfer screenshot, ATM receipt, or photo of maintenance damage).
+2. `whatsapp.py` webhook extracts `media_id`, `caption`, and `mime_type`.
+3. `whatsapp_service.download_media(media_id)` downloads the binary image from Meta Graph API.
+4. `gemini_engine.process_image_message()` uses multimodal vision to classify and process:
+   - **`payment_slip`:**
+     - Gemini extracts transaction details (Amount, Transaction ID, Bank, Date).
+     - Binary is uploaded to Supabase Storage (`society-receipts/`).
+     - Image URL is linked to the resident's active invoice via `db_service.attach_invoice_receipt()`.
+     - Advance payment handling: If sent before monthly vouchers are generated, creates an advance invoice (`get_or_create_advance_invoice()`) so the receipt is never lost.
+     - Settled check: If resident is already marked paid/verified, clarifies balance is Rs. 0 without modifying records.
+     - WhatsApp confirmation sent to resident stating receipt has been submitted for office verification.
+   - **`maintenance_issue`:**
+     - Binary is uploaded to Supabase Storage (`society-receipts/`).
+     - A complaint ticket is created with category, description, and permanent `photo_url`.
+   - **`irrelevant`:**
+     - Politely guides resident back to society management topics.
+
+### D. Voice Note Processing Pipeline
 1. Resident sends a WhatsApp voice note (`audio` or `voice` payload type).
-2. `backend/app/api/v1/endpoints/whatsapp.py` extracts `media_id`.
-3. `whatsapp_service.download_media(media_id)` downloads the binary `.ogg` audio from Meta Graph API.
-4. `gemini_engine.transcribe_and_process_audio()`:
-   - Passes raw audio binary to Gemini 2.0 Flash multimodal endpoint for instant English / Urdu / Roman Urdu transcription.
-   - Uploads `.ogg` audio to Supabase Storage bucket (`society-voice-notes/`) via `db_service.upload_voice_note()`.
-   - Stores the permanent `audio_url` on the complaint ticket.
-   - Routes the transcribed text into `process_resident_message()` as a normal message.
+2. `whatsapp.py` extracts `media_id` and downloads the `.ogg` audio binary.
+3. `gemini_engine.transcribe_and_process_audio()`:
+   - Passes raw audio to Gemini multimodal endpoint for instant English / Urdu / Roman Urdu transcription.
+   - Uploads `.ogg` to Supabase Storage (`society-voice-notes/`).
+   - Routes transcribed text through `process_resident_message()`.
 
-### C. Complaint Resolution & WhatsApp Dispatch Pipeline
-1. Society admin views active complaints in the React Dashboard (`Complaints.jsx`).
-2. Admin clicks the green **"Mark Resolved"** button.
+### E. Complaint Resolution & Notification Pipeline
+1. Society admin views active complaints in React Dashboard (`Complaints.jsx`).
+2. Admin clicks **"Mark Resolved"**.
 3. Frontend triggers `PATCH /api/v1/complaints/{id}` with `{"status": "resolved"}`.
 4. Backend updates ticket status in Supabase and automatically calls `whatsapp_service.send_text_message()`.
-5. The resident receives an immediate confirmation on WhatsApp:
-   ```text
-   ✅ *COMPLAINT RESOLVED*
-   Hello [Name], great news! Your complaint has been resolved:
-   • Ticket ID: TCK-XXXX
-   • Category: [Category]
-   • Issue: "[Description]"
-   • Status: ✅ Resolved
-   ```
+5. Resident receives an immediate WhatsApp confirmation with Ticket ID, Category, and Description.
+6. Alternatively, if a resident texts saying their issue is fixed, Gemini's `close_complaints` action resolves the ticket directly and confirms via WhatsApp.
+
+### F. Finance & Maintenance Vouchers Lifecycle (`backend/app/api/v1/endpoints/invoices.py` & `frontend/src/pages/Invoices.jsx`)
+1. **Itemized Services Breakdown:** Single standard voucher template configured per society (Guard, Sweeper, Water, Generator, Misc).
+2. **Separated Workflows:**
+   - **"Edit Voucher"**: Opens settings modal to configure fees, due date, and society bank account. Clicking "Save Voucher Settings" persists settings locally without dispatching messages.
+   - **"Send Vouchers"**: Dedicated broadcast action. Displays preview modal (total payable, target units, WhatsApp toggle). Updates database records and dispatches WhatsApp messages with itemized line items.
+3. **Idempotency & Delivery Tracking:**
+   - Each invoice delivery is tracked in Upstash Redis (`whatsapp_delivery:{invoice_id}`).
+   - Existing delivered vouchers are skipped to prevent duplicate blasts.
+   - Failed deliveries trigger a dedicated amber bar with **"Retry Failed (X)"** and per-row **"Resend"** buttons.
+4. **Payment Accountability & Audit Trail:**
+   - Clicking **"Mark Paid"** opens a modal recording **Collector Name** (e.g. `Tariq (Treasurer)`), **Payment Method** (`Cash`, `Bank / Raast`, `Cheque`), and timestamp.
+   - Audit trail stored in Redis (`payment_audit:{invoice_id}`) with 365-day TTL and displayed in the portal.
+5. **Dashboard-Matching Shimmer Skeleton:**
+   - During loading, renders `animate-pulse bg-slate-200 rounded` skeleton components (sync badge, metric cards, filter tabs, table rows) matching `Dashboard.jsx`.
+   - Top toolbar includes a manual **Refresh** button (`<RefreshCw />`).
 
 ---
 
-## 4. Supabase Database Schema
+## 4. Supabase Database Schema & Storage
 
 ### Core Tables:
 1. **`residents`**:
@@ -93,9 +126,20 @@ Every inbound resident WhatsApp message follows a **Pure LLM-First pipeline**:
 3. **`visitor_passes`**:
    - `id` (UUID, PK), `society_id` (UUID), `resident_id` (UUID, FK -> `residents.id`), `visitor_name` (text), `visitor_cnic` (text), `vehicle_plate` (text), `pass_code` (text, e.g. `LV-4821`), `valid_from` (timestamptz), `valid_until` (timestamptz).
 4. **`invoices`**:
-   - `id` (UUID, PK), `society_id` (UUID), `resident_id` (UUID, FK -> `residents.id`), `society_maintenance_fee` (numeric), `hamsayaa_saas_fee` (numeric), `utility_charges` (numeric), `total_amount` (numeric), `status` (`unpaid` | `paid` | `verified` | `overdue`), `due_date` (date), `receipt_url` (text, nullable).
+   - `id` (UUID, PK), `society_id` (UUID), `resident_id` (UUID, FK -> `residents.id`), `society_maintenance_fee` (numeric), `hamsayaa_saas_fee` (numeric), `utility_charges` (numeric), `total_amount` (numeric), `status` (`unpaid` | `paid` | `verified` | `overdue`), `due_date` (date), `receipt_image_url` (text, nullable), `account_shown` (text, nullable), `verified_by` (text, nullable), `verified_at` (timestamptz, nullable).
 5. **`polls` & `poll_votes`**:
    - Community surveys, single-choice voting enforcement per unit.
+6. **`employees`**, **`assets`**, **`maintenance_logs`**, **`amenities`**, **`vehicle_logs`**.
+
+### Storage Buckets:
+- `society-voice-notes`: Public bucket for resident voice recordings (`.ogg` / `.opus`).
+- `society-receipts`: Public bucket for payment slip screenshots and maintenance defect photos.
+
+### Redis Keys (Upstash):
+- `chat_history:{phone}`: 24-hr sliding window chat turns per resident.
+- `processed_wamid:{msg_id}`: 24-hr idempotency deduplication for inbound WhatsApp webhooks.
+- `whatsapp_delivery:{invoice_id}`: 30-day delivery status (`delivered`, `failed`, `pending`) and error details.
+- `payment_audit:{invoice_id}`: 365-day collector accountability record (`collector`, `method`, `collected_at`).
 
 ---
 
@@ -105,11 +149,10 @@ Every inbound resident WhatsApp message follows a **Pure LLM-First pipeline**:
 - **`start.bat`**: Automatically starts Backend (port 8000), Frontend (port 3000), and ngrok in separate windows using relative paths (`%~dp0`).
 - **`stop.bat`**: Cleanly kills all running Python, Node, and ngrok processes.
 
-### Environment Setup (`.env`):
-All developers must copy `.env.example` to `backend/.env` and supply credentials:
-- `WHATSAPP_*`: Meta Developer App credentials.
+### Environment Setup (`backend/.env`):
+- `WHATSAPP_*`: Meta Developer App credentials (Access Token, Phone Number ID, Verify Token).
 - `GEMINI_API_KEY`: Google AI Studio API key.
-- `GEMINI_MODEL`: `gemini-2.0-flash` (or `gemini-2.5-flash`).
+- `GEMINI_MODEL`: `gemini-3.5-flash-lite` (primary) or `gemini-3.7-flash`.
 - `SUPABASE_*`: Shared project URL and Service Role Key (`sb_secret_...` or JWT).
 - `UPSTASH_*`: Redis REST URL and Token.
 
@@ -129,3 +172,5 @@ All developers must copy `.env.example` to `backend/.env` and supply credentials
 3. **Emergency Detection First:** Safety issues (fire, gas leaks, physical intruders) must immediately advise calling local emergency services before logging an emergency ticket.
 4. **Phone Number Sanitization:** Always normalize phone numbers by stripping whitespace and dashes, formatting with leading `+` (e.g. `+923001234567`).
 5. **Supabase Auto-Pause Awareness:** Free-tier Supabase databases auto-pause after 7 days of inactivity. If queries fail with `ConnectError: getaddrinfo failed` or 401, check the Supabase Dashboard and click "Resume Project".
+6. **Zero Resident Exposure of Platform Fees:** `hamsayaa_saas_fee` is strictly a B2B SaaS platform fee paid by the society management office. Never display SaaS platform fees to residents on WhatsApp or in their invoices view.
+7. **Idempotent Broadcasts:** Never re-dispatch vouchers to residents whose delivery status is already marked `delivered` in Redis. Always provide isolated retry or resend options for failed units.
