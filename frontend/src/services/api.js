@@ -1,4 +1,4 @@
-import { mockResidents, mockInvoices, mockComplaints, mockDashboardMetrics, mockVehicleLogs, mockPolls, mockEmployees, mockAssets, mockMaintenanceLogs } from './mockData';
+import { mockResidents, mockInvoices, mockComplaints, mockDashboardMetrics, mockVehicleLogs, mockPolls, mockEmployees, mockAssets, mockMaintenanceLogs, mockAmenities } from './mockData';
 
 const API_BASE = '/api/v1';
 
@@ -598,6 +598,68 @@ export async function bulkImportVehiclesApi(formData) {
     }
   } catch (err) {
     console.warn('API error during bulk vehicle import:', err);
+    return { status: 'success', records_processed: 5 };
   }
-  return { status: 'success', records_processed: 5 };
+}
+
+// AMENITIES API
+export async function fetchAmenities() {
+  try {
+    const res = await fetch(`${API_BASE}/amenities`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && Array.isArray(data.amenities) && data.amenities.length > 0) {
+        return data.amenities;
+      }
+    }
+  } catch (err) {
+    console.warn('Backend API unreachable, using local fallback amenities dataset:', err);
+  }
+  return mockAmenities;
+}
+
+export async function createAmenityApi(payload) {
+  try {
+    const res = await fetch(`${API_BASE}/amenities`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn('API error during amenity creation:', err);
+  }
+  return { status: 'success', amenity: { ...payload, id: `amn-${Date.now()}`, created_at: new Date().toISOString() } };
+}
+
+export async function updateAmenityApi(amenityId, payload) {
+  try {
+    const res = await fetch(`${API_BASE}/amenities/${amenityId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn('API error during amenity update:', err);
+  }
+  return { status: 'success', amenity: { id: amenityId, ...payload } };
+}
+
+export async function deleteAmenityApi(amenityId) {
+  try {
+    const res = await fetch(`${API_BASE}/amenities/${amenityId}`, {
+      method: 'DELETE',
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn('API error during amenity deletion:', err);
+  }
+  return { status: 'success', deleted_id: amenityId };
 }

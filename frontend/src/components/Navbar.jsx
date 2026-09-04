@@ -11,6 +11,7 @@ import {
   Vote,
   Contact,
   Wrench,
+  Sparkles,
   Settings as SettingsIcon,
   Building2
 } from 'lucide-react';
@@ -24,6 +25,7 @@ const navItems = [
   { name: 'Polls', path: '/polls', icon: Vote },
   { name: 'Employees', path: '/employees', icon: Contact },
   { name: 'Assets', path: '/assets', icon: Wrench },
+  { name: 'Amenities', path: '/amenities', icon: Sparkles },
   { name: 'Settings', path: '/settings', icon: SettingsIcon },
 ];
 

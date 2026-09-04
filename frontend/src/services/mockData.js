@@ -443,3 +443,66 @@ export const mockMaintenanceLogs = [
     created_at: '2026-07-05T11:00:00Z',
   },
 ];
+
+export const mockAmenities = [
+  {
+    id: 'amn-001',
+    name: 'Rooftop Swimming Pool',
+    description: 'Temperature-controlled semi-Olympic pool with separate shallow splash pool for kids.',
+    timings: '06:00 - 22:00 Daily (Ladies: 14:00 - 17:00)',
+    rules: 'Proper synthetic swimwear required. Shower before entering. Children under 12 must be accompanied by an adult.',
+    capacity: 35,
+    is_bookable: false,
+    created_at: '2026-06-01T08:00:00Z'
+  },
+  {
+    id: 'amn-002',
+    name: 'Community Fitness Gym',
+    description: 'Fully equipped fitness center with cardio treadmills, cross-trainers, and free weights.',
+    timings: '05:30 - 23:00 Daily',
+    rules: 'Resident biometric entrance only. Clean athletic shoes and personal towel mandatory. Wipe equipment after use.',
+    capacity: 25,
+    is_bookable: false,
+    created_at: '2026-06-01T08:00:00Z'
+  },
+  {
+    id: 'amn-003',
+    name: 'Community Banquet & Event Hall',
+    description: 'Spacious multi-purpose air-conditioned event hall for family gatherings, birthdays, and society meetings.',
+    timings: '10:00 - 23:00 (Advance reservation)',
+    rules: 'Advance booking of 48 hours required via admin office. Music permitted until 22:00. Catering setup allowed.',
+    capacity: 150,
+    is_bookable: true,
+    created_at: '2026-06-01T08:00:00Z'
+  },
+  {
+    id: 'amn-004',
+    name: 'Rooftop Badminton & Pickleball Court',
+    description: 'High-grip synthetic surface court with nighttime floodlights.',
+    timings: '07:00 - 22:00 Daily',
+    rules: 'Non-marking court shoes mandatory. 45-minute court rotation when other residents are waiting.',
+    capacity: 8,
+    is_bookable: false,
+    created_at: '2026-06-01T08:00:00Z'
+  },
+  {
+    id: 'amn-005',
+    name: 'Central Mosque & Prayer Area',
+    description: 'Air-conditioned prayer hall with dedicated ablution (Wudu) facility.',
+    timings: 'Open 24 Hours (All 5 daily prayers & Jummah)',
+    rules: 'Maintain silence and decorum. Keep mobile phones on silent.',
+    capacity: 120,
+    is_bookable: false,
+    created_at: '2026-06-01T08:00:00Z'
+  },
+  {
+    id: 'amn-006',
+    name: 'Children Play Park & Walking Track',
+    description: 'Outdoor landscaped green park with rubberized jogging track, swings, and slides.',
+    timings: '06:00 - 21:00 Daily',
+    rules: 'No bicycles on the rubberized track. Pets must be on leash. Dispose litter in designated bins.',
+    capacity: 60,
+    is_bookable: false,
+    created_at: '2026-06-01T08:00:00Z'
+  }
+];

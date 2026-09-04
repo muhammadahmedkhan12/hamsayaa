@@ -706,6 +706,19 @@ class GeminiEngine:
                 if history_context:
                     full_prompt += f"\nRECENT CONVERSATION HISTORY (UPSTASH MEMORY):\n{history_context}\n"
                 
+                # Live Society Amenities Context
+                if resident and resident.get("society_id"):
+                    try:
+                        amenities_list = db_service.get_amenities(resident.get("society_id"))
+                        if amenities_list:
+                            am_lines = "\n".join([
+                                f"• {a.get('name')}: Timings: {a.get('timings', 'Standard')}, Rules: {a.get('rules', 'Standard community guidelines')}, Bookable: {'Yes' if a.get('is_bookable') else 'No'}"
+                                for a in amenities_list
+                            ])
+                            full_prompt += f"\nSOCIETY AMENITIES & FACILITIES DIRECTORY:\n{am_lines}\n"
+                    except Exception as e:
+                        logger.error(f"Error fetching amenities for Gemini prompt: {e}")
+
                 full_prompt += (
                     f"\nNEW RESIDENT MESSAGE: \"{message_text}\"\n\n"
                     f"STRICT BEHAVIOR INSTRUCTIONS FOR AI CONCIERGE:\n"

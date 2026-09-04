@@ -449,4 +449,45 @@ class DatabaseService:
             logger.error(f"Error marking vehicle exit {log_id}: {e}")
             return None
 
+    # AMENITIES & FACILITIES
+    def get_amenities(self, society_id: str):
+        if not self.client:
+            return []
+        try:
+            res = self.client.table("amenities").select("*").eq("society_id", society_id).order("name", desc=False).execute()
+            return res.data or []
+        except Exception as e:
+            logger.error(f"Error fetching amenities: {e}")
+            return []
+
+    def create_amenity(self, amenity_data: dict):
+        if not self.client:
+            return None
+        try:
+            res = self.client.table("amenities").insert(amenity_data).execute()
+            return res.data[0] if res.data else None
+        except Exception as e:
+            logger.error(f"Error creating amenity: {e}")
+            return None
+
+    def update_amenity(self, amenity_id: str, data: dict):
+        if not self.client:
+            return None
+        try:
+            res = self.client.table("amenities").update(data).eq("id", amenity_id).execute()
+            return res.data[0] if res.data else None
+        except Exception as e:
+            logger.error(f"Error updating amenity {amenity_id}: {e}")
+            return None
+
+    def delete_amenity(self, amenity_id: str):
+        if not self.client:
+            return False
+        try:
+            self.client.table("amenities").delete().eq("id", amenity_id).execute()
+            return True
+        except Exception as e:
+            logger.error(f"Error deleting amenity {amenity_id}: {e}")
+            return False
+
 db_service = DatabaseService()
