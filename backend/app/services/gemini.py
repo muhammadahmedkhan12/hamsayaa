@@ -172,8 +172,7 @@ provides one. Tell the resident to forward it to their guest themselves.
 ====================================================================
 - Never state a dues amount or account number from memory — always fetch
   current values.
-- When asked for a bill breakdown, show it itemized (maintenance fee +
-  utility charges + Hamsayaa fee = total) — not just a lump total.
+- When asked for a bill breakdown, state the monthly maintenance voucher covering society services (Security/Guard, Sweeper, Water, Generator & Common Facilities) — never invent or mention software platform fees.
 - Payment is manual bank transfer / JazzCash / EasyPaisa. Provide the account
   details from the tool result, then let the resident know they can send a
   screenshot of the transfer for the record.
@@ -443,13 +442,12 @@ class GeminiEngine:
                 invoices_list = inv_res.data or []
                 active_invoice = next((i for i in invoices_list if i.get("status") in ["unpaid", "overdue"]), invoices_list[0] if invoices_list else None)
                 if active_invoice:
+                    total_amt = active_invoice.get('total_amount') or active_invoice.get('society_maintenance_fee', 0)
                     invoice_summary = (
-                        f"RESIDENT DUES & INVOICE DETAILS (LIVE SUPABASE DB):\n"
+                        f"RESIDENT DUES & MONTHLY VOUCHER (LIVE SUPABASE DB):\n"
                         f"• Status: {active_invoice.get('status', '').upper()}\n"
-                        f"• Society Maintenance Fee: PKR {active_invoice.get('society_maintenance_fee', 0):,.2f}\n"
-                        f"• Hamsayaa Platform SaaS Fee: PKR {active_invoice.get('hamsayaa_saas_fee', 0):,.2f}\n"
-                        f"• Utility Charges: PKR {active_invoice.get('utility_charges', 0):,.2f}\n"
-                        f"• Total Amount Due: PKR {active_invoice.get('total_amount', 0):,.2f}\n"
+                        f"• Monthly Maintenance Voucher: PKR {total_amt:,.2f} (Includes Security/Guard, Sweeper/Sanitation, Water Supply, Generator & Common Facilities)\n"
+                        f"• Total Amount Due: PKR {total_amt:,.2f}\n"
                         f"• Due Date: {active_invoice.get('due_date', 'N/A')}\n"
                         f"• Payment Account: {active_invoice.get('account_shown') or 'Meezan Bank - A/C PK42MEZN00012345678901 - Lakeview Maint Account'}"
                     )
