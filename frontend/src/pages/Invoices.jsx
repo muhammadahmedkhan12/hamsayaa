@@ -360,9 +360,10 @@ export default function Invoices() {
 
       {/* SINGLE SOCIETY VOUCHER CONFIGURATION & ISSUE MODAL */}
       {showGenerateModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200">
-            <div className="p-5 bg-navy text-white flex items-center justify-between">
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col border border-slate-200 overflow-hidden my-auto">
+            {/* Fixed Header */}
+            <div className="p-4 sm:p-5 bg-navy text-white flex items-center justify-between shrink-0">
               <div>
                 <h3 className="font-bold text-base flex items-center gap-2">
                   <Receipt className="w-5 h-5 text-brand-400" /> Issue Monthly Cycle Voucher
@@ -371,131 +372,139 @@ export default function Invoices() {
                   Single standardized voucher applied uniformly to all society units.
                 </p>
               </div>
-              <button onClick={() => setShowGenerateModal(false)} className="text-slate-400 hover:text-white">
+              <button 
+                type="button"
+                onClick={() => setShowGenerateModal(false)} 
+                className="text-slate-400 hover:text-white p-1 rounded transition-colors"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleGenerateSubmit} className="p-5 space-y-4 text-xs">
-              <div className="text-slate-600 font-medium">
-                Set itemized breakdown for society maintenance services:
+            {/* Form with Scrollable Body and Fixed Footer */}
+            <form onSubmit={handleGenerateSubmit} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-4 sm:p-5 space-y-4 text-xs overflow-y-auto flex-1">
+                <div className="text-slate-600 font-medium">
+                  Set itemized breakdown for society maintenance services:
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-lg border border-slate-200">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      🛡️ Security & Guard Fee (Rs.)
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      value={voucherForm.guard_fee}
+                      onChange={(e) => setVoucherForm({ ...voucherForm, guard_fee: e.target.value })}
+                      className="w-full p-2 border border-slate-300 rounded font-mono bg-white text-slate-800"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      🧹 Sweeper & Sanitation (Rs.)
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      value={voucherForm.sweeper_fee}
+                      onChange={(e) => setVoucherForm({ ...voucherForm, sweeper_fee: e.target.value })}
+                      className="w-full p-2 border border-slate-300 rounded font-mono bg-white text-slate-800"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      🚰 Water Supply & Tankers (Rs.)
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      value={voucherForm.water_fee}
+                      onChange={(e) => setVoucherForm({ ...voucherForm, water_fee: e.target.value })}
+                      className="w-full p-2 border border-slate-300 rounded font-mono bg-white text-slate-800"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      ⚡ Generator & Backup (Rs.)
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      value={voucherForm.generator_fee}
+                      onChange={(e) => setVoucherForm({ ...voucherForm, generator_fee: e.target.value })}
+                      className="w-full p-2 border border-slate-300 rounded font-mono bg-white text-slate-800"
+                    />
+                  </div>
+
+                  <div className="col-span-2">
+                    <label className="block font-bold text-slate-700 mb-1">
+                      🔧 Misc & Common Maintenance (Rs.)
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      value={voucherForm.misc_fee}
+                      onChange={(e) => setVoucherForm({ ...voucherForm, misc_fee: e.target.value })}
+                      className="w-full p-2 border border-slate-300 rounded font-mono bg-white text-slate-800"
+                    />
+                  </div>
+                </div>
+
+                {/* Total Calculated Monthly Due */}
+                <div className="p-3.5 bg-brand-50 border border-brand-200 rounded-lg flex items-center justify-between">
+                  <div>
+                    <p className="font-bold text-navy text-sm">Total Maintenance Due per Unit</p>
+                    <p className="text-[11px] text-slate-600">Auto-sum of all society services</p>
+                  </div>
+                  <span className="text-xl font-bold text-brand-600 font-mono">
+                    Rs. {totalMaintenanceFee.toLocaleString()}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Payment Due Date</label>
+                    <input
+                      type="date"
+                      required
+                      value={voucherForm.due_date}
+                      onChange={(e) => setVoucherForm({ ...voucherForm, due_date: e.target.value })}
+                      className="w-full p-2 border border-slate-300 rounded font-mono bg-white text-slate-800"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      Society Bank Account / Payment Instructions
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={voucherForm.account_shown}
+                      onChange={(e) => setVoucherForm({ ...voucherForm, account_shown: e.target.value })}
+                      className="w-full p-2 border border-slate-300 rounded bg-white text-slate-800"
+                    />
+                  </div>
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-lg border border-slate-200">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">
-                    🛡️ Security & Guard Fee (Rs.)
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    value={voucherForm.guard_fee}
-                    onChange={(e) => setVoucherForm({ ...voucherForm, guard_fee: e.target.value })}
-                    className="w-full p-2 border border-slate-300 rounded font-mono bg-white text-slate-800"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">
-                    🧹 Sweeper & Sanitation (Rs.)
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    value={voucherForm.sweeper_fee}
-                    onChange={(e) => setVoucherForm({ ...voucherForm, sweeper_fee: e.target.value })}
-                    className="w-full p-2 border border-slate-300 rounded font-mono bg-white text-slate-800"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">
-                    🚰 Water Supply & Tankers (Rs.)
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    value={voucherForm.water_fee}
-                    onChange={(e) => setVoucherForm({ ...voucherForm, water_fee: e.target.value })}
-                    className="w-full p-2 border border-slate-300 rounded font-mono bg-white text-slate-800"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">
-                    ⚡ Generator & Backup (Rs.)
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    value={voucherForm.generator_fee}
-                    onChange={(e) => setVoucherForm({ ...voucherForm, generator_fee: e.target.value })}
-                    className="w-full p-2 border border-slate-300 rounded font-mono bg-white text-slate-800"
-                  />
-                </div>
-
-                <div className="col-span-2">
-                  <label className="block font-bold text-slate-700 mb-1">
-                    🔧 Misc & Common Maintenance (Rs.)
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    value={voucherForm.misc_fee}
-                    onChange={(e) => setVoucherForm({ ...voucherForm, misc_fee: e.target.value })}
-                    className="w-full p-2 border border-slate-300 rounded font-mono bg-white text-slate-800"
-                  />
-                </div>
-              </div>
-
-              {/* Total Calculated Monthly Due */}
-              <div className="p-3.5 bg-brand-50 border border-brand-200 rounded-lg flex items-center justify-between">
-                <div>
-                  <p className="font-bold text-navy text-sm">Total Maintenance Due per Unit</p>
-                  <p className="text-[11px] text-slate-600">Auto-sum of all society services</p>
-                </div>
-                <span className="text-xl font-bold text-brand-600 font-mono">
-                  Rs. {totalMaintenanceFee.toLocaleString()}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Payment Due Date</label>
-                  <input
-                    type="date"
-                    required
-                    value={voucherForm.due_date}
-                    onChange={(e) => setVoucherForm({ ...voucherForm, due_date: e.target.value })}
-                    className="w-full p-2 border border-slate-300 rounded font-mono bg-white text-slate-800"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">
-                    Society Bank Account / Payment Instructions
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={voucherForm.account_shown}
-                    onChange={(e) => setVoucherForm({ ...voucherForm, account_shown: e.target.value })}
-                    className="w-full p-2 border border-slate-300 rounded bg-white text-slate-800"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-3 border-t border-slate-200 flex justify-end gap-3">
+              {/* Fixed Footer with Visible Action Buttons */}
+              <div className="p-4 border-t border-slate-200 bg-slate-50/80 flex justify-end gap-3 shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowGenerateModal(false)}
-                  className="px-4 py-2 bg-slate-100 text-slate-700 font-medium rounded-lg"
+                  className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-medium rounded-lg transition-colors text-xs"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold rounded-lg shadow flex items-center gap-1.5"
+                  className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold rounded-lg shadow flex items-center gap-1.5 transition-colors text-xs"
                 >
                   <Receipt className="w-4 h-4" />
                   <span>Issue Voucher to All Units</span>
@@ -508,18 +517,22 @@ export default function Invoices() {
 
       {/* MODAL 2: RECEIPT PREVIEW & VERIFICATION */}
       {showReceiptModal && selectedInvoice && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200">
-            <div className="p-5 bg-navy text-white flex items-center justify-between">
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] flex flex-col border border-slate-200 overflow-hidden my-auto">
+            <div className="p-4 sm:p-5 bg-navy text-white flex items-center justify-between shrink-0">
               <h3 className="font-bold text-base flex items-center gap-2">
                 <Eye className="w-5 h-5 text-brand-400" /> Payment Receipt Verification
               </h3>
-              <button onClick={() => setShowReceiptModal(false)} className="text-slate-400 hover:text-white">
+              <button 
+                type="button"
+                onClick={() => setShowReceiptModal(false)} 
+                className="text-slate-400 hover:text-white p-1 rounded transition-colors"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-5 space-y-4 text-xs">
+            <div className="p-4 sm:p-5 space-y-4 text-xs overflow-y-auto flex-1">
               <div className="space-y-1">
                 <p className="font-bold text-navy text-sm">
                   {selectedInvoice.residentName || selectedInvoice.residents?.name} (Unit {selectedInvoice.unitNumber || selectedInvoice.residents?.unit_number})
@@ -542,28 +555,29 @@ export default function Invoices() {
                 <p className="font-bold text-slate-700">Society Account Shown on Bill:</p>
                 <p className="font-mono text-slate-600">{selectedInvoice.accountShown || selectedInvoice.account_shown}</p>
               </div>
+            </div>
 
-              <div className="pt-3 border-t border-slate-200 flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowReceiptModal(false)}
-                  className="px-4 py-2 bg-slate-100 text-slate-700 font-medium rounded-lg"
-                >
-                  Close
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleVerifySubmit(selectedInvoice.id)}
-                  className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold rounded-lg shadow flex items-center gap-1.5"
-                >
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>Verify Payment</span>
-                </button>
-              </div>
+            <div className="p-4 border-t border-slate-200 bg-slate-50/80 flex justify-end gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowReceiptModal(false)}
+                className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-medium rounded-lg transition-colors text-xs"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => handleVerifySubmit(selectedInvoice.id)}
+                className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold rounded-lg shadow flex items-center gap-1.5 transition-colors text-xs"
+              >
+                <ShieldCheck className="w-4 h-4" />
+                <span>Verify Payment</span>
+              </button>
             </div>
           </div>
         </div>
       )}
+
     </div>
   );
 }
