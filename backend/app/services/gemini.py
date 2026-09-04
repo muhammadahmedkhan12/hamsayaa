@@ -378,7 +378,7 @@ class GeminiEngine:
         audio_url = db_service.upload_voice_note(audio_bytes, filename)
 
         # Process transcribed message through full agentic memory pipeline
-        res_payload = await self.process_resident_message(resident, transcribed_text)
+        res_payload = await self.process_resident_message(resident, transcribed_text, audio_url=audio_url)
         
         # Attach audio URL to payload if available
         if audio_url:
@@ -390,16 +390,19 @@ class GeminiEngine:
         self,
         resident: dict,
         message_text: str,
-        failed_attempts: int = 0
+        failed_attempts: int = 0,
+        audio_url: str | None = None
     ) -> dict:
         """
         Processes inbound resident WhatsApp message through Gemini AI Engine with Upstash Redis memory.
-        1. Context Hydration: Loads Upstash conversation memory and active complaints from Supabase.
+        1. Context Hydration: Loads Upstash conversation memory, active complaints, invoice/dues, and polls from Supabase.
         2. Off-Topic Guardrail: Rejects unrelated spam politely without writing to database.
-        3. Resident Ticket Closure: Allows members to close any of their open complaints on demand.
-        4. Visitor Pass Issuance: Generates gated visitor access passes with parameter validation.
-        5. New Complaint & Smart Duplicate Matching: Evaluates issues, links duplicate community complaints to existing ticket, logs new tickets.
-        6. Conversational AI Reasoning: Powered by Gemini 2.0 Flash for questions, follow-ups, and community interactions.
+        3. Emergency Life Safety Alert: Directs to 1122/16/15 and logs high-priority emergency ticket.
+        4. Community Poll Voting: Casts single-choice vote per unit for active polls.
+        5. Resident Ticket Closure: Allows members to close any of their open complaints on demand.
+        6. Visitor Pass Issuance: Generates gated visitor access passes with parameter validation.
+        7. New Complaint & Smart Duplicate Matching: Evaluates issues, links duplicate community complaints to existing ticket, logs new tickets.
+        8. Conversational AI Reasoning: Powered by Gemini 2.0 Flash for questions, follow-ups, and community interactions.
         """
         text_lower = message_text.lower().strip()
         phone = resident.get("phone_number", "") if resident else ""
@@ -407,7 +410,7 @@ class GeminiEngine:
         building = resident.get("building", "Block A") if resident else "Block A"
         unit = resident.get("unit_number", "101") if resident else "101"
 
-        # 1. Load Upstash Redis Chat Memory & Active DB Tickets Context
+        # 1. Load Upstash Redis Chat Memory & Active DB Context (Tickets, Invoices, Polls)
         history_context = self._get_chat_history(phone)
         
         active_tickets_summary = ""
@@ -424,6 +427,44 @@ class GeminiEngine:
             except Exception as e:
                 logger.error(f"Error fetching tickets context: {e}")
 
+        # Hydrate Dues & Invoices Context from Supabase
+        active_invoice = None
+        invoice_summary = ""
+        if resident and db_service.client:
+            try:
+                inv_res = db_service.client.table("invoices").select("*").eq("resident_id", resident.get("id")).order("created_at", desc=True).limit(3).execute()
+                invoices_list = inv_res.data or []
+                active_invoice = next((i for i in invoices_list if i.get("status") in ["unpaid", "overdue"]), invoices_list[0] if invoices_list else None)
+                if active_invoice:
+                    invoice_summary = (
+                        f"RESIDENT DUES & INVOICE DETAILS (LIVE SUPABASE DB):\n"
+                        f"• Status: {active_invoice.get('status', '').upper()}\n"
+                        f"• Society Maintenance Fee: PKR {active_invoice.get('society_maintenance_fee', 0):,.2f}\n"
+                        f"• Hamsayaa Platform SaaS Fee: PKR {active_invoice.get('hamsayaa_saas_fee', 0):,.2f}\n"
+                        f"• Utility Charges: PKR {active_invoice.get('utility_charges', 0):,.2f}\n"
+                        f"• Total Amount Due: PKR {active_invoice.get('total_amount', 0):,.2f}\n"
+                        f"• Due Date: {active_invoice.get('due_date', 'N/A')}\n"
+                        f"• Payment Account: {active_invoice.get('account_shown') or 'Meezan Bank - A/C PK42MEZN00012345678901 - Lakeview Maint Account'}"
+                    )
+            except Exception as e:
+                logger.error(f"Error fetching invoice context: {e}")
+
+        # Hydrate Polls Context from Supabase
+        polls_summary = ""
+        active_polls = []
+        if resident and resident.get("society_id"):
+            try:
+                polls_list = db_service.get_polls(resident.get("society_id"))
+                active_polls = [p for p in polls_list if not p.get("is_closed")]
+                if active_polls:
+                    p_lines = [
+                        f"- Poll \"{p.get('title')}\" (Options: {', '.join(p.get('options') or [])}) - Total Votes: {p.get('total_votes', 0)}"
+                        for p in active_polls
+                    ]
+                    polls_summary = "Active Community Polls:\n" + "\n".join(p_lines)
+            except Exception as e:
+                logger.error(f"Error fetching polls context: {e}")
+
         # 2. ACTION: Off-Topic Guardrail (NO DATABASE WRITES!)
         off_topic_keywords = ["weather", "joke", "politics", "president", "crypto", "bitcoin", "stock market", "buy car", "sell car"]
         if any(w in text_lower for w in off_topic_keywords):
@@ -432,6 +473,103 @@ class GeminiEngine:
                 "reply_text": f"Hello {name}, I am your Hamsayaa Society Concierge. I am dedicated to helping you with society operations (complaints, visitor passes, maintenance dues, amenities, and community polls)."
             }
             return self._dispatch_response(res_payload, resident, message_text)
+
+        # 3. ACTION: Emergency Life Safety Detection (HIGHEST OPERATIONAL PRIORITY)
+        emergency_keywords = [
+            "fire", "gas leak", "gas smell", "smell gas", "intruder", "break-in", "break in",
+            "robbery", "armed", "gunshot", "gun", "thief", "medical emergency", "heart attack",
+            "unconscious", "explosion", "electric shock", "aag", "gas ki boo", "chor", "chori", "daku"
+        ]
+        is_emergency_inquiry = any(q in text_lower for q in ["what is", "what's", "give me", "number", "helpline", "who to call", "contact", "ext"]) and any(e in text_lower for e in ["emergency", "helpline", "fire brigade", "police", "ambulance", "rescue", "intercom"])
+        
+        if is_emergency_inquiry:
+            res_payload = {
+                "status": "success",
+                "intent": "emergency_helpline",
+                "reply_text": (
+                    f"🚨 *EMERGENCY CONTACT DIRECTORY*\n\n"
+                    f"Hello {name}, here are the official 24/7 emergency response contacts for {building} (Unit {unit}):\n"
+                    f"• 🚑 *Ambulance / Rescue:* 1122\n"
+                    f"• 🚒 *Fire Brigade:* 16\n"
+                    f"• 👮 *Police Helpline:* 15\n"
+                    f"• 🏥 *Edhi Ambulance:* 115\n"
+                    f"• 🏢 *Society Security Gate Intercom:* Ext 100\n"
+                    f"• 📞 *Society Emergency Hotline:* +92 300 1234567"
+                )
+            }
+            return self._dispatch_response(res_payload, resident, message_text)
+
+        if any(ek in text_lower for ek in emergency_keywords) and not is_emergency_inquiry:
+            ticket_num = self._generate_ticket_number()
+            if resident and db_service.client:
+                try:
+                    desc = f"[URGENT EMERGENCY] {message_text}"
+                    if audio_url:
+                        desc += f" [Audio: {audio_url}]"
+                    db_service.client.table("complaints").insert({
+                        "society_id": resident.get("society_id"),
+                        "resident_id": resident.get("id"),
+                        "ticket_number": ticket_num,
+                        "category": "Emergency & Life Safety",
+                        "description": desc,
+                        "status": "open",
+                        "photo_url": audio_url
+                    }).execute()
+                except Exception as e:
+                    logger.error(f"Error logging emergency complaint: {e}")
+
+            res_payload = {
+                "status": "emergency",
+                "intent": "emergency",
+                "ticket_number": ticket_num,
+                "reply_text": (
+                    f"🚨 *URGENT LIFE SAFETY ALERT*\n\n"
+                    f"Hello {name}, if you are in immediate physical danger, please contact local emergency authorities immediately:\n"
+                    f"• 🚑 *Rescue / Ambulance:* 1122\n"
+                    f"• 🚒 *Fire Brigade:* 16\n"
+                    f"• 👮 *Police:* 15\n"
+                    f"• 🏢 *Society Security Intercom:* Ext 100 / Hotline: +92 300 1234567\n\n"
+                    f"⚠️ *Emergency Ticket Dispatched:*\n"
+                    f"• *Ticket ID:* `{ticket_num}`\n"
+                    f"• *Category:* Emergency & Life Safety\n"
+                    f"• *Location:* {building} - Unit {unit}\n"
+                    f"• *Details:* \"{message_text}\"\n\n"
+                    f"On-site society security and emergency responders have been alerted immediately!"
+                )
+            }
+            return self._dispatch_response(res_payload, resident, message_text)
+
+        # 4. ACTION: Community Poll Voting
+        if any(vk in text_lower for vk in ["vote", "voting", "poll"]) and any(w in text_lower for w in ["yes", "no", "abstain", "option", "paint", "upgrade", "vote for", "cast"]):
+            if active_polls and resident and db_service.client:
+                for p in active_polls:
+                    opts = p.get("options") or []
+                    for opt in opts:
+                        if opt.lower() in text_lower:
+                            v_res = db_service.cast_vote(p["id"], resident.get("id"), opt)
+                            if v_res:
+                                res_payload = {
+                                    "status": "success",
+                                    "intent": "poll_vote",
+                                    "reply_text": (
+                                        f"🗳️ *VOTE RECORDED*\n\n"
+                                        f"Hello {name}, your official vote for Unit {unit} has been registered:\n"
+                                        f"• *Poll:* \"{p.get('title')}\"\n"
+                                        f"• *Your Vote:* *{opt}*\n\n"
+                                        f"Thank you for taking part in community decisions!"
+                                    )
+                                }
+                                return self._dispatch_response(res_payload, resident, message_text)
+                            else:
+                                res_payload = {
+                                    "status": "info",
+                                    "intent": "poll_duplicate_vote",
+                                    "reply_text": (
+                                        f"ℹ️ *VOTE ALREADY RECORDED*\n\n"
+                                        f"Hello {name}, your vote for Unit {unit} on poll *\"{p.get('title')}\"* has already been recorded. Society rules permit only one vote per residential unit."
+                                    )
+                                }
+                                return self._dispatch_response(res_payload, resident, message_text)
 
         # 3. ACTION: Resident-Led Complaint Closure / Cancellation Flow
         tck_match = re.search(r'TCK-\d{4}', message_text, re.IGNORECASE)
@@ -545,10 +683,11 @@ class GeminiEngine:
             plate_match = re.search(r'[A-Za-z]{2,3}[-\s]?\d{3,4}', message_text)
             vehicle_plate = plate_match.group(0).upper() if plate_match else None
             
-            name_match = re.search(r'(?:name|visitor|for|guest)\s+([A-Za-z\s]{3,25})', message_text, re.IGNORECASE)
+            # Extract visitor name (support "Visitor: Name", "Guest Name", "Name: Name", "for Name", "pass for Name")
+            name_match = re.search(r'(?:visitor\s+pass\s+for|pass\s+for|visitor\s+name|guest\s+name|visitor|guest|name|for)[:\s]+([A-Za-z\s]{2,30}?)(?=[,\n\.]|\s+cnic|\s+vehicle|\s+plate|\s+car|$)', message_text, re.IGNORECASE)
             visitor_name = name_match.group(1).strip().title() if name_match else None
 
-            if visitor_name and any(token in visitor_name.lower() for token in ["pass", "cnic", "gate", "car", "unit"]):
+            if visitor_name and any(token in visitor_name.lower() for token in ["pass", "cnic", "gate", "car", "unit", "vehicle"]):
                 visitor_name = None
 
             missing = []
@@ -596,8 +735,10 @@ class GeminiEngine:
             }
             return self._dispatch_response(res_payload, resident, message_text)
 
-        # 5. ACTION: New Complaint Reporting with Smart Duplicate Matching
-        is_question = any(w in text_lower for w in ["what", "when", "how", "why", "where", "who", "which", "can u", "can you", "is there", "status", "timeline", "update", "progress", "tell me"])
+        question_words = ["what", "when", "how", "why", "where", "who", "which", "status", "timeline", "update", "progress"]
+        has_question_word = any(re.search(rf'\b{qw}\b', text_lower) for qw in question_words) or any(phrase in text_lower for phrase in ["can u", "can you", "is there", "tell me", "kab tak", "kya status"])
+        is_status_inquiry = any(w in text_lower for w in ["status", "timeline", "update", "progress", "how long", "kab tak"])
+        
         new_issue_keywords = ["water leak", "leakage", "plumbing", "broken", "not working", "no light", "outage", "stuck elevator", "garbage not collected", "noise complaint", "overflow", "repair needed", "file a complaint", "log a complaint", "register complaint", "report an issue", "report issue", "missing", "asleep", "dark", "burst", "faulty", "smell", "dirt", "no water", "no guard"]
         
         fault_tokens = ["stuck", "broken", "leak", "leaking", "outage", "damage", "damaged", "repair", "not working", "not moving", "spark", "sparking", "burst", "overflow", "smell", "dirt", "noise", "missing", "asleep", "dark", "faulty", "choked", "tripped", "beeping", "stopped"]
@@ -606,9 +747,9 @@ class GeminiEngine:
         has_fault_and_system = any(f in text_lower for f in fault_tokens) and any(s in text_lower for s in system_tokens)
         has_direct_complaint_kw = any(kw in text_lower for kw in ["complaint", "issue", "problem", "fault", "file complaint", "register complaint", "report issue", "fix this"]) or any(kw in text_lower for kw in new_issue_keywords)
 
-        is_new_complaint = (has_fault_and_system or has_direct_complaint_kw) and not is_question
+        is_new_complaint = (has_fault_and_system or has_direct_complaint_kw) and not is_status_inquiry
 
-        if is_new_complaint and not is_question:
+        if is_new_complaint:
             if any(w in text_lower for w in ["water", "plumb", "leak", "pipe", "drain", "sewer", "tanker"]):
                 category = "Water & Plumbing"
             elif any(w in text_lower for w in ["electric", "light", "power", "outage", "generator"]):
@@ -630,13 +771,29 @@ class GeminiEngine:
                     soc_tcks = db_service.client.table("complaints").select("*").eq("society_id", resident.get("society_id")).in_("status", ["open", "in_progress"]).order("created_at", desc=True).limit(20).execute()
                     active_soc_tickets = soc_tcks.data or []
                     
-                    common_tokens = ["guard", "gate", "lift", "elevator", "generator", "power", "electricity", "tanker", "water supply", "corridor", "hallway", "parking", "garbage", "trash", "security", "pump"]
+                    common_tokens = ["guard", "gate", "lift", "elevator", "generator", "power", "electricity", "tanker", "water", "pipe", "tap", "leak", "plumbing", "light", "corridor", "hallway", "parking", "garbage", "trash", "security", "pump", "drain", "gutter", "intercom"]
                     matched_tokens = [tok for tok in common_tokens if tok in text_lower]
 
                     if matched_tokens:
                         for t in active_soc_tickets:
+                            # Do not match against life safety emergency alerts
+                            if t.get("category") in ["Emergency & Life Safety"]:
+                                continue
+                            # Ensure category alignment
+                            if t.get("category") and t.get("category") != category:
+                                continue
+                            
                             t_desc_lower = (t.get("description") or "").lower()
-                            if any(tok in t_desc_lower for tok in matched_tokens):
+                            shared = [tok for tok in matched_tokens if tok in t_desc_lower]
+                            
+                            # A duplicate must either be for the same resident, or represent shared community infrastructure
+                            is_same_resident = (t.get("resident_id") == resident.get("id"))
+                            is_community_asset = any(a in shared or a in text_lower or a in t_desc_lower for a in [
+                                "lift", "elevator", "generator", "tanker", "gate", "guard", "corridor", 
+                                "hallway", "garbage", "trash", "intercom", "transformer", "parking", "pump", "lobby", "roof"
+                            ])
+
+                            if (is_same_resident or is_community_asset) and (is_community_asset or len(shared) >= 2):
                                 existing_match = t
                                 break
                 except Exception as e:
@@ -664,13 +821,17 @@ class GeminiEngine:
             ticket_num = self._generate_ticket_number()
             if resident and db_service.client:
                 try:
+                    desc = message_text
+                    if audio_url:
+                        desc += f" [Audio: {audio_url}]"
                     db_service.client.table("complaints").insert({
                         "society_id": resident.get("society_id"),
                         "resident_id": resident.get("id"),
                         "ticket_number": ticket_num,
                         "category": category,
-                        "description": message_text,
-                        "status": "open"
+                        "description": desc,
+                        "status": "open",
+                        "photo_url": audio_url
                     }).execute()
                 except Exception as e:
                     logger.error(f"Error writing complaint ticket: {e}")
@@ -703,6 +864,10 @@ class GeminiEngine:
                 )
                 if active_tickets_summary:
                     full_prompt += f"\n{active_tickets_summary}\n"
+                if invoice_summary:
+                    full_prompt += f"\n{invoice_summary}\n"
+                if polls_summary:
+                    full_prompt += f"\n{polls_summary}\n"
                 if history_context:
                     full_prompt += f"\nRECENT CONVERSATION HISTORY (UPSTASH MEMORY):\n{history_context}\n"
                 
@@ -723,9 +888,11 @@ class GeminiEngine:
                     f"\nNEW RESIDENT MESSAGE: \"{message_text}\"\n\n"
                     f"STRICT BEHAVIOR INSTRUCTIONS FOR AI CONCIERGE:\n"
                     f"1. You are a personal, warm, and highly professional concierge manager for {name}.\n"
-                    f"2. Read the conversation history and active tickets above carefully.\n"
-                    f"3. If the resident asks a question about complaints, status, timelines, or amenities, answer conversationally in a natural, personalized tone without rigid templates.\n"
-                    f"4. If asking about a timeline, give an estimated turnaround of 1 to 2 hours with reassuring updates."
+                    f"2. Read the conversation history, active tickets, dues, polls, and amenities above carefully.\n"
+                    f"3. If the resident asks a question about complaints, status, timelines, maintenance dues/bills, payment accounts, polls, or amenities, answer conversationally in a natural, personalized tone without rigid templates.\n"
+                    f"4. If resident asks in Roman Urdu or Urdu, ALWAYS reply in natural Roman Urdu or Urdu matching their language.\n"
+                    f"5. If asking for a bill breakdown or dues, provide the itemized breakdown directly from the RESIDENT DUES & INVOICE DETAILS above (Society Fee + SaaS Fee + Utility = Total).\n"
+                    f"6. If asking about a timeline, give an estimated turnaround of 1 to 2 hours with reassuring updates."
                 )
 
                 res = self.client.models.generate_content(
@@ -742,6 +909,54 @@ class GeminiEngine:
                 logger.error(f"Gemini API offline / rate-limited, using Smart Agentic Resolver: {e}")
 
         # 7. Smart Agentic Resolver Fallback (For Questions/Status when LLM is unavailable)
+        
+        # Fallback Dues & Invoices Inquiry
+        dues_keywords = ["due", "dues", "bill", "invoice", "payment", "bank", "account", "pkr", "kitnay", "bhejo", "pay", "charges", "maintenance fee"]
+        if any(dk in text_lower for dk in dues_keywords) and active_invoice:
+            total = active_invoice.get("total_amount", 0)
+            maint = active_invoice.get("society_maintenance_fee", 0)
+            saas = active_invoice.get("hamsayaa_saas_fee", 0)
+            util = active_invoice.get("utility_charges", 0)
+            status_str = active_invoice.get("status", "unpaid").upper()
+            due_date = active_invoice.get("due_date", "N/A")
+            account = active_invoice.get("account_shown", "Meezan Bank - A/C PK42MEZN00012345678901 - Lakeview Maint Account")
+            
+            reply = (
+                f"💳 *HAMSAYAA MAINTENANCE INVOICE*\n\n"
+                f"Hello {name}, here is the itemized billing breakdown for Unit {unit}:\n"
+                f"• *Society Maintenance Fee:* PKR {maint:,.2f}\n"
+                f"• *Hamsayaa Platform SaaS Fee:* PKR {saas:,.2f}\n"
+                f"• *Utility Charges:* PKR {util:,.2f}\n"
+                f"────────────────────\n"
+                f"• *Total Amount Due:* *PKR {total:,.2f}*\n"
+                f"• *Status:* {'🔴 ' + status_str if status_str in ['UNPAID', 'OVERDUE'] else '🟢 ' + status_str}\n"
+                f"• *Due Date:* {due_date}\n\n"
+                f"🏦 *Payment Transfer Details:*\n"
+                f"• *Account:* {account}\n\n"
+                f"📌 Once transferred, kindly share a screenshot of the payment receipt here for verification."
+            )
+            res_payload = {"status": "success", "intent": "dues_inquiry", "reply_text": reply}
+            return self._dispatch_response(res_payload, resident, message_text)
+
+        # Fallback Amenities Lookup
+        amenity_keywords = ["pool", "swimming", "gym", "fitness", "hall", "banquet", "badminton", "mosque", "masjid", "park", "timing", "hours"]
+        if any(ak in text_lower for ak in amenity_keywords) and resident and resident.get("society_id"):
+            try:
+                amenities = db_service.get_amenities(resident.get("society_id"))
+                matched = [a for a in amenities if any(tok in a.get("name", "").lower() for tok in text_lower.split())]
+                if not matched:
+                    matched = amenities
+                am_lines = "\n\n".join([
+                    f"🏊 *{a.get('name')}*\n• *Timings:* {a.get('timings')}\n• *Rules:* {a.get('rules')}\n• *Booking Required:* {'Yes' if a.get('is_bookable') else 'No'}"
+                    for a in matched[:3]
+                ])
+                reply = f"🏛️ *SOCIETY AMENITIES DIRECTORY*\n\nHello {name}, here are the requested facility details:\n\n{am_lines}"
+                res_payload = {"status": "success", "intent": "amenity_inquiry", "reply_text": reply}
+                return self._dispatch_response(res_payload, resident, message_text)
+            except Exception as e:
+                logger.error(f"Error in fallback amenity lookup: {e}")
+
+        # Fallback Tickets & General Tracking
         if recent_tickets:
             latest = recent_tickets[0]
             t_id = latest.get("ticket_number", "TCK-XXXX")
