@@ -290,4 +290,76 @@ class DatabaseService:
             logger.error(f"Error deleting employee {employee_id}: {e}")
             return False
 
+    # ASSETS & MAINTENANCE LOGS
+    def get_assets(self, society_id: str):
+        if not self.client:
+            return []
+        try:
+            res = self.client.table("assets").select("*").eq("society_id", society_id).order("next_service_due", desc=False).execute()
+            return res.data or []
+        except Exception as e:
+            logger.error(f"Error fetching assets: {e}")
+            return []
+
+    def create_asset(self, asset_data: dict):
+        if not self.client:
+            return None
+        try:
+            res = self.client.table("assets").insert(asset_data).execute()
+            return res.data[0] if res.data else None
+        except Exception as e:
+            logger.error(f"Error creating asset: {e}")
+            return None
+
+    def update_asset(self, asset_id: str, asset_data: dict):
+        if not self.client:
+            return None
+        try:
+            res = self.client.table("assets").update(asset_data).eq("id", asset_id).execute()
+            return res.data[0] if res.data else None
+        except Exception as e:
+            logger.error(f"Error updating asset {asset_id}: {e}")
+            return None
+
+    def delete_asset(self, asset_id: str):
+        if not self.client:
+            return False
+        try:
+            res = self.client.table("assets").delete().eq("id", asset_id).execute()
+            return True
+        except Exception as e:
+            logger.error(f"Error deleting asset {asset_id}: {e}")
+            return False
+
+    def get_maintenance_logs(self, asset_id: str):
+        if not self.client:
+            return []
+        try:
+            res = self.client.table("maintenance_logs").select("*").eq("asset_id", asset_id).order("serviced_at", desc=True).execute()
+            return res.data or []
+        except Exception as e:
+            logger.error(f"Error fetching maintenance logs for asset {asset_id}: {e}")
+            return []
+
+    def create_maintenance_log(self, log_data: dict):
+        if not self.client:
+            return None
+        try:
+            res = self.client.table("maintenance_logs").insert(log_data).execute()
+            created_log = res.data[0] if res.data else None
+            
+            # If next_due_override was provided, update the asset's next_service_due date
+            if created_log and log_data.get("next_due_override") and log_data.get("asset_id"):
+                try:
+                    self.client.table("assets").update({
+                        "next_service_due": log_data.get("next_due_override")
+                    }).eq("id", log_data.get("asset_id")).execute()
+                except Exception as ex:
+                    logger.error(f"Error syncing asset next_service_due: {ex}")
+
+            return created_log
+        except Exception as e:
+            logger.error(f"Error creating maintenance log: {e}")
+            return None
+
 db_service = DatabaseService()

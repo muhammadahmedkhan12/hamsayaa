@@ -1,4 +1,4 @@
-import { mockResidents, mockInvoices, mockComplaints, mockDashboardMetrics, mockVehicleLogs, mockPolls, mockEmployees } from './mockData';
+import { mockResidents, mockInvoices, mockComplaints, mockDashboardMetrics, mockVehicleLogs, mockPolls, mockEmployees, mockAssets, mockMaintenanceLogs } from './mockData';
 
 const API_BASE = '/api/v1';
 
@@ -324,4 +324,97 @@ export async function deleteEmployeeApi(employeeId) {
     console.warn('API error during employee deletion:', err);
   }
   return { status: 'success', deleted_id: employeeId };
+}
+
+// ASSETS API
+export async function fetchAssets() {
+  try {
+    const res = await fetch(`${API_BASE}/assets`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && Array.isArray(data.assets) && data.assets.length > 0) {
+        return data.assets;
+      }
+    }
+  } catch (err) {
+    console.warn('Backend API unreachable, using local fallback assets dataset:', err);
+  }
+  return mockAssets;
+}
+
+export async function createAssetApi(payload) {
+  try {
+    const res = await fetch(`${API_BASE}/assets`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn('API error during asset creation:', err);
+  }
+  return { status: 'success', asset: { ...payload, id: `ast-${Date.now()}`, created_at: new Date().toISOString() } };
+}
+
+export async function updateAssetApi(assetId, payload) {
+  try {
+    const res = await fetch(`${API_BASE}/assets/${assetId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn('API error during asset update:', err);
+  }
+  return { status: 'success', asset: { id: assetId, ...payload } };
+}
+
+export async function deleteAssetApi(assetId) {
+  try {
+    const res = await fetch(`${API_BASE}/assets/${assetId}`, {
+      method: 'DELETE',
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn('API error during asset deletion:', err);
+  }
+  return { status: 'success', deleted_id: assetId };
+}
+
+export async function fetchMaintenanceLogsApi(assetId) {
+  try {
+    const res = await fetch(`${API_BASE}/assets/${assetId}/maintenance-logs`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && Array.isArray(data.logs)) {
+        return data.logs;
+      }
+    }
+  } catch (err) {
+    console.warn(`Backend API unreachable for maintenance logs of ${assetId}:`, err);
+  }
+  return mockMaintenanceLogs.filter(l => l.asset_id === assetId);
+}
+
+export async function createMaintenanceLogApi(assetId, payload) {
+  try {
+    const res = await fetch(`${API_BASE}/assets/${assetId}/maintenance-logs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn('API error during maintenance log creation:', err);
+  }
+  return { status: 'success', log: { id: `log-${Date.now()}`, asset_id: assetId, ...payload, created_at: new Date().toISOString() } };
 }
