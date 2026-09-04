@@ -753,15 +753,23 @@ class GeminiEngine:
         has_question_word = any(re.search(rf'\b{qw}\b', text_lower) for qw in question_words) or any(phrase in text_lower for phrase in ["can u", "can you", "is there", "tell me", "kab tak", "kya status"])
         is_status_inquiry = any(w in text_lower for w in ["status", "timeline", "update", "progress", "how long", "kab tak"])
         
+        # Check if resident is asking/checking on existing complaints rather than logging a new one
+        is_complaint_inquiry = any(phrase in text_lower for phrase in [
+            "check my complaint", "check complaint", "show my complaint", "show complaint",
+            "list my complaint", "list complaint", "view my complaint", "view complaint",
+            "my complaint", "my complaints", "my tickets", "my open tickets", "active ticket",
+            "track ticket", "track complaint", "complaint status", "ticket status", "open complaint"
+        ]) or (any(w in text_lower for w in ["check", "show", "list", "view", "what"]) and any(w in text_lower for w in ["complaint", "ticket"]))
+
         new_issue_keywords = ["water leak", "leakage", "plumbing", "broken", "not working", "no light", "outage", "stuck elevator", "garbage not collected", "noise complaint", "overflow", "repair needed", "file a complaint", "log a complaint", "register complaint", "report an issue", "report issue", "missing", "asleep", "dark", "burst", "faulty", "smell", "dirt", "no water", "no guard"]
         
         fault_tokens = ["stuck", "broken", "leak", "leaking", "outage", "damage", "damaged", "repair", "not working", "not moving", "spark", "sparking", "burst", "overflow", "smell", "dirt", "noise", "missing", "asleep", "dark", "faulty", "choked", "tripped", "beeping", "stopped"]
         system_tokens = ["elevator", "lift", "light", "lights", "tap", "pipe", "water", "electricity", "power", "generator", "tanker", "gate", "guard", "door", "pump", "drain", "gutter", "garbage", "trash", "intercom", "wiring", "fan", "ac"]
 
         has_fault_and_system = any(f in text_lower for f in fault_tokens) and any(s in text_lower for s in system_tokens)
-        has_direct_complaint_kw = any(kw in text_lower for kw in ["complaint", "issue", "problem", "fault", "file complaint", "register complaint", "report issue", "fix this"]) or any(kw in text_lower for kw in new_issue_keywords)
+        has_direct_complaint_kw = any(kw in text_lower for kw in ["file complaint", "register complaint", "log complaint", "report issue", "report an issue", "fix this", "file a complaint", "log a complaint"]) or any(kw in text_lower for kw in new_issue_keywords)
 
-        is_new_complaint = (has_fault_and_system or has_direct_complaint_kw) and not is_status_inquiry
+        is_new_complaint = (has_fault_and_system or has_direct_complaint_kw) and not is_status_inquiry and not is_complaint_inquiry
 
         if is_new_complaint:
             if any(w in text_lower for w in ["water", "plumb", "leak", "pipe", "drain", "sewer", "tanker"]):
