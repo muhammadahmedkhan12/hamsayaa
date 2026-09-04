@@ -9,6 +9,7 @@ from app.api.v1.endpoints import (
     employees,
     assets,
     amenities,
+    settings,
     test_whatsapp
 )
 
@@ -25,3 +26,5 @@ api_router.include_router(polls.router, prefix="/polls", tags=["Polls"])
 api_router.include_router(employees.router, prefix="/employees", tags=["Employees"])
 api_router.include_router(assets.router, prefix="/assets", tags=["Assets"])
 api_router.include_router(amenities.router, prefix="/amenities", tags=["Amenities"])
+api_router.include_router(settings.router, prefix="/settings", tags=["Settings"])
+

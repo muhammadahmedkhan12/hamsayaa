@@ -362,4 +362,25 @@ class DatabaseService:
             logger.error(f"Error creating maintenance log: {e}")
             return None
 
+    # SOCIETY CONFIGURATION & SETTINGS
+    def get_society(self, society_id: str):
+        if not self.client:
+            return None
+        try:
+            res = self.client.table("societies").select("*").eq("id", society_id).execute()
+            return res.data[0] if res.data else None
+        except Exception as e:
+            logger.error(f"Error fetching society {society_id}: {e}")
+            return None
+
+    def update_society(self, society_id: str, data: dict):
+        if not self.client:
+            return None
+        try:
+            res = self.client.table("societies").update(data).eq("id", society_id).execute()
+            return res.data[0] if res.data else None
+        except Exception as e:
+            logger.error(f"Error updating society {society_id}: {e}")
+            return None
+
 db_service = DatabaseService()
