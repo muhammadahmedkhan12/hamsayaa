@@ -328,18 +328,81 @@ export default function Invoices() {
     await verifyInvoiceReceiptApi(invId);
   };
 
-  // Format Date Helper
-  const formatTimestamp = (ts) => {
-    if (!ts) return null;
-    try {
-      return new Date(ts).toLocaleString('en-PK', {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-      });
-    } catch (e) {
-      return ts;
-    }
-  };
+  // Skeleton shimmer block (matching Dashboard tab)
+  const Skeleton = ({ className = '' }) => (
+    <div className={`animate-pulse bg-slate-200 rounded ${className}`} />
+  );
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-navy tracking-tight">Finance & Maintenance Vouchers</h1>
+            <p className="text-sm text-slate-500 mt-0.5">Loading live data from database...</p>
+          </div>
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 text-slate-400 font-medium text-xs rounded-lg shadow-xs">
+            <RefreshCw className="w-3.5 h-3.5 animate-spin text-brand-600" />
+            <span>Syncing...</span>
+          </div>
+        </div>
+
+        {/* Skeleton Metric Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="metric-card border-l-4 border-l-slate-200 space-y-3">
+              <div className="flex items-center justify-between">
+                <Skeleton className="h-3 w-24" />
+                <Skeleton className="h-8 w-8 rounded-lg" />
+              </div>
+              <Skeleton className="h-8 w-24 mt-2" />
+              <Skeleton className="h-3 w-32 mt-1" />
+            </div>
+          ))}
+        </div>
+
+        {/* Skeleton Filter Tabs */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-2">
+          <div className="flex items-center gap-2">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <Skeleton key={i} className="h-7 w-16 rounded-lg" />
+            ))}
+          </div>
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-7 w-28 rounded" />
+            <Skeleton className="h-7 w-52 rounded-lg" />
+          </div>
+        </div>
+
+        {/* Skeleton Table Container */}
+        <div className="bg-white rounded-lg border border-surface-border shadow-sm overflow-hidden">
+          <div className="p-4 border-b border-surface-border bg-slate-50/50 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-4 w-4 rounded-full" />
+              <Skeleton className="h-4 w-52" />
+            </div>
+            <Skeleton className="h-3 w-40" />
+          </div>
+          <div className="divide-y divide-slate-100">
+            {[1, 2, 3, 4, 5, 6].map((j) => (
+              <div key={j} className="p-4 flex items-center justify-between gap-4">
+                <div className="space-y-2 flex-1">
+                  <Skeleton className="h-4 w-36" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+                <Skeleton className="h-5 w-24" />
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-5 w-24 rounded-full" />
+                <Skeleton className="h-5 w-28 rounded-full" />
+                <Skeleton className="h-7 w-20 rounded-lg" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
