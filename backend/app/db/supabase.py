@@ -98,6 +98,74 @@ class DatabaseService:
         res = self.client.table("invoices").update(data).eq("id", invoice_id).execute()
         return res.data
 
+    def attach_invoice_receipt(self, invoice_id: str, receipt_url: str):
+        if not self.client or not invoice_id or not receipt_url:
+            return None
+        try:
+            res = self.client.table("invoices").update({
+                "receipt_image_url": receipt_url
+            }).eq("id", invoice_id).execute()
+            return res.data[0] if res.data else None
+        except Exception as e:
+            logger.error(f"Error attaching receipt to invoice {invoice_id}: {e}")
+            return None
+
+    def get_or_create_advance_invoice(
+        self,
+        society_id: str,
+        resident_id: str,
+        default_fee: float = 6500.0,
+        due_date: str | None = None,
+        account_shown: str | None = None
+    ) -> dict | None:
+        """
+        Finds the resident's active unpaid/overdue invoice.
+        If none exists, creates an advance invoice for the upcoming cycle so the payment receipt can be attached.
+        """
+        if not self.client:
+            return None
+        try:
+            # 1. Check for any unpaid or overdue invoice
+            inv_res = self.client.table("invoices").select("*").eq("resident_id", resident_id).in_("status", ["unpaid", "overdue"]).order("created_at", desc=True).limit(1).execute()
+            if inv_res.data and len(inv_res.data) > 0:
+                return inv_res.data[0]
+
+            # 2. Check if the most recent invoice is already paid/verified
+            recent_res = self.client.table("invoices").select("*").eq("resident_id", resident_id).order("created_at", desc=True).limit(1).execute()
+            if recent_res.data and recent_res.data[0].get("status") in ["paid", "verified"]:
+                # Already settled - return it with a flag indicating settled
+                inv = recent_res.data[0]
+                inv["is_already_settled"] = True
+                return inv
+
+            # 3. Create an advance invoice for upcoming cycle
+            from datetime import date, timedelta
+            today = date.today()
+            if not due_date:
+                if today.day > 15:
+                    next_month = (today.replace(day=1) + timedelta(days=32)).replace(day=15)
+                    due_date = next_month.isoformat()
+                else:
+                    due_date = today.replace(day=15).isoformat()
+
+            account = account_shown or "Meezan Bank - A/C 01020304050607 - Lakeview Maint Account"
+            new_inv = {
+                "society_id": society_id,
+                "resident_id": resident_id,
+                "society_maintenance_fee": default_fee,
+                "hamsayaa_saas_fee": 0.0,
+                "utility_charges": 0.0,
+                "total_amount": default_fee,
+                "due_date": due_date,
+                "status": "unpaid",
+                "account_shown": account
+            }
+            insert_res = self.client.table("invoices").insert(new_inv).execute()
+            return insert_res.data[0] if insert_res.data else None
+        except Exception as e:
+            logger.error(f"Error in get_or_create_advance_invoice: {e}")
+            return None
+
     def generate_cycle_invoices(self, society_id: str, maintenance_fee: float, saas_fee: float, utility_charges: float, due_date: str, account_shown: str):
         if not self.client:
             return []
@@ -259,6 +327,38 @@ class DatabaseService:
             return public_url
         except Exception as e:
             logger.error(f"Error uploading voice note to Supabase storage: {e}")
+            return None
+
+    def upload_image(
+        self,
+        image_bytes: bytes,
+        filename: str,
+        bucket_name: str = "society-receipts",
+        mime_type: str = "image/jpeg"
+    ) -> str | None:
+        """
+        Uploads image binary bytes (payment receipts or maintenance photos) to Supabase Storage
+        and returns the permanent public URL.
+        """
+        if not self.client or not image_bytes:
+            return None
+        try:
+            try:
+                self.client.storage.create_bucket(bucket_name, options={"public": True})
+            except Exception:
+                pass
+
+            storage_path = f"images/{filename}"
+            self.client.storage.from_(bucket_name).upload(
+                file=image_bytes,
+                path=storage_path,
+                file_options={"content-type": mime_type, "upsert": "true"}
+            )
+            public_url = self.client.storage.from_(bucket_name).get_public_url(storage_path)
+            logger.info(f"Uploaded image to Supabase Storage ({bucket_name}): {public_url}")
+            return public_url
+        except Exception as e:
+            logger.error(f"Error uploading image to Supabase storage ({bucket_name}): {e}")
             return None
 
     # EMPLOYEE DIRECTORY

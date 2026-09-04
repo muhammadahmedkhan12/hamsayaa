@@ -155,16 +155,17 @@ async def generate_cycle_invoices(
     failed_details = []
 
     if payload.send_whatsapp:
-        # Map invoice ID by resident ID from the generation result
-        inv_by_resident = {inv["resident_id"]: inv["id"] for inv in result if "resident_id" in inv}
+        # Map invoice object by resident ID from the generation result
+        inv_by_resident = {inv["resident_id"]: inv for inv in result if "resident_id" in inv}
         residents = db_service.get_residents(society_id)
         
         for r in residents:
             r_id = r.get("id")
             phone = r.get("phone_number")
-            inv_id = inv_by_resident.get(r_id)
-            if not phone or not inv_id:
+            inv_obj = inv_by_resident.get(r_id)
+            if not phone or not inv_obj:
                 continue
+            inv_id = inv_obj.get("id")
 
             # Idempotency check: Has this resident already received this cycle's voucher?
             delivery = get_delivery_status(inv_id)
@@ -175,23 +176,48 @@ async def generate_cycle_invoices(
             name = r.get("name", "Resident")
             building = r.get("building", "Block")
             unit = r.get("unit_number", "")
-            
-            voucher_msg = (
-                f"🧾 *MONTHLY MAINTENANCE VOUCHER*\n"
-                f"Hello *{name}* ({building} - Unit {unit}),\n\n"
-                f"Your society maintenance voucher for this month has been issued:\n\n"
-                f"• 🛡️ Guard & Security: Rs. {payload.guard_fee:,.0f}\n"
-                f"• 🧹 Sweeper & Sanitation: Rs. {payload.sweeper_fee:,.0f}\n"
-                f"• 🚰 Water Supply: Rs. {payload.water_fee:,.0f}\n"
-                f"• ⚡ Generator Backup: Rs. {payload.generator_fee:,.0f}\n"
-                f"• 🔧 Common Maintenance: Rs. {payload.misc_fee:,.0f}\n"
-                f"━━━━━━━━━━━━━━━━━━━━\n"
-                f"*TOTAL DUE:* *Rs. {total_fee:,.0f}*\n"
-                f"*DUE DATE:* {payload.due_date}\n\n"
-                f"*Society Bank Account:*\n"
-                f"{payload.account_shown}\n\n"
-                f"_Please reply here with a photo/screenshot of your payment receipt once transferred._"
-            )
+
+            # Check if resident already paid or submitted receipt before voucher notification
+            inv_status = inv_obj.get("status", "unpaid")
+            has_receipt = bool(inv_obj.get("receipt_image_url"))
+
+            if inv_status in ["paid", "verified"]:
+                # Already settled in advance
+                voucher_msg = (
+                    f"🧾 *MONTHLY MAINTENANCE VOUCHER*\n"
+                    f"Hello *{name}* ({building} - Unit {unit}),\n\n"
+                    f"Your society maintenance voucher for this month has been issued (Rs. {total_fee:,.0f}).\n\n"
+                    f"✅ *STATUS: PAID / SETTLED*\n"
+                    f"Our records show your maintenance for this cycle was already received & settled in advance. Thank you!"
+                )
+            elif has_receipt:
+                # Receipt already submitted in advance before notification
+                voucher_msg = (
+                    f"🧾 *MONTHLY MAINTENANCE VOUCHER*\n"
+                    f"Hello *{name}* ({building} - Unit {unit}),\n\n"
+                    f"Your society maintenance voucher for this month has been issued:\n\n"
+                    f"• *TOTAL AMOUNT:* Rs. {total_fee:,.0f}\n"
+                    f"• *DUE DATE:* {payload.due_date}\n\n"
+                    f"📌 *STATUS: PAYMENT SLIP UNDER VERIFICATION*\n"
+                    f"We have already received your advance payment screenshot. The management office is currently verifying it. No further payment action is required from you."
+                )
+            else:
+                voucher_msg = (
+                    f"🧾 *MONTHLY MAINTENANCE VOUCHER*\n"
+                    f"Hello *{name}* ({building} - Unit {unit}),\n\n"
+                    f"Your society maintenance voucher for this month has been issued:\n\n"
+                    f"• 🛡️ Guard & Security: Rs. {payload.guard_fee:,.0f}\n"
+                    f"• 🧹 Sweeper & Sanitation: Rs. {payload.sweeper_fee:,.0f}\n"
+                    f"• 🚰 Water Supply: Rs. {payload.water_fee:,.0f}\n"
+                    f"• ⚡ Generator Backup: Rs. {payload.generator_fee:,.0f}\n"
+                    f"• 🔧 Common Maintenance: Rs. {payload.misc_fee:,.0f}\n"
+                    f"━━━━━━━━━━━━━━━━━━━━\n"
+                    f"*TOTAL DUE:* *Rs. {total_fee:,.0f}*\n"
+                    f"*DUE DATE:* {payload.due_date}\n\n"
+                    f"*Society Bank Account:*\n"
+                    f"{payload.account_shown}\n\n"
+                    f"_Please reply here with a photo/screenshot of your payment receipt once transferred._"
+                )
 
             try:
                 dispatch_res = await whatsapp_service.send_text_message(phone, voucher_msg)

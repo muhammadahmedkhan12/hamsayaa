@@ -46,7 +46,8 @@ async def process_inbound_message(
     sender_phone: str,
     msg_type: str,
     message_text: str,
-    media_id: str | None
+    media_id: str | None,
+    mime_type: str | None = None
 ):
     """
     Background worker that executes database lookups, Gemini AI inference,
@@ -101,18 +102,25 @@ async def process_inbound_message(
             print(f"--> OUTBOUND RES: {outbound_res}")
             return
 
-        # 3. Audio note or text message processing
-        audio_bytes = None
+        # 3. Media or text message processing
+        media_bytes = None
         if media_id:
-            print(f"--> DOWNLOADING AUDIO MEDIA {media_id}...")
-            audio_bytes = await whatsapp_service.download_media(media_id)
+            print(f"--> DOWNLOADING {msg_type.upper()} MEDIA {media_id}...")
+            media_bytes = await whatsapp_service.download_media(media_id)
 
-        print(f"--> INVOKING GEMINI AI ENGINE FOR {resident.get('name')}...")
-        if audio_bytes:
+        print(f"--> INVOKING GEMINI AI ENGINE FOR {resident.get('name')} (Type: {msg_type})...")
+        if msg_type in ["audio", "voice"] and media_bytes:
             ai_response = await gemini_engine.transcribe_and_process_audio(
                 resident=resident,
-                audio_bytes=audio_bytes,
-                mime_type="audio/ogg"
+                audio_bytes=media_bytes,
+                mime_type=mime_type or "audio/ogg"
+            )
+        elif msg_type == "image" and media_bytes:
+            ai_response = await gemini_engine.process_image_message(
+                resident=resident,
+                image_bytes=media_bytes,
+                caption=message_text,
+                mime_type=mime_type or "image/jpeg"
             )
         else:
             ai_response = await gemini_engine.process_resident_message(
@@ -204,16 +212,24 @@ async def handle_whatsapp_event(request: Request, background_tasks: BackgroundTa
 
         media_id = None
         message_text = ""
+        mime_type = None
 
         if msg_type in ["audio", "voice"]:
             media_id = msg.get(msg_type, {}).get("id")
+            mime_type = msg.get(msg_type, {}).get("mime_type", "audio/ogg")
             print(f"--> INCOMING VOICE NOTE FROM {sender_phone} (Msg ID: {msg_id}, Media ID: {media_id})")
+        elif msg_type == "image":
+            image_obj = msg.get("image", {})
+            media_id = image_obj.get("id")
+            message_text = image_obj.get("caption", "")
+            mime_type = image_obj.get("mime_type", "image/jpeg")
+            print(f"--> INCOMING IMAGE FROM {sender_phone} (Msg ID: {msg_id}, Media ID: {media_id}, Caption: '{message_text}')")
         else:
             message_text = msg.get("text", {}).get("body", "")
             print(f"--> INCOMING MESSAGE FROM {sender_phone} (Msg ID: {msg_id}): '{message_text}'")
 
         if not sender_phone or (not message_text and not media_id):
-            return {"status": "ignored", "reason": "Empty sender phone, text, and audio payload"}
+            return {"status": "ignored", "reason": "Empty sender phone, text, and media payload"}
 
         # 3. Hand off execution immediately to BackgroundTasks
         background_tasks.add_task(
@@ -222,7 +238,8 @@ async def handle_whatsapp_event(request: Request, background_tasks: BackgroundTa
             sender_phone=sender_phone,
             msg_type=msg_type,
             message_text=message_text,
-            media_id=media_id
+            media_id=media_id,
+            mime_type=mime_type
         )
 
         # 4. Instantly acknowledge Meta within milliseconds (prevents timeout & 5x retries)

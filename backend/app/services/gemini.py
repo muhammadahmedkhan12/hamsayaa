@@ -298,8 +298,11 @@ class GeminiEngine:
         If the primary model is rate-limited (429) or experiencing temporary high demand (503),
         the engine seamlessly cascades to the next available model.
         """
-        candidates = [settings.GEMINI_MODEL]
-        for fallback in ["gemini-flash-latest", "gemini-3.6-flash", "gemini-3-flash-preview", "gemini-3.5-flash-lite"]:
+        candidates = []
+        base_model = settings.GEMINI_MODEL
+        if base_model and not base_model.startswith("gemini-2.") and base_model != "gemini-flash-latest":
+            candidates.append(base_model)
+        for fallback in ["gemini-3.5-flash-lite", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-flash-latest", "gemini-3-flash-preview"]:
             if fallback not in candidates:
                 candidates.append(fallback)
         return candidates
@@ -398,6 +401,203 @@ class GeminiEngine:
             res_payload["audio_url"] = audio_url
 
         return res_payload
+
+    async def process_image_message(
+        self,
+        resident: dict,
+        image_bytes: bytes,
+        caption: str = "",
+        mime_type: str = "image/jpeg"
+    ) -> dict:
+        """
+        Multimodal WhatsApp Image Processor using Gemini Vision.
+        Handles:
+        1. Payment receipts & bank transfer slips (attaches to invoice, advances, audit).
+        2. Maintenance defect / fault photos (creates complaint ticket with photo_url).
+        3. Irrelevant / boundary images.
+        """
+        phone = resident.get("phone_number", "") if resident else ""
+        name = resident.get("name", "Resident") if resident else "Resident"
+        building = resident.get("building", "Block A") if resident else "Block A"
+        unit = resident.get("unit_number", "101") if resident else "101"
+        society_id = resident.get("society_id", "a1b2c3d4-e5f6-7890-abcd-111111111111") if resident else "a1b2c3d4-e5f6-7890-abcd-111111111111"
+        res_id = resident.get("id") if resident else None
+
+        if not image_bytes:
+            return {"status": "error", "reply_text": "I could not process the image because the image payload was empty."}
+
+        vision_data = None
+        if self.client and USING_NEW_GENAI:
+            image_part = types.Part.from_bytes(data=image_bytes, mime_type=mime_type)
+            vision_prompt = (
+                f"You are Hamsayaa AI Concierge analyzing an image sent via WhatsApp by a verified resident.\n"
+                f"Resident: {name} ({building} - Unit {unit})\n"
+                f"Resident Caption: \"{caption}\"\n\n"
+                f"Analyze BOTH the visual content and the resident's caption together to determine intent:\n"
+                f"1. 'payment_slip': If the image shows a bank transfer slip, receipt, cheque, or transaction screen, OR if the resident sent a slip image stating they paid their maintenance dues/fee.\n"
+                f"2. 'maintenance_issue': If the image or caption shows or describes a physical defect, damage, leak, broken fixture, elevator fault, sanitation issue, electrical hazard, or repair need.\n"
+                f"3. 'irrelevant': A selfie, greeting, meme, nature photo, or image completely unrelated to society maintenance or fee payments.\n\n"
+                f"Return ONLY a JSON object with this schema:\n"
+                f"{{\n"
+                f"  \"image_type\": \"payment_slip\" | \"maintenance_issue\" | \"irrelevant\",\n"
+                f"  \"amount\": number or null,\n"
+                f"  \"bank_or_app\": string or null,\n"
+                f"  \"reference_number\": string or null,\n"
+                f"  \"payment_date\": string or null,\n"
+                f"  \"complaint_category\": \"Water & Plumbing\" | \"Electrical & Power\" | \"Elevators & Lifts\" | \"Sanitation & Waste\" | \"Security & Parking\" | \"General Maintenance & Repair\" | null,\n"
+                f"  \"description\": string,\n"
+                f"  \"reply_text\": string\n"
+                f"}}"
+            )
+
+            for model_name in self._get_model_candidates():
+                try:
+                    res = self.client.models.generate_content(
+                        model=model_name,
+                        contents=[image_part, vision_prompt],
+                        config=types.GenerateContentConfig(
+                            response_mime_type="application/json"
+                        )
+                    )
+                    if res and res.text:
+                        vision_data = json.loads(res.text)
+                        print(f"--> [Gemini Vision using {model_name}]: image_type='{vision_data.get('image_type')}'")
+                        break
+                except Exception as e:
+                    logger.warning(f"Vision analysis failed on model {model_name}: {e}. Trying next candidate...")
+
+        if not vision_data:
+            # Fallback heuristic if all vision models failed
+            vision_data = {
+                "image_type": "payment_slip" if any(k in caption.lower() for k in ["fee", "paid", "slip", "receipt", "transfer", "raast"]) else "maintenance_issue",
+                "amount": None,
+                "bank_or_app": None,
+                "reference_number": None,
+                "payment_date": None,
+                "complaint_category": "General Maintenance & Repair",
+                "description": caption or "Image received from resident",
+                "reply_text": ""
+            }
+
+        image_type = vision_data.get("image_type", "payment_slip")
+        amount = vision_data.get("amount")
+        bank_or_app = vision_data.get("bank_or_app") or "Bank Transfer"
+        ref_no = vision_data.get("reference_number") or "N/A"
+
+        # Case 1: Payment Slip / Receipt Screenshot
+        if image_type == "payment_slip":
+            # 1. Upload receipt to Supabase Storage
+            filename = f"receipt_{res_id or 'guest'}_{random.randint(10000, 99999)}.jpg"
+            receipt_url = db_service.upload_image(image_bytes, filename, bucket_name="society-receipts", mime_type=mime_type)
+
+            # 2. Lookup or create advance invoice
+            inv = db_service.get_or_create_advance_invoice(society_id, res_id) if res_id else None
+
+            # 3. Check if already settled
+            is_already_settled = False
+            if inv:
+                is_already_settled = bool(inv.get("is_already_settled") or inv.get("status") in ["paid", "verified"])
+
+            if is_already_settled:
+                amt_str = f"PKR {amount:,.0f}" if amount else "your payment"
+                reply = (
+                    f"ℹ️ *DUES ALREADY SETTLED*\n\n"
+                    f"Hello *{name}*, our records show that your maintenance voucher for the current cycle is already marked as *Paid / Verified*! 🎉\n\n"
+                    f"• *Current Balance:* Rs. 0 (All clear)\n"
+                    f"• *Slip Recorded:* {amt_str} (Ref: {ref_no})\n\n"
+                    f"If this transfer was for advance maintenance or a separate society charge, our management office has recorded it for review."
+                )
+                res_payload = {
+                    "status": "success",
+                    "intent": "payment_already_settled",
+                    "receipt_url": receipt_url,
+                    "reply_text": reply
+                }
+                return self._dispatch_response(res_payload, resident, caption or "[Payment Screenshot]")
+
+            # Not settled: attach receipt to active / advance invoice
+            if inv:
+                db_service.attach_invoice_receipt(inv["id"], receipt_url)
+
+            amt_display = f"PKR {amount:,.0f}" if amount else "Maintenance Dues"
+            reply = (
+                f"✅ *PAYMENT RECEIPT RECEIVED*\n\n"
+                f"Hello *{name}* ({building} - Unit {unit}), thank you!\n\n"
+                f"We have received your payment transfer screenshot:\n"
+                f"• 💰 *Amount:* {amt_display}\n"
+                f"• 🏦 *Method / Bank:* {bank_or_app}\n"
+                f"• 🔖 *Reference / TxID:* {ref_no}\n"
+                f"• 🏠 *Unit:* {building} - Unit {unit}\n\n"
+                f"📌 *Status:* Attached to your maintenance voucher and submitted to the society management office for verification."
+            )
+            res_payload = {
+                "status": "success",
+                "intent": "payment_receipt_submitted",
+                "receipt_url": receipt_url,
+                "amount": amount,
+                "invoice_id": inv.get("id") if inv else None,
+                "reply_text": reply
+            }
+            return self._dispatch_response(res_payload, resident, caption or "[Payment Screenshot]")
+
+        # Case 2: Maintenance Fault / Defect Photo
+        elif image_type == "maintenance_issue":
+            filename = f"complaint_{res_id or 'guest'}_{random.randint(10000, 99999)}.jpg"
+            photo_url = db_service.upload_image(image_bytes, filename, bucket_name="society-voice-notes", mime_type=mime_type)
+
+            ticket_num = self._generate_ticket_number()
+            category = vision_data.get("complaint_category") or "General Maintenance & Repair"
+            description = vision_data.get("description") or caption or "Maintenance issue reported with photo"
+
+            if res_id and db_service.client:
+                try:
+                    db_service.client.table("complaints").insert({
+                        "society_id": society_id,
+                        "resident_id": res_id,
+                        "ticket_number": ticket_num,
+                        "category": category,
+                        "description": description,
+                        "photo_url": photo_url,
+                        "status": "open"
+                    }).execute()
+                except Exception as e:
+                    logger.error(f"Error writing complaint ticket with photo: {e}")
+
+            reply = (
+                f"🛠️ *HAMSAYAA TICKET REGISTERED*\n\n"
+                f"Hello *{name}*, your maintenance issue has been logged with photo attached:\n"
+                f"• *Ticket ID:* `{ticket_num}`\n"
+                f"• *Category:* {category}\n"
+                f"• *Location:* {building} - Unit {unit}\n"
+                f"• *Details:* \"{description}\"\n\n"
+                f"📌 *Status:* Open (Notified to society management office)"
+            )
+            res_payload = {
+                "status": "success",
+                "intent": "complaint_with_photo",
+                "ticket_number": ticket_num,
+                "photo_url": photo_url,
+                "reply_text": reply
+            }
+            return self._dispatch_response(res_payload, resident, caption or "[Maintenance Photo]")
+
+        # Case 3: Irrelevant Image / Off-topic
+        else:
+            reply = (
+                f"Hello *{name}*! We received your image, but it does not appear to be a maintenance fault or payment receipt.\n\n"
+                f"As Hamsayaa Concierge, I can assist you with:\n"
+                f"• 🛠️ Logging maintenance complaints\n"
+                f"• 🧾 Checking maintenance vouchers & recording payment slips\n"
+                f"• 🎫 Issuing guest visitor passes\n"
+                f"• 🏊 Facility timings & community polls\n\n"
+                f"Please let me know if you need assistance with any of these!"
+            )
+            res_payload = {
+                "status": "success",
+                "intent": "irrelevant_image",
+                "reply_text": reply
+            }
+            return self._dispatch_response(res_payload, resident, caption or "[Irrelevant Image]")
 
     async def process_resident_message(
         self,
@@ -529,7 +729,8 @@ class GeminiEngine:
             "6. EMERGENCY: If resident describes fire, gas leak, medical emergency, or active intruder, immediately advise calling 1122/16/15 in reply_text AND select action 'create_complaint' with category 'Emergency & Life Safety'.\n"
             "7. NEVER invent dues, bank accounts, or ticket IDs. Use only values from the context.\n"
             "8. NEVER claim that a maintenance team or technician has been dispatched unless the context explicitly states that. Keep status factual: 'logged and routed to society management'.\n"
-            "9. IN-UNIT COMPLAINT INTEGRITY: If the resident is reporting a maintenance problem for their apartment (such as a water leak, electrical issue, etc.), select 'create_complaint'. Do NOT treat different issues (e.g. water leak vs no water supply) as duplicates."
+            "9. IN-UNIT COMPLAINT INTEGRITY: If the resident is reporting a maintenance problem for their apartment (such as a water leak, electrical issue, etc.), select 'create_complaint'. Do NOT treat different issues (e.g. water leak vs no water supply) as duplicates.\n"
+            "10. TEXT PAYMENT CLAIMS: If the resident states in text that they have paid their bill or dues (e.g. 'I have paid', 'fee transfer kardi hai') without sending an image, select 'reply' and politely ask them to send a screenshot or photo of their payment receipt/bank slip right here on WhatsApp so the management office can verify it."
         )
 
         # 3. Invoke LLM Cascade
