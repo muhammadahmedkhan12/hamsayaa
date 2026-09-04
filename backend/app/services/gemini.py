@@ -300,7 +300,7 @@ class GeminiEngine:
         the engine seamlessly cascades to the next available model.
         """
         candidates = [settings.GEMINI_MODEL]
-        for fallback in ["gemini-3.6-flash", "gemini-flash-latest", "gemini-3-flash-preview", "gemini-2.5-flash"]:
+        for fallback in ["gemini-flash-latest", "gemini-3.6-flash", "gemini-3-flash-preview"]:
             if fallback not in candidates:
                 candidates.append(fallback)
         return candidates
@@ -408,23 +408,17 @@ class GeminiEngine:
         audio_url: str | None = None
     ) -> dict:
         """
-        Processes inbound resident WhatsApp message through Gemini AI Engine with Upstash Redis memory.
-        1. Context Hydration: Loads Upstash conversation memory, active complaints, invoice/dues, and polls from Supabase.
-        2. Off-Topic Guardrail: Rejects unrelated spam politely without writing to database.
-        3. Emergency Life Safety Alert: Directs to 1122/16/15 and logs high-priority emergency ticket.
-        4. Community Poll Voting: Casts single-choice vote per unit for active polls.
-        5. Resident Ticket Closure: Allows members to close any of their open complaints on demand.
-        6. Visitor Pass Issuance: Generates gated visitor access passes with parameter validation.
-        7. New Complaint & Smart Duplicate Matching: Evaluates issues, links duplicate community complaints to existing ticket, logs new tickets.
-        8. Conversational AI Reasoning: Powered by Gemini 2.0 Flash for questions, follow-ups, and community interactions.
+        Pure LLM-First Resident Message Processing.
+        All inbound resident messages are analyzed and reasoned over by Gemini.
+        Zero hardcoded keyword arrays or regex gates.
+        If Gemini is unavailable across all candidate models, sends a clean service-busy notification.
         """
-        text_lower = message_text.lower().strip()
         phone = resident.get("phone_number", "") if resident else ""
         name = resident.get("name", "Resident") if resident else "Resident"
         building = resident.get("building", "Block A") if resident else "Block A"
         unit = resident.get("unit_number", "101") if resident else "101"
 
-        # 1. Load Upstash Redis Chat Memory & Active DB Context (Tickets, Invoices, Polls)
+        # 1. Hydrate Context from Supabase & Upstash Redis
         history_context = self._get_chat_history(phone)
         
         active_tickets_summary = ""
@@ -441,7 +435,6 @@ class GeminiEngine:
             except Exception as e:
                 logger.error(f"Error fetching tickets context: {e}")
 
-        # Hydrate Dues & Invoices Context from Supabase
         active_invoice = None
         invoice_summary = ""
         if resident and db_service.client:
@@ -463,7 +456,6 @@ class GeminiEngine:
             except Exception as e:
                 logger.error(f"Error fetching invoice context: {e}")
 
-        # Hydrate Polls Context from Supabase
         polls_summary = ""
         active_polls = []
         if resident and resident.get("society_id"):
@@ -472,579 +464,290 @@ class GeminiEngine:
                 active_polls = [p for p in polls_list if not p.get("is_closed")]
                 if active_polls:
                     p_lines = [
-                        f"- Poll \"{p.get('title')}\" (Options: {', '.join(p.get('options') or [])}) - Total Votes: {p.get('total_votes', 0)}"
+                        f"- Poll ID: {p.get('id')} - \"{p.get('title')}\" (Options: {', '.join(p.get('options') or [])}) - Total Votes: {p.get('total_votes', 0)}"
                         for p in active_polls
                     ]
                     polls_summary = "Active Community Polls:\n" + "\n".join(p_lines)
             except Exception as e:
                 logger.error(f"Error fetching polls context: {e}")
 
-        # 2. ACTION: Off-Topic Guardrail (NO DATABASE WRITES!)
-        off_topic_keywords = ["weather", "joke", "politics", "president", "crypto", "bitcoin", "stock market", "buy car", "sell car"]
-        if any(w in text_lower for w in off_topic_keywords):
-            res_payload = {
-                "status": "flagged_irrelevant",
-                "reply_text": f"Hello {name}, I am your Hamsayaa Society Concierge. I am dedicated to helping you with society operations (complaints, visitor passes, maintenance dues, amenities, and community polls)."
-            }
-            return self._dispatch_response(res_payload, resident, message_text)
+        amenities_summary = ""
+        if resident and resident.get("society_id"):
+            try:
+                amenities_list = db_service.get_amenities(resident.get("society_id"))
+                if amenities_list:
+                    am_lines = [
+                        f"• {a.get('name')}: Timings: {a.get('timings', 'Standard')}, Rules: {a.get('rules', 'Standard community guidelines')}, Bookable: {'Yes' if a.get('is_bookable') else 'No'}"
+                        for a in amenities_list
+                    ]
+                    amenities_summary = "Society Amenities & Facilities Directory:\n" + "\n".join(am_lines)
+            except Exception as e:
+                logger.error(f"Error fetching amenities context: {e}")
 
-        # 3. ACTION: Emergency Life Safety Detection (HIGHEST OPERATIONAL PRIORITY)
-        emergency_keywords = [
-            "fire", "gas leak", "gas smell", "smell gas", "intruder", "break-in", "break in",
-            "robbery", "armed", "gunshot", "gun", "thief", "medical emergency", "heart attack",
-            "unconscious", "explosion", "electric shock", "aag", "gas ki boo", "chor", "chori", "daku"
-        ]
-        is_emergency_inquiry = any(q in text_lower for q in ["what is", "what's", "give me", "number", "helpline", "who to call", "contact", "ext"]) and any(e in text_lower for e in ["emergency", "helpline", "fire brigade", "police", "ambulance", "rescue", "intercom"])
+        # 2. Build LLM Structured Action Prompt
+        full_prompt = (
+            f"RESIDENT PROFILE:\n"
+            f"Name: {name}\n"
+            f"Unit: {building} - Unit {unit}\n\n"
+        )
+        if active_tickets_summary:
+            full_prompt += f"{active_tickets_summary}\n\n"
+        if invoice_summary:
+            full_prompt += f"{invoice_summary}\n\n"
+        if amenities_summary:
+            full_prompt += f"{amenities_summary}\n\n"
+        if polls_summary:
+            full_prompt += f"{polls_summary}\n\n"
+        if history_context:
+            full_prompt += f"RECENT CONVERSATION HISTORY (UPSTASH MEMORY):\n{history_context}\n\n"
         
-        if is_emergency_inquiry:
-            res_payload = {
-                "status": "success",
-                "intent": "emergency_helpline",
-                "reply_text": (
-                    f"🚨 *EMERGENCY CONTACT DIRECTORY*\n\n"
-                    f"Hello {name}, here are the official 24/7 emergency response contacts for {building} (Unit {unit}):\n"
-                    f"• 🚑 *Ambulance / Rescue:* 1122\n"
-                    f"• 🚒 *Fire Brigade:* 16\n"
-                    f"• 👮 *Police Helpline:* 15\n"
-                    f"• 🏥 *Edhi Ambulance:* 115\n"
-                    f"• 🏢 *Society Security Gate Intercom:* Ext 100\n"
-                    f"• 📞 *Society Emergency Hotline:* +92 300 1234567"
-                )
-            }
-            return self._dispatch_response(res_payload, resident, message_text)
+        full_prompt += f"NEW RESIDENT MESSAGE: \"{message_text}\"\n"
 
-        if any(ek in text_lower for ek in emergency_keywords) and not is_emergency_inquiry:
-            ticket_num = self._generate_ticket_number()
-            if resident and db_service.client:
-                try:
-                    desc = f"[URGENT EMERGENCY] {message_text}"
-                    if audio_url:
-                        desc += f" [Audio: {audio_url}]"
-                    db_service.client.table("complaints").insert({
-                        "society_id": resident.get("society_id"),
-                        "resident_id": resident.get("id"),
-                        "ticket_number": ticket_num,
-                        "category": "Emergency & Life Safety",
-                        "description": desc,
-                        "status": "open",
-                        "photo_url": audio_url
-                    }).execute()
-                except Exception as e:
-                    logger.error(f"Error logging emergency complaint: {e}")
-
-            res_payload = {
-                "status": "emergency",
-                "intent": "emergency",
-                "ticket_number": ticket_num,
-                "reply_text": (
-                    f"🚨 *URGENT LIFE SAFETY ALERT*\n\n"
-                    f"Hello {name}, if you are in immediate physical danger, please contact local emergency authorities immediately:\n"
-                    f"• 🚑 *Rescue / Ambulance:* 1122\n"
-                    f"• 🚒 *Fire Brigade:* 16\n"
-                    f"• 👮 *Police:* 15\n"
-                    f"• 🏢 *Society Security Intercom:* Ext 100 / Hotline: +92 300 1234567\n\n"
-                    f"⚠️ *Emergency Ticket Dispatched:*\n"
-                    f"• *Ticket ID:* `{ticket_num}`\n"
-                    f"• *Category:* Emergency & Life Safety\n"
-                    f"• *Location:* {building} - Unit {unit}\n"
-                    f"• *Details:* \"{message_text}\"\n\n"
-                    f"On-site society security and emergency responders have been alerted immediately!"
-                )
-            }
-            return self._dispatch_response(res_payload, resident, message_text)
-
-        # 4. ACTION: Community Poll Voting
-        if any(vk in text_lower for vk in ["vote", "voting", "poll"]) and any(w in text_lower for w in ["yes", "no", "abstain", "option", "paint", "upgrade", "vote for", "cast"]):
-            if active_polls and resident and db_service.client:
-                for p in active_polls:
-                    opts = p.get("options") or []
-                    for opt in opts:
-                        if opt.lower() in text_lower:
-                            v_res = db_service.cast_vote(p["id"], resident.get("id"), opt)
-                            if v_res:
-                                res_payload = {
-                                    "status": "success",
-                                    "intent": "poll_vote",
-                                    "reply_text": (
-                                        f"🗳️ *VOTE RECORDED*\n\n"
-                                        f"Hello {name}, your official vote for Unit {unit} has been registered:\n"
-                                        f"• *Poll:* \"{p.get('title')}\"\n"
-                                        f"• *Your Vote:* *{opt}*\n\n"
-                                        f"Thank you for taking part in community decisions!"
-                                    )
-                                }
-                                return self._dispatch_response(res_payload, resident, message_text)
-                            else:
-                                res_payload = {
-                                    "status": "info",
-                                    "intent": "poll_duplicate_vote",
-                                    "reply_text": (
-                                        f"ℹ️ *VOTE ALREADY RECORDED*\n\n"
-                                        f"Hello {name}, your vote for Unit {unit} on poll *\"{p.get('title')}\"* has already been recorded. Society rules permit only one vote per residential unit."
-                                    )
-                                }
-                                return self._dispatch_response(res_payload, resident, message_text)
-
-        # 3. ACTION: Resident-Led Complaint Closure / Cancellation Flow
-        tck_match = re.search(r'TCK-\d{4}', message_text, re.IGNORECASE)
-        closure_keywords = [
-            "close complaint", "cancel complaint", "close ticket", "cancel ticket",
-            "close my complaint", "cancel my complaint", "close my ticket", "cancel my ticket",
-            "close my", "cancel my", "resolve my", "fixed now", "issue is fixed",
-            "issue is resolved", "problem is resolved", "resolved on its own",
-            "already fixed", "never mind", "problem solved", "fixed it",
-            "cancel it", "close it", "mark resolved"
-        ]
-        has_closure_intent = any(kw in text_lower for kw in closure_keywords) or (
-            any(w in text_lower for w in ["close", "cancel", "resolved", "solved"])
-            and any(w in text_lower for w in ["complaint", "ticket", "issue"])
+        structured_system_prompt = (
+            f"{HAMSAYAA_SYSTEM_PROMPT}\n\n"
+            "====================================================================\n"
+            "STRUCTURED ACTION OUTPUT INSTRUCTIONS\n"
+            "====================================================================\n"
+            "You are the autonomous concierge brain. Analyze the resident's message and context, then return ONLY a JSON object with this schema:\n"
+            "{\n"
+            "  \"action\": \"reply\" | \"create_complaint\" | \"close_complaints\" | \"issue_visitor_pass\" | \"cast_poll_vote\",\n"
+            "  \"complaint_category\": \"Water & Plumbing\" | \"Electrical & Power\" | \"Elevators & Lifts\" | \"Sanitation & Waste\" | \"Security & Parking\" | \"Emergency & Life Safety\" | \"General Maintenance & Repair\" | null,\n"
+            "  \"complaint_description\": string | null,\n"
+            "  \"close_all\": boolean,\n"
+            "  \"ticket_numbers\": list[string],\n"
+            "  \"visitor_name\": string | null,\n"
+            "  \"visitor_cnic\": string | null,\n"
+            "  \"vehicle_plate\": string | null,\n"
+            "  \"poll_id\": string | null,\n"
+            "  \"poll_option\": string | null,\n"
+            "  \"reply_text\": string\n"
+            "}\n\n"
+            "CRITICAL ACTION DISPATCH RULES:\n"
+            "1. 'create_complaint': Select ONLY when the resident is explicitly reporting or filing a genuine new issue/maintenance fault for their unit or building. Do NOT select this if the resident is just asking about existing complaints or inquiring about status!\n"
+            "2. 'close_complaints': Select when the resident wants to close/resolve/cancel their complaint(s). Set close_all=true if they want to close all/every ticket, or list specific ticket IDs in ticket_numbers.\n"
+            "3. 'issue_visitor_pass': Select when the resident wants to issue a visitor pass AND has provided visitor details. If required details (name, CNIC/plate) are missing, select 'reply' and ask conversationally for the missing details.\n"
+            "4. 'cast_poll_vote': Select when the resident is casting a vote for an active society poll.\n"
+            "5. 'reply': Select for ALL questions, inquiries, status checks, dues/bill requests, amenities info, off-topic boundaries, life safety emergency advice, or general conversation. Craft a warm, helpful reply_text matching their language (English, Urdu, or Roman Urdu). Use *bold* and _italic_ for WhatsApp formatting.\n"
+            "6. EMERGENCY: If resident describes fire, gas leak, medical emergency, or active intruder, immediately advise calling 1122/16/15 in reply_text AND select action 'create_complaint' with category 'Emergency & Life Safety'.\n"
+            "7. NEVER invent dues, bank accounts, or ticket IDs. Use only values from the context."
         )
 
-        if has_closure_intent or (tck_match and any(w in text_lower for w in ["close", "cancel", "resolve", "resolved", "fixed"])):
-            if tck_match:
-                target_tck_num = tck_match.group(0).upper()
-                target_ticket = next((t for t in open_tickets if t.get("ticket_number") == target_tck_num), None)
-                
-                # If not in the resident's recent cache, do a fresh query for this resident
-                if not target_ticket and resident and db_service.client:
-                    try:
-                        q_res = db_service.client.table("complaints").select("*").eq("resident_id", resident.get("id")).eq("ticket_number", target_tck_num).in_("status", ["open", "in_progress", "needs_human_review"]).execute()
-                        if q_res.data:
-                            target_ticket = q_res.data[0]
-                    except Exception as e:
-                        logger.error(f"Error checking specific ticket for closure: {e}")
-
-                if target_ticket:
-                    if db_service.client:
-                        try:
-                            db_service.client.table("complaints").update({"status": "resolved"}).eq("id", target_ticket.get("id")).execute()
-                        except Exception as e:
-                            logger.error(f"Error closing complaint in database: {e}")
-                    
-                    res_payload = {
-                        "status": "success",
-                        "intent": "complaint_closed",
-                        "ticket_number": target_tck_num,
-                        "reply_text": (
-                            f"✅ *COMPLAINT CLOSED*\n\n"
-                            f"Hello {name}, your complaint has been marked as resolved at your request:\n"
-                            f"• *Ticket ID:* `{target_tck_num}`\n"
-                            f"• *Category:* {target_ticket.get('category', 'Maintenance')}\n"
-                            f"• *Issue:* \"{target_ticket.get('description', '')}\"\n"
-                            f"• *Status:* ✅ Resolved\n\n"
-                            f"Glad everything is sorted out! Feel free to message anytime if you need help."
-                        )
-                    }
-                    return self._dispatch_response(res_payload, resident, message_text)
-                else:
-                    res_payload = {
-                        "status": "not_found",
-                        "reply_text": f"Hello {name}, I couldn't find an open complaint with Ticket ID *{target_tck_num}* registered under your unit. It may already be resolved or closed!"
-                    }
-                    return self._dispatch_response(res_payload, resident, message_text)
-
-            # Check if resident wants to close ALL tickets at once
-            is_close_all = any(w in text_lower for w in ["all", "every", "both", "saari", "tamam", "sab"])
-            if is_close_all and open_tickets:
-                if db_service.client:
-                    try:
-                        ticket_ids = [t.get("id") for t in open_tickets if t.get("id")]
-                        db_service.client.table("complaints").update({"status": "resolved"}).in_("id", ticket_ids).execute()
-                    except Exception as e:
-                        logger.error(f"Error closing all complaints in database: {e}")
-
-                res_payload = {
-                    "status": "success",
-                    "intent": "all_complaints_closed",
-                    "reply_text": (
-                        f"✅ *ALL {len(open_tickets)} COMPLAINTS CLOSED*\n\n"
-                        f"Hello {name}, all {len(open_tickets)} of your active complaints have been marked as resolved at your request.\n\n"
-                        f"Glad everything is sorted out! Feel free to message anytime if you need help with anything else. 🏠"
-                    )
-                }
-                return self._dispatch_response(res_payload, resident, message_text)
-
-            # No specific ticket ID provided in message:
-            if len(open_tickets) == 1:
-                target = open_tickets[0]
-                t_num = target.get("ticket_number", "TCK-XXXX")
-                if db_service.client:
-                    try:
-                        db_service.client.table("complaints").update({"status": "resolved"}).eq("id", target.get("id")).execute()
-                    except Exception as e:
-                        logger.error(f"Error closing single open complaint: {e}")
-
-                res_payload = {
-                    "status": "success",
-                    "intent": "complaint_closed",
-                    "ticket_number": t_num,
-                    "reply_text": (
-                        f"✅ *COMPLAINT CLOSED*\n\n"
-                        f"Hello {name}, your active complaint has been marked as resolved at your request:\n"
-                        f"• *Ticket ID:* `{t_num}`\n"
-                        f"• *Category:* {target.get('category', 'Maintenance')}\n"
-                        f"• *Issue:* \"{target.get('description', '')}\"\n"
-                        f"• *Status:* ✅ Resolved\n\n"
-                        f"Glad to know the issue is resolved! Let us know if you need anything else. 🏠"
-                    )
-                }
-                return self._dispatch_response(res_payload, resident, message_text)
-
-            elif len(open_tickets) > 1:
-                t_lines = "\n".join([f"• *{t.get('ticket_number')}* ({t.get('category')}): \"{t.get('description')}\"" for t in open_tickets])
-                res_payload = {
-                    "status": "multiple_tickets",
-                    "reply_text": (
-                        f"Hello {name}, you currently have {len(open_tickets)} open complaints:\n\n"
-                        f"{t_lines}\n\n"
-                        f"Which one would you like to close? Reply with the Ticket ID (e.g. *Close {open_tickets[0].get('ticket_number')}*), or reply *\"Close all\"* to resolve all of them."
-                    )
-                }
-                return self._dispatch_response(res_payload, resident, message_text)
-
-            else:
-                res_payload = {
-                    "status": "no_open_tickets",
-                    "reply_text": f"Hello {name}, you currently have no open complaints to close. Everything under your unit is all clear! Let me know if you need any other assistance."
-                }
-                return self._dispatch_response(res_payload, resident, message_text)
-
-        # 4. ACTION: Visitor Pass Request Handling (Check Parameters)
-        is_pass_request = any(w in text_lower for w in ["visitor pass", "guest pass", "gate pass", "generate pass", "issue pass", "need a pass"])
-        if is_pass_request:
-            cnic_match = re.search(r'\d{5}[-\s]?\d{7}[-\s]?\d', message_text)
-            visitor_cnic = cnic_match.group(0) if cnic_match else None
-            
-            plate_match = re.search(r'[A-Za-z]{2,3}[-\s]?\d{3,4}', message_text)
-            vehicle_plate = plate_match.group(0).upper() if plate_match else None
-            
-            # Extract visitor name (support "Visitor: Name", "Guest Name", "Name: Name", "for Name", "pass for Name")
-            name_match = re.search(r'(?:visitor\s+pass\s+for|pass\s+for|visitor\s+name|guest\s+name|visitor|guest|name|for)[:\s]+([A-Za-z\s]{2,30}?)(?=[,\n\.]|\s+cnic|\s+vehicle|\s+plate|\s+car|$)', message_text, re.IGNORECASE)
-            visitor_name = name_match.group(1).strip().title() if name_match else None
-
-            if visitor_name and any(token in visitor_name.lower() for token in ["pass", "cnic", "gate", "car", "unit", "vehicle"]):
-                visitor_name = None
-
-            missing = []
-            if not visitor_name:
-                missing.append("1. *Visitor Full Name*")
-            if not visitor_cnic:
-                missing.append("2. *Visitor CNIC / ID Number* (e.g. 42101-9988776-5)")
-            if not vehicle_plate:
-                missing.append("3. *Vehicle License Plate* (e.g. KHI-8921)")
-
-            if missing:
-                missing_str = "\n".join(missing)
-                res_payload = {
-                    "status": "missing_information",
-                    "intent": "visitor_pass_incomplete",
-                    "reply_text": f"📋 *VISITOR PASS DETAILS REQUIRED*\nTo issue your gate pass, please reply with the following details:\n\n{missing_str}\n\n*Example:* Visitor Tariq Mahmood, CNIC 42101-9988776-5, Vehicle KHI-8921"
-                }
-                return self._dispatch_response(res_payload, resident, message_text)
-
-            pass_code = self._generate_pass_code()
-            now_utc = datetime.now(timezone.utc)
-            valid_from = now_utc.isoformat()
-            valid_until = (now_utc + timedelta(hours=4)).isoformat()
-
-            if resident and db_service.client:
-                try:
-                    db_service.client.table("visitor_passes").insert({
-                        "society_id": resident.get("society_id"),
-                        "resident_id": resident.get("id"),
-                        "visitor_name": visitor_name,
-                        "visitor_cnic": visitor_cnic,
-                        "vehicle_plate": vehicle_plate,
-                        "pass_code": pass_code,
-                        "valid_from": valid_from,
-                        "valid_until": valid_until
-                    }).execute()
-                except Exception as e:
-                    logger.error(f"Error writing visitor pass: {e}")
-
-            res_payload = {
-                "status": "success",
-                "intent": "visitor_pass",
-                "pass_code": pass_code,
-                "reply_text": f"🎫 *HAMSAYAA VISITOR PASS ISSUED*\nPass Code: *{pass_code}*\nVisitor: *{visitor_name}*\nCNIC: {visitor_cnic}\nVehicle Plate: {vehicle_plate}\nResident: {name} (Unit {unit})\nValid Window: Next 4 Hours\n\n📌 *Gatekeeper Verification:* Present this pass code visually at the main gate."
-            }
-            return self._dispatch_response(res_payload, resident, message_text)
-
-        question_words = ["what", "when", "how", "why", "where", "who", "which", "status", "timeline", "update", "progress"]
-        has_question_word = any(re.search(rf'\b{qw}\b', text_lower) for qw in question_words) or any(phrase in text_lower for phrase in ["can u", "can you", "is there", "tell me", "kab tak", "kya status"])
-        is_status_inquiry = any(w in text_lower for w in ["status", "timeline", "update", "progress", "how long", "kab tak"])
-        
-        # Check if resident is asking/checking on existing complaints rather than logging a new one
-        is_complaint_inquiry = any(phrase in text_lower for phrase in [
-            "check my complaint", "check complaint", "show my complaint", "show complaint",
-            "list my complaint", "list complaint", "view my complaint", "view complaint",
-            "my complaint", "my complaints", "my tickets", "my open tickets", "active ticket",
-            "track ticket", "track complaint", "complaint status", "ticket status", "open complaint"
-        ]) or (any(w in text_lower for w in ["check", "show", "list", "view", "what"]) and any(w in text_lower for w in ["complaint", "ticket"]))
-
-        new_issue_keywords = ["water leak", "leakage", "plumbing", "broken", "not working", "no light", "outage", "stuck elevator", "garbage not collected", "noise complaint", "overflow", "repair needed", "file a complaint", "log a complaint", "register complaint", "report an issue", "report issue", "missing", "asleep", "dark", "burst", "faulty", "smell", "dirt", "no water", "no guard"]
-        
-        fault_tokens = ["stuck", "broken", "leak", "leaking", "outage", "damage", "damaged", "repair", "not working", "not moving", "spark", "sparking", "burst", "overflow", "smell", "dirt", "noise", "missing", "asleep", "dark", "faulty", "choked", "tripped", "beeping", "stopped"]
-        system_tokens = ["elevator", "lift", "light", "lights", "tap", "pipe", "water", "electricity", "power", "generator", "tanker", "gate", "guard", "door", "pump", "drain", "gutter", "garbage", "trash", "intercom", "wiring", "fan", "ac"]
-
-        has_fault_and_system = any(f in text_lower for f in fault_tokens) and any(s in text_lower for s in system_tokens)
-        has_direct_complaint_kw = any(kw in text_lower for kw in ["file complaint", "register complaint", "log complaint", "report issue", "report an issue", "fix this", "file a complaint", "log a complaint"]) or any(kw in text_lower for kw in new_issue_keywords)
-
-        is_new_complaint = (has_fault_and_system or has_direct_complaint_kw) and not is_status_inquiry and not is_complaint_inquiry
-
-        if is_new_complaint:
-            if any(w in text_lower for w in ["water", "plumb", "leak", "pipe", "drain", "sewer", "tanker"]):
-                category = "Water & Plumbing"
-            elif any(w in text_lower for w in ["electric", "light", "power", "outage", "generator"]):
-                category = "Electrical & Power"
-            elif any(w in text_lower for w in ["lift", "elevator", "stuck"]):
-                category = "Elevators & Lifts"
-            elif any(w in text_lower for w in ["garbage", "trash", "dirty", "clean", "smell", "waste"]):
-                category = "Sanitation & Waste"
-            elif any(w in text_lower for w in ["park", "security", "gate", "guard"]):
-                category = "Security & Parking"
-            else:
-                category = "General Maintenance & Repair"
-
-            # SMART DUPLICATE MATCHING:
-            # Check active open tickets in the society to see if this is already an ongoing reported problem
-            existing_match = None
-            if resident and db_service.client:
-                try:
-                    soc_tcks = db_service.client.table("complaints").select("*").eq("society_id", resident.get("society_id")).in_("status", ["open", "in_progress"]).order("created_at", desc=True).limit(20).execute()
-                    active_soc_tickets = soc_tcks.data or []
-                    
-                    common_tokens = ["guard", "gate", "lift", "elevator", "generator", "power", "electricity", "tanker", "water", "pipe", "tap", "leak", "plumbing", "light", "corridor", "hallway", "parking", "garbage", "trash", "security", "pump", "drain", "gutter", "intercom"]
-                    matched_tokens = [tok for tok in common_tokens if tok in text_lower]
-
-                    if matched_tokens:
-                        for t in active_soc_tickets:
-                            # Do not match against life safety emergency alerts
-                            if t.get("category") in ["Emergency & Life Safety"]:
-                                continue
-                            # Ensure category alignment
-                            if t.get("category") and t.get("category") != category:
-                                continue
-                            
-                            t_desc_lower = (t.get("description") or "").lower()
-                            shared = [tok for tok in matched_tokens if tok in t_desc_lower]
-                            
-                            # A duplicate must either be for the same resident, or represent shared community infrastructure
-                            is_same_resident = (t.get("resident_id") == resident.get("id"))
-                            is_community_asset = any(a in shared or a in text_lower or a in t_desc_lower for a in [
-                                "lift", "elevator", "generator", "tanker", "gate", "guard", "corridor", 
-                                "hallway", "garbage", "trash", "intercom", "transformer", "parking", "pump", "lobby", "roof"
-                            ])
-
-                            if (is_same_resident or is_community_asset) and (is_community_asset or len(shared) >= 2):
-                                existing_match = t
-                                break
-                except Exception as e:
-                    logger.error(f"Error checking duplicate complaints: {e}")
-
-            if existing_match:
-                match_tck_num = existing_match.get("ticket_number", "TCK-XXXX")
-                res_payload = {
-                    "status": "success",
-                    "intent": "complaint_duplicate_matched",
-                    "ticket_number": match_tck_num,
-                    "reply_text": (
-                        f"ℹ️ *COMPLAINT ALREADY LOGGED & IN PROGRESS*\n\n"
-                        f"Hello {name}, our management team is already aware of this issue and actively working on it:\n"
-                        f"• *Ticket ID:* `{match_tck_num}`\n"
-                        f"• *Category:* {existing_match.get('category')}\n"
-                        f"• *Issue Details:* \"{existing_match.get('description')}\"\n"
-                        f"• *Status:* 🟡 In Progress\n\n"
-                        f"Our maintenance team has been dispatched. You can track this issue anytime by asking for the status of *{match_tck_num}*!"
-                    )
-                }
-                return self._dispatch_response(res_payload, resident, message_text)
-
-            # Not a duplicate -> Create new ticket!
-            ticket_num = self._generate_ticket_number()
-            if resident and db_service.client:
-                try:
-                    desc = message_text
-                    if audio_url:
-                        desc += f" [Audio: {audio_url}]"
-                    db_service.client.table("complaints").insert({
-                        "society_id": resident.get("society_id"),
-                        "resident_id": resident.get("id"),
-                        "ticket_number": ticket_num,
-                        "category": category,
-                        "description": desc,
-                        "status": "open",
-                        "photo_url": audio_url
-                    }).execute()
-                except Exception as e:
-                    logger.error(f"Error writing complaint ticket: {e}")
-
-            res_payload = {
-                "status": "success",
-                "intent": "complaint",
-                "ticket_number": ticket_num,
-                "reply_text": (
-                    f"🛠️ *HAMSAYAA TICKET REGISTERED*\n\n"
-                    f"Hello {name}, your society issue has been logged:\n"
-                    f"• *Ticket ID:* `{ticket_num}`\n"
-                    f"• *Category:* {category}\n"
-                    f"• *Location:* {building} - Unit {unit}\n"
-                    f"• *Details:* \"{message_text}\"\n\n"
-                    f"📌 *Status:* Open & Dispatched to Maintenance Team. Our team will attend to your unit shortly!"
-                )
-            }
-            return self._dispatch_response(res_payload, resident, message_text)
-
-        # 6. CONVERSATIONAL REASONING FLOW (Multi-Model Cascade)
-        # Handles questions, status inquiries, timelines, amenity queries, and general chat.
-        # NEVER inserts into complaints table!
+        # 3. Invoke LLM Cascade
+        llm_data = None
         if self.client and USING_NEW_GENAI:
-            full_prompt = (
-                f"RESIDENT PROFILE:\n"
-                f"Name: {name}\n"
-                f"Unit: {building} - Unit {unit}\n"
-            )
-            if active_tickets_summary:
-                full_prompt += f"\n{active_tickets_summary}\n"
-            if invoice_summary:
-                full_prompt += f"\n{invoice_summary}\n"
-            if polls_summary:
-                full_prompt += f"\n{polls_summary}\n"
-            if history_context:
-                full_prompt += f"\nRECENT CONVERSATION HISTORY (UPSTASH MEMORY):\n{history_context}\n"
-            
-            # Live Society Amenities Context
-            if resident and resident.get("society_id"):
-                try:
-                    amenities_list = db_service.get_amenities(resident.get("society_id"))
-                    if amenities_list:
-                        am_lines = "\n".join([
-                            f"• {a.get('name')}: Timings: {a.get('timings', 'Standard')}, Rules: {a.get('rules', 'Standard community guidelines')}, Bookable: {'Yes' if a.get('is_bookable') else 'No'}"
-                            for a in amenities_list
-                        ])
-                        full_prompt += f"\nSOCIETY AMENITIES & FACILITIES DIRECTORY:\n{am_lines}\n"
-                except Exception as e:
-                    logger.error(f"Error fetching amenities for Gemini prompt: {e}")
-
-            full_prompt += (
-                f"\nNEW RESIDENT MESSAGE: \"{message_text}\"\n\n"
-                f"STRICT BEHAVIOR INSTRUCTIONS FOR AI CONCIERGE:\n"
-                f"1. You are a personal, warm, and highly professional concierge manager for {name}.\n"
-                f"2. Read the conversation history, active tickets, dues, polls, and amenities above carefully.\n"
-                f"3. If the resident asks a question about complaints, status, timelines, maintenance dues/bills, payment accounts, polls, or amenities, answer conversationally in a natural, personalized tone without rigid templates.\n"
-                f"4. If resident asks in Roman Urdu or Urdu, ALWAYS reply in natural Roman Urdu or Urdu matching their language.\n"
-                f"5. If asking for a bill breakdown or dues, provide the itemized breakdown directly from the RESIDENT DUES & INVOICE DETAILS above (Society Fee + SaaS Fee + Utility = Total).\n"
-                f"6. If asking about a timeline, give an estimated turnaround of 1 to 2 hours with reassuring updates."
-            )
-
             for model_name in self._get_model_candidates():
                 try:
                     res = self.client.models.generate_content(
                         model=model_name,
                         contents=full_prompt,
                         config=types.GenerateContentConfig(
-                            system_instruction=HAMSAYAA_SYSTEM_PROMPT
+                            system_instruction=structured_system_prompt,
+                            response_mime_type="application/json"
                         )
                     )
                     if res and res.text:
-                        print(f"--> [Gemini AI Reply generated using {model_name}]")
-                        res_payload = {"status": "success", "reply_text": res.text}
-                        return self._dispatch_response(res_payload, resident, message_text)
+                        llm_data = json.loads(res.text)
+                        print(f"--> [Gemini AI Decision using {model_name}]: action='{llm_data.get('action')}'")
+                        break
                 except Exception as e:
                     logger.warning(f"Gemini model {model_name} unavailable: {e}. Trying next model in cascade...")
 
-        # 7. Smart Deterministic Resolver Fallback (Only when ALL Gemini models are offline/unavailable)
-        
-        # Fallback Dues & Invoices Inquiry
-        dues_keywords = ["due", "dues", "bill", "invoice", "payment", "bank", "account", "pkr", "kitnay", "bhejo", "pay", "charges", "maintenance fee"]
-        if any(dk in text_lower for dk in dues_keywords) and active_invoice:
-            total = active_invoice.get("total_amount", 0)
-            maint = active_invoice.get("society_maintenance_fee", 0)
-            saas = active_invoice.get("hamsayaa_saas_fee", 0)
-            util = active_invoice.get("utility_charges", 0)
-            status_str = active_invoice.get("status", "unpaid").upper()
-            due_date = active_invoice.get("due_date", "N/A")
-            account = active_invoice.get("account_shown", "Meezan Bank - A/C PK42MEZN00012345678901 - Lakeview Maint Account")
-            
+        # 4. If AI Service is completely down across all models in cascade:
+        if not llm_data:
             reply = (
-                f"💳 *HAMSAYAA MAINTENANCE INVOICE*\n\n"
-                f"Hello {name}, here is the itemized billing breakdown for Unit {unit}:\n"
-                f"• *Society Maintenance Fee:* PKR {maint:,.2f}\n"
-                f"• *Hamsayaa Platform SaaS Fee:* PKR {saas:,.2f}\n"
-                f"• *Utility Charges:* PKR {util:,.2f}\n"
-                f"────────────────────\n"
-                f"• *Total Amount Due:* *PKR {total:,.2f}*\n"
-                f"• *Status:* {'🔴 ' + status_str if status_str in ['UNPAID', 'OVERDUE'] else '🟢 ' + status_str}\n"
-                f"• *Due Date:* {due_date}\n\n"
-                f"🏦 *Payment Transfer Details:*\n"
-                f"• *Account:* {account}\n\n"
-                f"📌 Once transferred, kindly share a screenshot of the payment receipt here for verification."
+                f"⚠️ *AI CONCIERGE TEMPORARILY BUSY*\n\n"
+                f"Hello {name}, our AI concierge service is currently experiencing high network demand or temporary downtime.\n\n"
+                f"Your message has been received. Please try again in a few moments, or if your request is urgent, please contact the society management office directly:\n"
+                f"• 🏢 *Office Intercom:* Ext 100\n"
+                f"• 📞 *Society Helpline:* +92 300 1234567"
             )
-            res_payload = {"status": "success", "intent": "dues_inquiry", "reply_text": reply}
+            res_payload = {"status": "service_unavailable", "reply_text": reply}
             return self._dispatch_response(res_payload, resident, message_text)
 
-        # Fallback Amenities Lookup
-        amenity_keywords = ["pool", "swimming", "gym", "fitness", "hall", "banquet", "badminton", "mosque", "masjid", "park", "timing", "hours"]
-        if any(ak in text_lower for ak in amenity_keywords) and resident and resident.get("society_id"):
-            try:
-                amenities = db_service.get_amenities(resident.get("society_id"))
-                matched = [a for a in amenities if any(tok in a.get("name", "").lower() for tok in text_lower.split())]
-                if not matched:
-                    matched = amenities
-                am_lines = "\n\n".join([
-                    f"🏊 *{a.get('name')}*\n• *Timings:* {a.get('timings')}\n• *Rules:* {a.get('rules')}\n• *Booking Required:* {'Yes' if a.get('is_bookable') else 'No'}"
-                    for a in matched[:3]
-                ])
-                reply = f"🏛️ *SOCIETY AMENITIES DIRECTORY*\n\nHello {name}, here are the requested facility details:\n\n{am_lines}"
-                res_payload = {"status": "success", "intent": "amenity_inquiry", "reply_text": reply}
+        action = llm_data.get("action", "reply")
+        reply_text = llm_data.get("reply_text", "")
+
+        # 5. Execute Action based on LLM Decision
+
+        # Action A: Create Complaint
+        if action == "create_complaint":
+            category = llm_data.get("complaint_category") or "General Maintenance & Repair"
+            description = llm_data.get("complaint_description") or message_text
+
+            # Smart duplicate check in active society tickets
+            existing_match = None
+            if resident and db_service.client:
+                try:
+                    soc_tcks = db_service.client.table("complaints").select("*").eq("society_id", resident.get("society_id")).in_("status", ["open", "in_progress"]).order("created_at", desc=True).limit(20).execute()
+                    for t in (soc_tcks.data or []):
+                        if t.get("category") == category and t.get("category") != "Emergency & Life Safety":
+                            desc_lower = (t.get("description") or "").lower()
+                            if any(w in desc_lower and w in description.lower() for w in ["lift", "elevator", "generator", "gate", "guard", "tanker", "water", "pump", "power"]):
+                                existing_match = t
+                                break
+                except Exception as e:
+                    logger.error(f"Error checking duplicate complaints: {e}")
+
+            if existing_match:
+                t_num = existing_match.get("ticket_number", "TCK-XXXX")
+                res_payload = {
+                    "status": "success",
+                    "intent": "complaint_duplicate_matched",
+                    "ticket_number": t_num,
+                    "reply_text": (
+                        f"ℹ️ *COMPLAINT ALREADY LOGGED & IN PROGRESS*\n\n"
+                        f"Hello {name}, our management team is already aware of this issue and actively working on it:\n"
+                        f"• *Ticket ID:* `{t_num}`\n"
+                        f"• *Category:* {existing_match.get('category')}\n"
+                        f"• *Status:* 🟡 In Progress\n\n"
+                        f"Our maintenance team has been dispatched. You can track this issue anytime by asking for *{t_num}*!"
+                    )
+                }
                 return self._dispatch_response(res_payload, resident, message_text)
-            except Exception as e:
-                logger.error(f"Error in fallback amenity lookup: {e}")
 
-        # Fallback Complaints Status/Timeline Tracking (ONLY if resident explicitly asked about their ticket or complaints!)
-        is_asking_ticket = is_status_inquiry or any(w in text_lower for w in ["what", "list", "show", "registered", "my complaint", "ticket", "complaint status"])
-        if is_asking_ticket and recent_tickets:
-            latest = recent_tickets[0]
-            t_id = latest.get("ticket_number", "TCK-XXXX")
-            t_cat = latest.get("category", "Maintenance")
-            t_desc = latest.get("description", "Issue report")
-            t_status = latest.get("status", "open").upper()
+            # Insert new complaint
+            ticket_num = self._generate_ticket_number()
+            if resident and db_service.client:
+                try:
+                    full_desc = description
+                    if audio_url:
+                        full_desc += f" [Audio: {audio_url}]"
+                    db_service.client.table("complaints").insert({
+                        "society_id": resident.get("society_id"),
+                        "resident_id": resident.get("id"),
+                        "ticket_number": ticket_num,
+                        "category": category,
+                        "description": full_desc,
+                        "status": "open",
+                        "photo_url": audio_url
+                    }).execute()
+                except Exception as e:
+                    logger.error(f"Error writing complaint ticket: {e}")
 
-            if any(w in text_lower for w in ["timeline", "when", "time", "resolved", "fixed", "long", "kab tak"]):
-                reply = (
-                    f"Hello {name}, regarding your open ticket *{t_id}* ({t_cat}):\n"
-                    f"Our society maintenance staff is currently attending to {building}. The estimated resolution time is within *1 to 2 hours*."
+            if not reply_text:
+                reply_text = (
+                    f"🛠️ *HAMSAYAA TICKET REGISTERED*\n\n"
+                    f"Hello {name}, your society issue has been logged:\n"
+                    f"• *Ticket ID:* `{ticket_num}`\n"
+                    f"• *Category:* {category}\n"
+                    f"• *Location:* {building} - Unit {unit}\n"
+                    f"• *Details:* \"{description}\"\n\n"
+                    f"📌 *Status:* Open & Dispatched to Maintenance Team. Our team will attend to your unit shortly!"
                 )
             else:
-                reply = (
-                    f"Hello {name}! Here is your current complaint status for Unit {unit}:\n"
-                    f"• *Ticket ID:* `{t_id}`\n"
-                    f"• *Category:* {t_cat}\n"
-                    f"• *Issue:* \"{t_desc}\"\n"
-                    f"• *Current Status:* {t_status}"
-                )
-            res_payload = {"status": "success", "reply_text": reply}
+                # Ensure ticket number is mentioned in AI confirmation
+                if ticket_num not in reply_text:
+                    reply_text = f"{reply_text}\n\n📌 *Ticket ID:* `{ticket_num}` (Category: {category})"
+
+            res_payload = {
+                "status": "success",
+                "intent": "complaint",
+                "ticket_number": ticket_num,
+                "reply_text": reply_text
+            }
             return self._dispatch_response(res_payload, resident, message_text)
 
-        # Fallback Polite Greeting (If resident just said hello / salam)
-        greeting_words = ["hi", "hello", "salam", "assalam", "hey", "aoa", "good morning", "good evening"]
-        if any(re.search(rf'\b{gw}\b', text_lower) for gw in greeting_words):
-            reply = (
-                f"Hello {name}! I am your Hamsayaa Society Concierge for {building} (Unit {unit}).\n"
-                f"How can I assist you with society operations today?"
-            )
-            res_payload = {"status": "success", "reply_text": reply}
+        # Action B: Close Complaints
+        elif action == "close_complaints":
+            close_all = llm_data.get("close_all", False)
+            target_tcks = [t.upper() for t in (llm_data.get("ticket_numbers") or [])]
+
+            if close_all and open_tickets:
+                if db_service.client:
+                    try:
+                        ids = [t.get("id") for t in open_tickets if t.get("id")]
+                        db_service.client.table("complaints").update({"status": "resolved"}).in_("id", ids).execute()
+                    except Exception as e:
+                        logger.error(f"Error closing all complaints: {e}")
+                if not reply_text:
+                    reply_text = f"✅ *ALL {len(open_tickets)} COMPLAINTS CLOSED*\n\nHello {name}, all {len(open_tickets)} of your active complaints have been marked as resolved at your request."
+            elif target_tcks:
+                matched_ids = [t.get("id") for t in open_tickets if t.get("ticket_number") in target_tcks]
+                if matched_ids and db_service.client:
+                    try:
+                        db_service.client.table("complaints").update({"status": "resolved"}).in_("id", matched_ids).execute()
+                    except Exception as e:
+                        logger.error(f"Error closing complaints: {e}")
+                if not reply_text:
+                    reply_text = f"✅ *COMPLAINT CLOSED*\n\nHello {name}, ticket(s) {', '.join(target_tcks)} have been marked as resolved at your request."
+
+            res_payload = {
+                "status": "success",
+                "intent": "complaint_closed",
+                "reply_text": reply_text
+            }
             return self._dispatch_response(res_payload, resident, message_text)
 
-        # If ALL models in the cascade are unavailable and message is an arbitrary question/chat, BE TRANSPARENT!
-        reply = (
-            f"⚠️ *AI CONCIERGE TEMPORARILY BUSY*\n\n"
-            f"Hello {name}, our AI concierge service is currently experiencing high network demand or temporary downtime.\n\n"
-            f"Your message has been received. Please try again in a few moments, or if your request is urgent, please contact the society management office directly:\n"
-            f"• 🏢 *Office Intercom:* Ext 100\n"
-            f"• 📞 *Society Helpline:* +92 300 1234567"
-        )
-        res_payload = {"status": "service_unavailable", "reply_text": reply}
+        # Action C: Issue Visitor Pass
+        elif action == "issue_visitor_pass":
+            visitor_name = llm_data.get("visitor_name")
+            visitor_cnic = llm_data.get("visitor_cnic") or "Unspecified"
+            vehicle_plate = llm_data.get("vehicle_plate") or "None (Walk-in)"
+
+            if visitor_name:
+                pass_code = self._generate_pass_code()
+                now_utc = datetime.now(timezone.utc)
+                valid_from = now_utc.isoformat()
+                valid_until = (now_utc + timedelta(hours=4)).isoformat()
+
+                if resident and db_service.client:
+                    try:
+                        db_service.client.table("visitor_passes").insert({
+                            "society_id": resident.get("society_id"),
+                            "resident_id": resident.get("id"),
+                            "visitor_name": visitor_name,
+                            "visitor_cnic": visitor_cnic,
+                            "vehicle_plate": vehicle_plate,
+                            "pass_code": pass_code,
+                            "valid_from": valid_from,
+                            "valid_until": valid_until
+                        }).execute()
+                    except Exception as e:
+                        logger.error(f"Error writing visitor pass: {e}")
+
+                if not reply_text or pass_code not in reply_text:
+                    reply_text = (
+                        f"🎫 *HAMSAYAA VISITOR PASS ISSUED*\n"
+                        f"• *Pass Code:* *{pass_code}*\n"
+                        f"• *Visitor:* {visitor_name}\n"
+                        f"• *CNIC:* {visitor_cnic}\n"
+                        f"• *Vehicle Plate:* {vehicle_plate}\n"
+                        f"• *Resident:* {name} (Unit {unit})\n"
+                        f"• *Validity:* Next 4 Hours\n\n"
+                        f"📌 *Gatekeeper Verification:* Present this pass code visually at the main security gate."
+                    )
+
+                res_payload = {
+                    "status": "success",
+                    "intent": "visitor_pass",
+                    "pass_code": pass_code,
+                    "reply_text": reply_text
+                }
+                return self._dispatch_response(res_payload, resident, message_text)
+
+        # Action D: Cast Poll Vote
+        elif action == "cast_poll_vote":
+            poll_id = llm_data.get("poll_id")
+            poll_opt = llm_data.get("poll_option")
+            if poll_id and poll_opt and resident:
+                try:
+                    db_service.cast_vote(poll_id, resident.get("id"), poll_opt)
+                except Exception as e:
+                    logger.error(f"Error casting poll vote: {e}")
+
+            res_payload = {
+                "status": "success",
+                "intent": "poll_vote",
+                "reply_text": reply_text
+            }
+            return self._dispatch_response(res_payload, resident, message_text)
+
+        # Default Action: Conversational Reply
+        res_payload = {
+            "status": "success",
+            "intent": "conversational",
+            "reply_text": reply_text or "Hello! How can I assist you with Lakeview society operations today?"
+        }
         return self._dispatch_response(res_payload, resident, message_text)
 
 gemini_engine = GeminiEngine()

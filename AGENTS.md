@@ -35,16 +35,25 @@ Welcome to **Hamsayaa (ہمسایہ)**. This document serves as the single sourc
 ## 3. Architecture & Engine Pipelines
 
 ### A. LLM-First Messaging Architecture (`backend/app/services/gemini.py`)
-Every inbound resident WhatsApp message follows an **LLM-First pipeline**:
+Every inbound resident WhatsApp message follows a **Pure LLM-First pipeline**:
 1. **Context Hydration:** Inbound message triggers `process_resident_message()`. The engine fetches:
    - Upstash Redis conversation history (last 6 turns).
    - Resident profile metadata (name, unit number, building).
    - Active complaint tickets from Supabase DB.
-2. **Primary Flow (Gemini 2.0 Flash):**
-   - The compiled context is passed to Gemini with `HAMSAYAA_SYSTEM_PROMPT`.
-   - If the resident asks follow-up questions (*"What complaint did I log?"*, *"Can you give a timeline?"*), Gemini answers conversationally using active ticket details without static template cards.
-3. **Fallback Flow (Deterministic Handlers):**
-   - If (and only if) Gemini API encounters rate limits (`429`) or network timeouts, execution safely falls back to local Python intent parsers (`_generate_ticket_number()`, visitor pass generators) so messages are never lost.
+   - Live invoice / dues breakdown.
+   - Active polls & society amenities directory.
+2. **Primary Flow (Gemini Structured Action Dispatch):**
+   - The compiled context is passed to Gemini with `HAMSAYAA_SYSTEM_PROMPT` and structured JSON action schema.
+   - Gemini autonomously determines the intent and returns a structured action:
+     - `reply`: For inquiries, dues, amenities, status checks, off-topic boundaries, general questions.
+     - `create_complaint`: Only when an explicit new maintenance issue is reported.
+     - `close_complaints`: Resolves specific tickets or sets `close_all=true` to resolve all active tickets.
+     - `issue_visitor_pass`: Logs visitor details and generates gate pass.
+     - `cast_poll_vote`: Records community poll vote.
+3. **Multi-Model Cascade & Outage Handling:**
+   - The engine cascades seamlessly through candidate models (`gemini-flash-latest` -> `gemini-3.6-flash` -> `gemini-3-flash-preview`).
+   - ZERO hardcoded keyword or regex fallback arrays.
+   - If (and only if) all candidate models fail due to API limits or outages, the system sends a transparent, polite service-busy notification with office intercom/helpline details instead of guessing or fabricating responses.
 4. **Memory Persistence:** Both resident input and generated AI replies are saved back to Upstash Redis with an 86,400-second (24-hour) TTL via `_save_chat_history()`.
 
 ### B. Voice Note Processing Pipeline
