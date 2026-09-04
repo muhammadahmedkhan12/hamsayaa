@@ -45,12 +45,15 @@ class WhatsAppService:
 
         async with httpx.AsyncClient() as client:
             try:
-                response = await client.post(url, headers=headers, json=payload, timeout=10.0)
+                response = await client.post(url, headers=headers, json=payload, timeout=15.0)
                 logger.info(f"WhatsApp API response: {response.status_code}")
+                if response.status_code >= 400:
+                    logger.error(f"Meta Graph API error {response.status_code}: {response.text}")
+                    return {"status": "error", "code": response.status_code, "response": response.text}
                 return response.json()
             except Exception as e:
-                logger.error(f"Error sending WhatsApp message: {e}")
-                return {"status": "error", "message": str(e)}
+                logger.error(f"Error sending WhatsApp message: {type(e).__name__}: {e}")
+                return {"status": "error", "message": f"{type(e).__name__}: {str(e)}"}
 
     async def send_media_message(self, recipient_phone: str, media_url: str, caption: str = "") -> dict:
         """
