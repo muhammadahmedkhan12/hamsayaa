@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     
     # Gemini API Engine
     GEMINI_API_KEY: str = ""
-    GEMINI_MODEL: str = "gemini-3.5-flash-lite"
+    GEMINI_MODEL: str = "gemini-3.6-flash"
     
     # Database Connection
     SUPABASE_URL: str = ""

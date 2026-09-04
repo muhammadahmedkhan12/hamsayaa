@@ -293,6 +293,18 @@ class GeminiEngine:
             except Exception as e:
                 logger.error(f"Failed to initialize Upstash Redis: {e}")
 
+    def _get_model_candidates(self) -> list[str]:
+        """
+        Returns an ordered list of Gemini model candidates for resilient fallback.
+        If the primary model is rate-limited (429) or experiencing temporary high demand (503),
+        the engine seamlessly cascades to the next available model.
+        """
+        candidates = [settings.GEMINI_MODEL]
+        for fallback in ["gemini-3.6-flash", "gemini-flash-latest", "gemini-3-flash-preview", "gemini-2.5-flash"]:
+            if fallback not in candidates:
+                candidates.append(fallback)
+        return candidates
+
     def _get_chat_history(self, phone: str) -> str:
         if not self.redis or not phone:
             return ""
@@ -356,19 +368,21 @@ class GeminiEngine:
 
         transcribed_text = ""
         if self.client and USING_NEW_GENAI:
-            try:
-                audio_part = types.Part.from_bytes(data=audio_bytes, mime_type=mime_type)
-                prompt = "Listen to this resident's voice note (which may be spoken in Urdu, Roman Urdu, or English). Transcribe the exact message clearly. Return ONLY the transcribed text message, nothing else."
-                
-                res = self.client.models.generate_content(
-                    model=settings.GEMINI_MODEL,
-                    contents=[audio_part, prompt]
-                )
-                if res and res.text:
-                    transcribed_text = res.text.strip()
-                    print(f"--> [Voice Note Transcribed]: '{transcribed_text}'")
-            except Exception as e:
-                logger.error(f"Error transcribing audio with Gemini: {e}")
+            audio_part = types.Part.from_bytes(data=audio_bytes, mime_type=mime_type)
+            prompt = "Listen to this resident's voice note (which may be spoken in Urdu, Roman Urdu, or English). Transcribe the exact message clearly. Return ONLY the transcribed text message, nothing else."
+            
+            for model_name in self._get_model_candidates():
+                try:
+                    res = self.client.models.generate_content(
+                        model=model_name,
+                        contents=[audio_part, prompt]
+                    )
+                    if res and res.text:
+                        transcribed_text = res.text.strip()
+                        print(f"--> [Voice Note Transcribed with {model_name}]: '{transcribed_text}'")
+                        break
+                except Exception as e:
+                    logger.warning(f"Audio transcription failed on model {model_name}: {e}. Trying next candidate...")
 
         if not transcribed_text:
             transcribed_text = "Resident sent a voice note regarding maintenance issue."
@@ -852,63 +866,65 @@ class GeminiEngine:
             }
             return self._dispatch_response(res_payload, resident, message_text)
 
-        # 6. CONVERSATIONAL REASONING FLOW (Gemini 2.0 Flash)
+        # 6. CONVERSATIONAL REASONING FLOW (Multi-Model Cascade)
         # Handles questions, status inquiries, timelines, amenity queries, and general chat.
         # NEVER inserts into complaints table!
         if self.client and USING_NEW_GENAI:
-            try:
-                full_prompt = (
-                    f"RESIDENT PROFILE:\n"
-                    f"Name: {name}\n"
-                    f"Unit: {building} - Unit {unit}\n"
-                )
-                if active_tickets_summary:
-                    full_prompt += f"\n{active_tickets_summary}\n"
-                if invoice_summary:
-                    full_prompt += f"\n{invoice_summary}\n"
-                if polls_summary:
-                    full_prompt += f"\n{polls_summary}\n"
-                if history_context:
-                    full_prompt += f"\nRECENT CONVERSATION HISTORY (UPSTASH MEMORY):\n{history_context}\n"
-                
-                # Live Society Amenities Context
-                if resident and resident.get("society_id"):
-                    try:
-                        amenities_list = db_service.get_amenities(resident.get("society_id"))
-                        if amenities_list:
-                            am_lines = "\n".join([
-                                f"• {a.get('name')}: Timings: {a.get('timings', 'Standard')}, Rules: {a.get('rules', 'Standard community guidelines')}, Bookable: {'Yes' if a.get('is_bookable') else 'No'}"
-                                for a in amenities_list
-                            ])
-                            full_prompt += f"\nSOCIETY AMENITIES & FACILITIES DIRECTORY:\n{am_lines}\n"
-                    except Exception as e:
-                        logger.error(f"Error fetching amenities for Gemini prompt: {e}")
+            full_prompt = (
+                f"RESIDENT PROFILE:\n"
+                f"Name: {name}\n"
+                f"Unit: {building} - Unit {unit}\n"
+            )
+            if active_tickets_summary:
+                full_prompt += f"\n{active_tickets_summary}\n"
+            if invoice_summary:
+                full_prompt += f"\n{invoice_summary}\n"
+            if polls_summary:
+                full_prompt += f"\n{polls_summary}\n"
+            if history_context:
+                full_prompt += f"\nRECENT CONVERSATION HISTORY (UPSTASH MEMORY):\n{history_context}\n"
+            
+            # Live Society Amenities Context
+            if resident and resident.get("society_id"):
+                try:
+                    amenities_list = db_service.get_amenities(resident.get("society_id"))
+                    if amenities_list:
+                        am_lines = "\n".join([
+                            f"• {a.get('name')}: Timings: {a.get('timings', 'Standard')}, Rules: {a.get('rules', 'Standard community guidelines')}, Bookable: {'Yes' if a.get('is_bookable') else 'No'}"
+                            for a in amenities_list
+                        ])
+                        full_prompt += f"\nSOCIETY AMENITIES & FACILITIES DIRECTORY:\n{am_lines}\n"
+                except Exception as e:
+                    logger.error(f"Error fetching amenities for Gemini prompt: {e}")
 
-                full_prompt += (
-                    f"\nNEW RESIDENT MESSAGE: \"{message_text}\"\n\n"
-                    f"STRICT BEHAVIOR INSTRUCTIONS FOR AI CONCIERGE:\n"
-                    f"1. You are a personal, warm, and highly professional concierge manager for {name}.\n"
-                    f"2. Read the conversation history, active tickets, dues, polls, and amenities above carefully.\n"
-                    f"3. If the resident asks a question about complaints, status, timelines, maintenance dues/bills, payment accounts, polls, or amenities, answer conversationally in a natural, personalized tone without rigid templates.\n"
-                    f"4. If resident asks in Roman Urdu or Urdu, ALWAYS reply in natural Roman Urdu or Urdu matching their language.\n"
-                    f"5. If asking for a bill breakdown or dues, provide the itemized breakdown directly from the RESIDENT DUES & INVOICE DETAILS above (Society Fee + SaaS Fee + Utility = Total).\n"
-                    f"6. If asking about a timeline, give an estimated turnaround of 1 to 2 hours with reassuring updates."
-                )
+            full_prompt += (
+                f"\nNEW RESIDENT MESSAGE: \"{message_text}\"\n\n"
+                f"STRICT BEHAVIOR INSTRUCTIONS FOR AI CONCIERGE:\n"
+                f"1. You are a personal, warm, and highly professional concierge manager for {name}.\n"
+                f"2. Read the conversation history, active tickets, dues, polls, and amenities above carefully.\n"
+                f"3. If the resident asks a question about complaints, status, timelines, maintenance dues/bills, payment accounts, polls, or amenities, answer conversationally in a natural, personalized tone without rigid templates.\n"
+                f"4. If resident asks in Roman Urdu or Urdu, ALWAYS reply in natural Roman Urdu or Urdu matching their language.\n"
+                f"5. If asking for a bill breakdown or dues, provide the itemized breakdown directly from the RESIDENT DUES & INVOICE DETAILS above (Society Fee + SaaS Fee + Utility = Total).\n"
+                f"6. If asking about a timeline, give an estimated turnaround of 1 to 2 hours with reassuring updates."
+            )
 
-                res = self.client.models.generate_content(
-                    model=settings.GEMINI_MODEL,
-                    contents=full_prompt,
-                    config=types.GenerateContentConfig(
-                        system_instruction=HAMSAYAA_SYSTEM_PROMPT
+            for model_name in self._get_model_candidates():
+                try:
+                    res = self.client.models.generate_content(
+                        model=model_name,
+                        contents=full_prompt,
+                        config=types.GenerateContentConfig(
+                            system_instruction=HAMSAYAA_SYSTEM_PROMPT
+                        )
                     )
-                )
-                if res and res.text:
-                    res_payload = {"status": "success", "reply_text": res.text}
-                    return self._dispatch_response(res_payload, resident, message_text)
-            except Exception as e:
-                logger.error(f"Gemini API offline / rate-limited, using Smart Agentic Resolver: {e}")
+                    if res and res.text:
+                        print(f"--> [Gemini AI Reply generated using {model_name}]")
+                        res_payload = {"status": "success", "reply_text": res.text}
+                        return self._dispatch_response(res_payload, resident, message_text)
+                except Exception as e:
+                    logger.warning(f"Gemini model {model_name} unavailable: {e}. Trying next model in cascade...")
 
-        # 7. Smart Agentic Resolver Fallback (For Questions/Status when LLM is unavailable)
+        # 7. Smart Deterministic Resolver Fallback (Only when ALL Gemini models are offline/unavailable)
         
         # Fallback Dues & Invoices Inquiry
         dues_keywords = ["due", "dues", "bill", "invoice", "payment", "bank", "account", "pkr", "kitnay", "bhejo", "pay", "charges", "maintenance fee"]
@@ -956,34 +972,50 @@ class GeminiEngine:
             except Exception as e:
                 logger.error(f"Error in fallback amenity lookup: {e}")
 
-        # Fallback Tickets & General Tracking
-        if recent_tickets:
+        # Fallback Complaints Status/Timeline Tracking (ONLY if resident explicitly asked about their ticket or complaints!)
+        is_asking_ticket = is_status_inquiry or any(w in text_lower for w in ["what", "list", "show", "registered", "my complaint", "ticket", "complaint status"])
+        if is_asking_ticket and recent_tickets:
             latest = recent_tickets[0]
             t_id = latest.get("ticket_number", "TCK-XXXX")
             t_cat = latest.get("category", "Maintenance")
             t_desc = latest.get("description", "Issue report")
             t_status = latest.get("status", "open").upper()
 
-            if any(w in text_lower for w in ["what", "list", "show", "registered", "my complaint"]):
-                reply = (
-                    f"Hello {name}! You currently have active complaint *{t_id}* logged for Unit {unit}:\n"
-                    f"• *Category:* {t_cat}\n"
-                    f"• *Issue Details:* \"{t_desc}\"\n"
-                    f"• *Current Status:* {t_status}"
-                )
-            elif any(w in text_lower for w in ["timeline", "when", "time", "resolved", "fixed", "status", "long"]):
+            if any(w in text_lower for w in ["timeline", "when", "time", "resolved", "fixed", "long", "kab tak"]):
                 reply = (
                     f"Hello {name}, regarding your open ticket *{t_id}* ({t_cat}):\n"
                     f"Our society maintenance staff is currently attending to {building}. The estimated resolution time is within *1 to 2 hours*."
                 )
             else:
                 reply = (
-                    f"Hello {name}, I am tracking your ticket *{t_id}* ({t_cat}). Our maintenance team is currently working on it for Unit {unit}!"
+                    f"Hello {name}! Here is your current complaint status for Unit {unit}:\n"
+                    f"• *Ticket ID:* `{t_id}`\n"
+                    f"• *Category:* {t_cat}\n"
+                    f"• *Issue:* \"{t_desc}\"\n"
+                    f"• *Current Status:* {t_status}"
                 )
-        else:
-            reply = f"Hello {name}! I am your Hamsayaa Concierge for Unit {unit}. You currently have no open complaints logged. How can I assist you today?"
+            res_payload = {"status": "success", "reply_text": reply}
+            return self._dispatch_response(res_payload, resident, message_text)
 
-        res_payload = {"status": "success", "reply_text": reply}
+        # Fallback Polite Greeting (If resident just said hello / salam)
+        greeting_words = ["hi", "hello", "salam", "assalam", "hey", "aoa", "good morning", "good evening"]
+        if any(re.search(rf'\b{gw}\b', text_lower) for gw in greeting_words):
+            reply = (
+                f"Hello {name}! I am your Hamsayaa Society Concierge for {building} (Unit {unit}).\n"
+                f"How can I assist you with society operations today?"
+            )
+            res_payload = {"status": "success", "reply_text": reply}
+            return self._dispatch_response(res_payload, resident, message_text)
+
+        # If ALL models in the cascade are unavailable and message is an arbitrary question/chat, BE TRANSPARENT!
+        reply = (
+            f"⚠️ *AI CONCIERGE TEMPORARILY BUSY*\n\n"
+            f"Hello {name}, our AI concierge service is currently experiencing high network demand or temporary downtime.\n\n"
+            f"Your message has been received. Please try again in a few moments, or if your request is urgent, please contact the society management office directly:\n"
+            f"• 🏢 *Office Intercom:* Ext 100\n"
+            f"• 📞 *Society Helpline:* +92 300 1234567"
+        )
+        res_payload = {"status": "service_unavailable", "reply_text": reply}
         return self._dispatch_response(res_payload, resident, message_text)
 
 gemini_engine = GeminiEngine()
