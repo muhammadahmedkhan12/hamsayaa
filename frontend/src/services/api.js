@@ -141,11 +141,12 @@ export async function verifyInvoiceReceiptApi(invoiceId) {
   return { status: 'success', invoice_id: invoiceId, message: 'Receipt verified' };
 }
 
-export async function payInvoiceApi(invoiceId) {
+export async function payInvoiceApi(invoiceId, payload = { collected_by: 'Building Admin' }) {
   try {
     const res = await fetch(`${API_BASE}/invoices/${invoiceId}/pay`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
     });
     if (res.ok) {
       return await res.json();
@@ -155,6 +156,7 @@ export async function payInvoiceApi(invoiceId) {
   }
   return { status: 'success', invoice_id: invoiceId, message: 'Marked as paid' };
 }
+
 
 export async function retryFailedVouchersApi(payload) {
   try {

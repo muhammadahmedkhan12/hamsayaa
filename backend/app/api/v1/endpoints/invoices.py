@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from typing import Optional
-from datetime import date
+from datetime import date, datetime, timezone
 import json
 import logging
 
@@ -35,6 +35,12 @@ class InvoiceUpdateRequest(BaseModel):
 class ReceiptVerifyRequest(BaseModel):
     verified_by: Optional[str] = None
 
+class MarkPaidRequest(BaseModel):
+    collected_by: Optional[str] = Field(default="Building Admin", example="Tariq (Treasurer)")
+    payment_method: Optional[str] = Field(default="Cash", example="Cash")
+    notes: Optional[str] = None
+
+
 
 def get_delivery_status(invoice_id: str) -> dict:
     if not redis_client:
@@ -65,18 +71,53 @@ def set_delivery_status(invoice_id: str, status: str, error: str = None):
         logger.debug(f"Redis set delivery error: {e}")
 
 
+def set_payment_audit(invoice_id: str, collector: str, method: str = "Cash", timestamp: str = None):
+    if not redis_client:
+        return
+    try:
+        payload = {
+            "collector": collector,
+            "method": method,
+            "collected_at": timestamp or datetime.now(timezone.utc).isoformat()
+        }
+        redis_client.set(f"payment_audit:{invoice_id}", json.dumps(payload), ex=365 * 86400)
+    except Exception as e:
+        logger.debug(f"Redis set payment audit error: {e}")
+
+
+def get_payment_audit(invoice_id: str) -> dict:
+    if not redis_client:
+        return {}
+    try:
+        raw = redis_client.get(f"payment_audit:{invoice_id}")
+        if raw:
+            if isinstance(raw, str):
+                return json.loads(raw)
+            elif isinstance(raw, dict):
+                return raw
+    except Exception as e:
+        logger.debug(f"Redis get payment audit error: {e}")
+    return {}
+
+
 @router.get("/")
 async def list_invoices(
     society_id: str = Query(DEFAULT_SOCIETY_ID),
     status: Optional[str] = Query(None)
 ):
     """
-    List resident cumulative invoices for a society with WhatsApp delivery status.
+    List resident cumulative invoices for a society with WhatsApp delivery status and payment audit trail.
     """
     invoices = db_service.get_invoices(society_id=society_id, status=status)
     for inv in invoices:
         inv["whatsapp_delivery"] = get_delivery_status(inv["id"])
+        audit = get_payment_audit(inv["id"])
+        if audit:
+            inv["payment_audit"] = audit
+            inv["verified_by"] = audit.get("collector")
+            inv["verified_at"] = audit.get("collected_at")
     return {"invoices": invoices}
+
 
 
 @router.post("/generate")
@@ -353,25 +394,51 @@ async def verify_invoice_receipt(invoice_id: str, payload: ReceiptVerifyRequest)
     """
     Admin verification of resident payment receipt screenshot.
     """
-    result = db_service.verify_invoice_receipt(invoice_id, payload.verified_by)
+    collector = payload.verified_by or "Building Admin"
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    result = db_service.update_invoice(invoice_id, {
+        "status": "verified",
+        "verified_at": "now()",
+    })
+    set_payment_audit(invoice_id, collector=collector, method="WhatsApp Slip", timestamp=now_iso)
+
     return {
         "status": "success",
         "invoice_id": invoice_id,
         "message": "Payment receipt successfully verified",
+        "collected_by": collector,
+        "verified_at": now_iso,
         "data": result
     }
 
 @router.patch("/{invoice_id}/pay")
-async def mark_invoice_as_paid(invoice_id: str):
+async def mark_invoice_as_paid(invoice_id: str, payload: Optional[MarkPaidRequest] = None):
     """
-    Mark resident invoice as paid directly (cash/cheque collected at society office).
+    Mark resident invoice as paid directly (cash/cheque collected at society office)
+    with collector accountability and timestamp.
     """
-    result = db_service.update_invoice(invoice_id, {"status": "paid"})
+    collector = payload.collected_by if (payload and payload.collected_by) else "Building Admin"
+    method = payload.payment_method if (payload and payload.payment_method) else "Cash"
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    update_data = {
+        "status": "paid",
+        "verified_at": "now()",
+    }
+    result = db_service.update_invoice(invoice_id, update_data)
+    set_payment_audit(invoice_id, collector=collector, method=method, timestamp=now_iso)
+
     return {
         "status": "success",
         "invoice_id": invoice_id,
-        "message": "Invoice marked as paid",
+        "message": f"Invoice marked as paid by {collector}",
+        "collected_by": collector,
+        "payment_method": method,
+        "verified_at": now_iso,
         "data": result
     }
+
+
 
 
