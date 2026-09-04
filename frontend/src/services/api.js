@@ -1,4 +1,4 @@
-import { mockResidents, mockInvoices, mockComplaints, mockDashboardMetrics, mockVehicleLogs, mockPolls } from './mockData';
+import { mockResidents, mockInvoices, mockComplaints, mockDashboardMetrics, mockVehicleLogs, mockPolls, mockEmployees } from './mockData';
 
 const API_BASE = '/api/v1';
 
@@ -262,4 +262,66 @@ export async function exportPollReportApi(pollId, format = 'pdf') {
     format,
     download_url: `https://your-project-id.supabase.co/storage/v1/object/public/reports/poll_report_${pollId}.${format}`
   };
+}
+
+// EMPLOYEES API
+export async function fetchEmployees() {
+  try {
+    const res = await fetch(`${API_BASE}/employees`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && Array.isArray(data.employees) && data.employees.length > 0) {
+        return data.employees;
+      }
+    }
+  } catch (err) {
+    console.warn('Backend API unreachable, using local fallback employees dataset:', err);
+  }
+  return mockEmployees;
+}
+
+export async function createEmployeeApi(payload) {
+  try {
+    const res = await fetch(`${API_BASE}/employees`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn('API error during employee creation:', err);
+  }
+  return { status: 'success', employee: { ...payload, id: `emp-${Date.now()}`, created_at: new Date().toISOString() } };
+}
+
+export async function updateEmployeeApi(employeeId, payload) {
+  try {
+    const res = await fetch(`${API_BASE}/employees/${employeeId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn('API error during employee update:', err);
+  }
+  return { status: 'success', employee: { id: employeeId, ...payload } };
+}
+
+export async function deleteEmployeeApi(employeeId) {
+  try {
+    const res = await fetch(`${API_BASE}/employees/${employeeId}`, {
+      method: 'DELETE',
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn('API error during employee deletion:', err);
+  }
+  return { status: 'success', deleted_id: employeeId };
 }

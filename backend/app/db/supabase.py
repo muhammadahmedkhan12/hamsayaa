@@ -249,4 +249,45 @@ class DatabaseService:
             logger.error(f"Error uploading voice note to Supabase storage: {e}")
             return None
 
+    # EMPLOYEE DIRECTORY
+    def get_employees(self, society_id: str):
+        if not self.client:
+            return []
+        try:
+            res = self.client.table("employees").select("*").eq("society_id", society_id).order("created_at", desc=True).execute()
+            return res.data or []
+        except Exception as e:
+            logger.error(f"Error fetching employees: {e}")
+            return []
+
+    def create_employee(self, employee_data: dict):
+        if not self.client:
+            return None
+        try:
+            res = self.client.table("employees").insert(employee_data).execute()
+            return res.data[0] if res.data else None
+        except Exception as e:
+            logger.error(f"Error creating employee: {e}")
+            return None
+
+    def update_employee(self, employee_id: str, employee_data: dict):
+        if not self.client:
+            return None
+        try:
+            res = self.client.table("employees").update(employee_data).eq("id", employee_id).execute()
+            return res.data[0] if res.data else None
+        except Exception as e:
+            logger.error(f"Error updating employee {employee_id}: {e}")
+            return None
+
+    def delete_employee(self, employee_id: str):
+        if not self.client:
+            return False
+        try:
+            res = self.client.table("employees").delete().eq("id", employee_id).execute()
+            return True
+        except Exception as e:
+            logger.error(f"Error deleting employee {employee_id}: {e}")
+            return False
+
 db_service = DatabaseService()

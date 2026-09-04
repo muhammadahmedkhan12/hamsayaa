@@ -310,3 +310,54 @@ export const mockPolls = [
     total_votes: 42
   }
 ];
+
+export const mockEmployees = [
+  {
+    id: 'emp-001',
+    name: 'Mohammad Aslam',
+    role: 'Gate Security Guard',
+    contact_info: '+92 300 4567891',
+    shift: 'Morning (08:00 - 16:00)',
+    created_at: '2026-06-01T08:00:00Z',
+  },
+  {
+    id: 'emp-002',
+    name: 'Tariq Mehmood',
+    role: 'Gate Security Guard',
+    contact_info: '+92 312 9876543',
+    shift: 'Night (00:00 - 08:00)',
+    created_at: '2026-06-01T08:00:00Z',
+  },
+  {
+    id: 'emp-003',
+    name: 'Sajid Ali',
+    role: 'Resident Electrician',
+    contact_info: '+92 333 1122334',
+    shift: 'Full-Time (09:00 - 18:00)',
+    created_at: '2026-06-15T09:00:00Z',
+  },
+  {
+    id: 'emp-004',
+    name: 'Bilal Ahmed',
+    role: 'Plumbing Specialist',
+    contact_info: '+92 321 5566778',
+    shift: 'Full-Time (09:00 - 18:00)',
+    created_at: '2026-06-15T09:00:00Z',
+  },
+  {
+    id: 'emp-005',
+    name: 'Ghulam Nabi',
+    role: 'Building Supervisor',
+    contact_info: '+92 302 7788990',
+    shift: 'Morning (08:00 - 17:00)',
+    created_at: '2026-05-10T08:00:00Z',
+  },
+  {
+    id: 'emp-006',
+    name: 'Imran Masih',
+    role: 'Sanitation & Janitorial',
+    contact_info: '+92 345 3344556',
+    shift: 'Evening (14:00 - 22:00)',
+    created_at: '2026-06-20T14:00:00Z',
+  },
+];
