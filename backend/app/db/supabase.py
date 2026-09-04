@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from supabase import create_client, Client
 from app.core.config import settings
 import logging
@@ -381,6 +382,71 @@ class DatabaseService:
             return res.data[0] if res.data else None
         except Exception as e:
             logger.error(f"Error updating society {society_id}: {e}")
+            return None
+
+    # VEHICLES & GATE LOGS
+    def get_registered_vehicles(self, society_id: str):
+        if not self.client:
+            return []
+        try:
+            res = self.client.table("registered_vehicles").select("*, residents(name, unit_number, building)").eq("society_id", society_id).execute()
+            return res.data or []
+        except Exception as e:
+            logger.error(f"Error fetching registered vehicles: {e}")
+            return []
+
+    def get_vehicle_logs(self, society_id: str):
+        if not self.client:
+            return []
+        try:
+            res = self.client.table("vehicle_logs").select("*").eq("society_id", society_id).order("entry_time", desc=True).execute()
+            return res.data or []
+        except Exception as e:
+            logger.error(f"Error fetching vehicle logs: {e}")
+            return []
+
+    def create_vehicle_log(self, log_data: dict):
+        if not self.client:
+            return None
+        try:
+            plate = log_data.get("vehicle_plate", "").strip().upper()
+            society_id = log_data.get("society_id")
+
+            # Check if plate is registered in society
+            reg_res = self.client.table("registered_vehicles").select("*, residents(name, unit_number, building)").eq("society_id", society_id).ilike("vehicle_plate", plate).execute()
+            is_reg = bool(reg_res.data and len(reg_res.data) > 0)
+            
+            insert_payload = {
+                "society_id": society_id,
+                "vehicle_plate": plate,
+                "entry_time": log_data.get("entry_time") or datetime.now(timezone.utc).isoformat(),
+                "source": log_data.get("source", "manual"),
+                "is_registered": is_reg,
+                "is_flagged_overstay": False if is_reg else log_data.get("is_flagged_overstay", False)
+            }
+            res = self.client.table("vehicle_logs").insert(insert_payload).execute()
+            created_log = res.data[0] if res.data else None
+            
+            if created_log and is_reg:
+                created_log["resident_info"] = reg_res.data[0].get("residents")
+
+            return created_log
+        except Exception as e:
+            logger.error(f"Error creating vehicle log: {e}")
+            return None
+
+    def mark_vehicle_exit(self, log_id: str):
+        if not self.client:
+            return None
+        try:
+            exit_ts = datetime.now(timezone.utc).isoformat()
+            res = self.client.table("vehicle_logs").update({
+                "exit_time": exit_ts,
+                "is_flagged_overstay": False
+            }).eq("id", log_id).execute()
+            return res.data[0] if res.data else None
+        except Exception as e:
+            logger.error(f"Error marking vehicle exit {log_id}: {e}")
             return None
 
 db_service = DatabaseService()
