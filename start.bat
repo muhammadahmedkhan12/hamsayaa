@@ -17,17 +17,17 @@ echo.
 :: 1. Start FastAPI Backend (new window)
 echo  [1/3] Starting FastAPI Backend on port 8000...
 start "Hamsayaa Backend" cmd /k "cd /d %PROJECT_DIR%backend && python app/main.py"
-timeout /t 3 /nobreak >nul
+ping 127.0.0.1 -n 3 >nul
 
 :: 2. Start React Frontend (new window)
 echo  [2/3] Starting React Frontend Dashboard...
 start "Hamsayaa Frontend" cmd /k "cd /d %PROJECT_DIR%frontend && npm run dev"
-timeout /t 2 /nobreak >nul
+ping 127.0.0.1 -n 2 >nul
 
 :: 3. Start ngrok tunnel (new window)
 echo  [3/3] Starting ngrok tunnel...
 start "Hamsayaa ngrok" cmd /k "ngrok http 8000"
-timeout /t 3 /nobreak >nul
+ping 127.0.0.1 -n 3 >nul
 
 echo.
 echo  ============================================

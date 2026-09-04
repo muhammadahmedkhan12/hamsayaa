@@ -25,4 +25,4 @@ echo  ============================================
 echo   ALL SERVICES STOPPED.
 echo  ============================================
 echo.
-timeout /t 3 /nobreak >nul
+ping 127.0.0.1 -n 3 >nul
