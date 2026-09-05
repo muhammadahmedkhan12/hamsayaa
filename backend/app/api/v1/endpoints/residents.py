@@ -163,6 +163,7 @@ class BroadcastNotificationRequest(BaseModel):
     title: str = Field(..., min_length=2, max_length=150, example="Scheduled Water Tank Maintenance")
     message: str = Field(..., min_length=5, max_length=2500, example="Water supply will be paused from 2 PM to 5 PM today for routine maintenance.")
     building: Optional[str] = Field(default=None, example="Block A")  # None or "All" for whole society
+    unit_number: Optional[str] = Field(default=None, example="221")  # Specific unit number if targeting single apartment
     category: Optional[str] = Field(default="Announcement", example="Water Supply")
 
 @router.post("/broadcast-notification")
@@ -171,8 +172,8 @@ async def broadcast_notification(
     society_id: str = Query(DEFAULT_SOCIETY_ID)
 ):
     """
-    Broadcasts an official WhatsApp announcement notification to all residents of a society
-    or to residents of a specific building/block.
+    Broadcasts an official WhatsApp announcement notification with strict 1-message-per-apartment deduplication.
+    Can target Whole Society, a Single Building, or a Specific Apartment.
     """
     from app.services.whatsapp import whatsapp_service
     from app.api.v1.endpoints.whatsapp import redis_client
@@ -180,18 +181,49 @@ async def broadcast_notification(
     from datetime import datetime, timezone
 
     target_building = payload.building if payload.building and payload.building != "All" else None
+    target_unit = str(payload.unit_number).strip() if payload.unit_number and payload.unit_number != "All" else None
+
     residents = db_service.get_residents(society_id=society_id, building=target_building)
 
-    # Filter active, non-blocked residents with valid phone numbers
-    eligible_residents = [
-        r for r in residents
-        if not r.get("is_blocked") and r.get("phone_number") and len(r.get("phone_number", "")) >= 8
-    ]
+    # Filter to specific unit if single apartment is selected
+    if target_unit:
+        residents = [
+            r for r in residents
+            if str(r.get("unit_number", "")).strip().lower() == target_unit.lower()
+        ]
+
+    # Deduplicate: Exactly ONE message per apartment/unit (keyed by building + unit_number)
+    # Sort so owner or active tenant is prioritized as primary contact for the apartment
+    seen_apartments = set()
+    eligible_residents = []
+
+    sorted_residents = sorted(
+        residents,
+        key=lambda x: (not x.get("is_owner", False), not x.get("is_tenant", False))
+    )
+
+    for r in sorted_residents:
+        if r.get("is_blocked"):
+            continue
+        phone = r.get("phone_number")
+        if not phone or len(phone) < 8:
+            continue
+
+        bld = r.get("building", "General")
+        unit = str(r.get("unit_number", "")).strip()
+        apt_key = (bld.lower(), unit.lower())
+
+        if apt_key in seen_apartments:
+            continue
+
+        seen_apartments.add(apt_key)
+        eligible_residents.append(r)
 
     if not eligible_residents:
+        scope_label = f"{target_building} - Unit {target_unit}" if (target_building and target_unit) else (payload.building or "Whole Society")
         return {
             "status": "success",
-            "message": f"No active residents found for target {payload.building or 'Whole Society'}.",
+            "message": f"No active apartment contacts found for target {scope_label}.",
             "targets_count": 0,
             "sent_count": 0,
             "failed_count": 0,
@@ -254,6 +286,7 @@ async def broadcast_notification(
                 "title": payload.title,
                 "category": payload.category,
                 "building": payload.building or "All",
+                "unit_number": payload.unit_number or "All",
                 "targets_count": len(eligible_residents),
                 "sent_count": sent_count,
                 "failed_count": failed_count,
@@ -263,14 +296,21 @@ async def broadcast_notification(
         except Exception as ex:
             logger.debug(f"Redis broadcast logging failed: {ex}")
 
-    scope_name = f"Building {payload.building}" if target_building else "Whole Society"
+    if target_unit and target_building:
+        scope_name = f"{target_building} - Unit {target_unit}"
+    elif target_building:
+        scope_name = f"Building {payload.building}"
+    else:
+        scope_name = "Whole Society"
+
     return {
         "status": "success",
-        "message": f"Broadcast dispatched to {len(eligible_residents)} residents in {scope_name}: {sent_count} sent, {failed_count} failed.",
+        "message": f"Broadcast dispatched to {len(eligible_residents)} apartment(s) in {scope_name} (1 message per apartment): {sent_count} sent, {failed_count} failed.",
         "targets_count": len(eligible_residents),
         "sent_count": sent_count,
         "failed_count": failed_count,
         "building": payload.building or "All",
+        "unit_number": payload.unit_number or "All",
         "failed_recipients": failed_recipients
     }
 
