@@ -518,33 +518,35 @@ export default function Invoices() {
         {/* Card 1: Total Collection */}
         <div
           onClick={() => setSelectedStatus('Paid')}
-          className="bg-white p-5 rounded-xl border border-slate-200/90 shadow-2xs hover:border-slate-300 hover:shadow-xs transition-all cursor-pointer group flex flex-col justify-between"
+          className="relative overflow-hidden bg-gradient-to-b from-white to-slate-50/50 p-5 rounded-xl border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] hover:border-slate-300 hover:-translate-y-0.5 transition-all duration-200 group flex flex-col justify-between cursor-pointer"
         >
+          <div className="absolute top-0 right-0 w-24 h-24 bg-brand-500/5 rounded-full blur-xl pointer-events-none -mr-4 -mt-4" />
+
           <div>
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500 group-hover:text-slate-700 transition-colors">
+              <span className="text-xs font-semibold text-slate-600 tracking-wide group-hover:text-navy transition-colors">
                 Total Collection
               </span>
-              <DollarSign className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-colors" />
+              <div className="w-8 h-8 rounded-lg bg-brand-500/10 border border-brand-500/20 text-brand-600 flex items-center justify-center group-hover:scale-105 transition-transform shadow-2xs">
+                <DollarSign className="w-4 h-4" />
+              </div>
             </div>
-            <div className="mt-3 flex items-baseline gap-2.5">
-              {loading ? (
-                <div className="h-8 w-32 bg-slate-200/70 animate-pulse rounded-md" />
-              ) : (
-                <>
-                  <span className="text-2xl font-bold text-navy tracking-tight">
-                    Rs. {totalCollected.toLocaleString()}
-                  </span>
-                  <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-md">
-                    Received
-                  </span>
-                </>
-              )}
+
+            <div className="mt-3 flex items-baseline">
+              <span className="text-3xl font-bold text-navy tracking-tight">
+                Rs. {totalCollected.toLocaleString()}
+              </span>
             </div>
           </div>
-          <div className="text-[11px] text-slate-400 mt-3 font-normal flex items-center justify-between border-t border-slate-100 pt-2.5">
-            <span>Direct society account</span>
-            <span className="text-brand-600 font-medium group-hover:translate-x-0.5 transition-transform">
+
+          <div className="text-[11px] text-slate-400 mt-4 font-normal flex items-center justify-between border-t border-slate-100 pt-3 gap-2">
+            <div className="flex items-center gap-1.5 flex-1 min-w-0" title="Direct society maintenance account">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+              <span className="truncate block select-none text-slate-500 font-normal">
+                Direct society maintenance account
+              </span>
+            </div>
+            <span className="text-brand-600 font-semibold group-hover:translate-x-0.5 transition-transform shrink-0">
               Filter paid →
             </span>
           </div>
@@ -553,39 +555,44 @@ export default function Invoices() {
         {/* Card 2: Overdue Dues */}
         <div
           onClick={() => setSelectedStatus('Overdue')}
-          className="bg-white p-5 rounded-xl border border-slate-200/90 shadow-2xs hover:border-slate-300 hover:shadow-xs transition-all cursor-pointer group flex flex-col justify-between"
+          className="relative overflow-hidden bg-gradient-to-b from-white to-slate-50/50 p-5 rounded-xl border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] hover:border-slate-300 hover:-translate-y-0.5 transition-all duration-200 group flex flex-col justify-between cursor-pointer"
         >
+          <div className="absolute top-0 right-0 w-24 h-24 bg-brand-500/5 rounded-full blur-xl pointer-events-none -mr-4 -mt-4" />
+
           <div>
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500 group-hover:text-slate-700 transition-colors">
+              <span className="text-xs font-semibold text-slate-600 tracking-wide group-hover:text-navy transition-colors">
                 Overdue Dues
               </span>
-              <AlertTriangle className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-colors" />
+              <div className="w-8 h-8 rounded-lg bg-brand-500/10 border border-brand-500/20 text-brand-600 flex items-center justify-center group-hover:scale-105 transition-transform shadow-2xs">
+                <AlertTriangle className="w-4 h-4" />
+              </div>
             </div>
-            <div className="mt-3 flex items-baseline gap-2.5">
-              {loading ? (
-                <div className="h-8 w-32 bg-slate-200/70 animate-pulse rounded-md" />
-              ) : (
-                <>
-                  <span className="text-2xl font-bold text-navy tracking-tight">
-                    Rs. {totalOverdue.toLocaleString()}
-                  </span>
-                  {totalOverdue > 0 ? (
-                    <span className="text-[11px] font-medium text-red-700 bg-red-50 border border-red-200/80 px-2 py-0.5 rounded-md">
-                      Unsettled
-                    </span>
-                  ) : (
-                    <span className="text-[11px] font-medium text-emerald-600 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-md">
-                      All cleared
-                    </span>
-                  )}
-                </>
-              )}
+
+            <div className="mt-3 flex items-baseline">
+              <span className="text-3xl font-bold text-navy tracking-tight">
+                Rs. {totalOverdue.toLocaleString()}
+              </span>
             </div>
           </div>
-          <div className="text-[11px] text-slate-400 mt-3 font-normal flex items-center justify-between border-t border-slate-100 pt-2.5">
-            <span>Automated WhatsApp notices</span>
-            <span className="text-brand-600 font-medium group-hover:translate-x-0.5 transition-transform">
+
+          <div className="text-[11px] text-slate-400 mt-4 font-normal flex items-center justify-between border-t border-slate-100 pt-3 gap-2">
+            <div
+              className="flex items-center gap-1.5 flex-1 min-w-0"
+              title={
+                totalOverdue > 0
+                  ? `${invoices.filter((i) => i.status === 'overdue').length} units overdue · Automated WhatsApp notices`
+                  : 'All maintenance dues cleared'
+              }
+            >
+              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${totalOverdue > 0 ? 'bg-red-500' : 'bg-emerald-500'}`} />
+              <span className="truncate block select-none text-slate-500 font-normal">
+                {totalOverdue > 0
+                  ? `${invoices.filter((i) => i.status === 'overdue').length} units overdue · Automated notices`
+                  : 'All maintenance dues cleared'}
+              </span>
+            </div>
+            <span className="text-brand-600 font-semibold group-hover:translate-x-0.5 transition-transform shrink-0">
               Filter overdue →
             </span>
           </div>
@@ -594,40 +601,44 @@ export default function Invoices() {
         {/* Card 3: Pending Verification */}
         <div
           onClick={() => setSelectedStatus('Unpaid')}
-          className="bg-white p-5 rounded-xl border border-slate-200/90 shadow-2xs hover:border-slate-300 hover:shadow-xs transition-all cursor-pointer group flex flex-col justify-between"
+          className="relative overflow-hidden bg-gradient-to-b from-white to-slate-50/50 p-5 rounded-xl border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] hover:border-slate-300 hover:-translate-y-0.5 transition-all duration-200 group flex flex-col justify-between cursor-pointer"
         >
+          <div className="absolute top-0 right-0 w-24 h-24 bg-brand-500/5 rounded-full blur-xl pointer-events-none -mr-4 -mt-4" />
+
           <div>
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500 group-hover:text-slate-700 transition-colors">
+              <span className="text-xs font-semibold text-slate-600 tracking-wide group-hover:text-navy transition-colors">
                 Pending Verification
               </span>
-              <Receipt className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-colors" />
+              <div className="w-8 h-8 rounded-lg bg-brand-500/10 border border-brand-500/20 text-brand-600 flex items-center justify-center group-hover:scale-105 transition-transform shadow-2xs">
+                <Receipt className="w-4 h-4" />
+              </div>
             </div>
-            <div className="mt-3 flex items-baseline gap-2.5">
-              {loading ? (
-                <div className="h-8 w-24 bg-slate-200/70 animate-pulse rounded-md" />
-              ) : (
-                <>
-                  <span className="text-2xl font-bold text-navy tracking-tight">
-                    {pendingReceiptsCount} {pendingReceiptsCount === 1 ? 'Receipt' : 'Receipts'}
-                  </span>
-                  {pendingReceiptsCount > 0 ? (
-                    <span className="text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-200/80 px-2 py-0.5 rounded-md flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                      Review needed
-                    </span>
-                  ) : (
-                    <span className="text-[11px] font-medium text-slate-400">
-                      Up to date
-                    </span>
-                  )}
-                </>
-              )}
+
+            <div className="mt-3 flex items-baseline">
+              <span className="text-3xl font-bold text-navy tracking-tight">
+                {pendingReceiptsCount}
+              </span>
             </div>
           </div>
-          <div className="text-[11px] text-slate-400 mt-3 font-normal flex items-center justify-between border-t border-slate-100 pt-2.5">
-            <span>WhatsApp slips sent</span>
-            <span className="text-brand-600 font-medium group-hover:translate-x-0.5 transition-transform">
+
+          <div className="text-[11px] text-slate-400 mt-4 font-normal flex items-center justify-between border-t border-slate-100 pt-3 gap-2">
+            <div
+              className="flex items-center gap-1.5 flex-1 min-w-0"
+              title={
+                pendingReceiptsCount > 0
+                  ? `${pendingReceiptsCount} WhatsApp payment slips awaiting review`
+                  : 'All resident payment slips verified'
+              }
+            >
+              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${pendingReceiptsCount > 0 ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+              <span className="truncate block select-none text-slate-500 font-normal">
+                {pendingReceiptsCount > 0
+                  ? `${pendingReceiptsCount} slips awaiting review`
+                  : 'All slips verified · Up to date'}
+              </span>
+            </div>
+            <span className="text-brand-600 font-semibold group-hover:translate-x-0.5 transition-transform shrink-0">
               Verify receipts →
             </span>
           </div>
@@ -636,31 +647,38 @@ export default function Invoices() {
         {/* Card 4: Collection Rate */}
         <div
           onClick={() => setSelectedStatus('All')}
-          className="bg-white p-5 rounded-xl border border-slate-200/90 shadow-2xs hover:border-slate-300 hover:shadow-xs transition-all cursor-pointer group flex flex-col justify-between"
+          className="relative overflow-hidden bg-gradient-to-b from-white to-slate-50/50 p-5 rounded-xl border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] hover:border-slate-300 hover:-translate-y-0.5 transition-all duration-200 group flex flex-col justify-between cursor-pointer"
         >
+          <div className="absolute top-0 right-0 w-24 h-24 bg-brand-500/5 rounded-full blur-xl pointer-events-none -mr-4 -mt-4" />
+
           <div>
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500 group-hover:text-slate-700 transition-colors">
+              <span className="text-xs font-semibold text-slate-600 tracking-wide group-hover:text-navy transition-colors">
                 Collection Rate
               </span>
-              <Percent className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-colors" />
+              <div className="w-8 h-8 rounded-lg bg-brand-500/10 border border-brand-500/20 text-brand-600 flex items-center justify-center group-hover:scale-105 transition-transform shadow-2xs">
+                <Percent className="w-4 h-4" />
+              </div>
             </div>
-            <div className="mt-3 flex items-baseline gap-2.5">
-              {loading ? (
-                <div className="h-8 w-20 bg-slate-200/70 animate-pulse rounded-md" />
-              ) : (
-                <>
-                  <span className="text-2xl font-bold text-navy tracking-tight">{collectionRate}%</span>
-                  <span className="text-[11px] font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
-                    {paidCount}/{invoices.length} units
-                  </span>
-                </>
-              )}
+
+            <div className="mt-3 flex items-baseline">
+              <span className="text-3xl font-bold text-navy tracking-tight">
+                {collectionRate}%
+              </span>
             </div>
           </div>
-          <div className="text-[11px] text-slate-400 mt-3 font-normal flex items-center justify-between border-t border-slate-100 pt-2.5">
-            <span>Cycle settlement</span>
-            <span className="text-brand-600 font-medium group-hover:translate-x-0.5 transition-transform">
+
+          <div className="text-[11px] text-slate-400 mt-4 font-normal flex items-center justify-between border-t border-slate-100 pt-3 gap-2">
+            <div
+              className="flex items-center gap-1.5 flex-1 min-w-0"
+              title={`${paidCount} of ${invoices.length} units settled for current cycle`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-brand-500 shrink-0" />
+              <span className="truncate block select-none text-slate-500 font-normal">
+                {paidCount} of {invoices.length} units settled
+              </span>
+            </div>
+            <span className="text-brand-600 font-semibold group-hover:translate-x-0.5 transition-transform shrink-0">
               View roster →
             </span>
           </div>

@@ -16,111 +16,27 @@ import {
 } from 'lucide-react';
 import { fetchDashboardSummary } from '../services/api';
 
-// Continuous circular loop marquee ("starts again where it finishes" conveyor belt)
-function CircularMarqueeText({ text }) {
-  const containerRef = useRef(null);
-  const textRef = useRef(null);
-  const [isOverflowing, setIsOverflowing] = useState(false);
-  const [duration, setDuration] = useState(16);
-
-  useEffect(() => {
-    const calculateOverflow = () => {
-      if (containerRef.current && textRef.current) {
-        const textWidth = textRef.current.offsetWidth;
-        const containerWidth = containerRef.current.clientWidth;
-        if (textWidth > containerWidth) {
-          setIsOverflowing(true);
-          // Set duration for calm, steady reading pace (~24px/s)
-          const scrollSpeed = 24;
-          const calculatedDuration = Math.max(12, Math.round((textWidth + 28) / scrollSpeed));
-          setDuration(calculatedDuration);
-        } else {
-          setIsOverflowing(false);
-        }
-      }
-    };
-
-    calculateOverflow();
-    const timer = setTimeout(calculateOverflow, 200);
-    window.addEventListener('resize', calculateOverflow);
-
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener('resize', calculateOverflow);
-    };
-  }, [text]);
-
+// Clean static contextual info snippet
+function CardFooterText({ text }) {
   return (
-    <div
-      ref={containerRef}
-      className={`overflow-hidden flex-1 min-w-0 relative ${isOverflowing ? 'mask-fade-loop group/ticker' : ''}`}
-      title={text}
-    >
-      <div
-        className={`inline-flex items-center whitespace-nowrap ${
-          isOverflowing ? 'animate-circular-loop group-hover/ticker:[animation-play-state:paused]' : ''
-        }`}
-        style={isOverflowing ? { '--marquee-duration': `${duration}s` } : {}}
-      >
-        <span ref={textRef} className="inline-flex items-center select-none">
-          {text}
-          {isOverflowing && (
-            <span className="text-slate-300 mx-3 text-[7px] shrink-0">●</span>
-          )}
-        </span>
-        {isOverflowing && (
-          <span className="inline-flex items-center select-none" aria-hidden="true">
-            {text}
-            <span className="text-slate-300 mx-3 text-[7px] shrink-0">●</span>
-          </span>
-        )}
-      </div>
+    <div className="overflow-hidden flex-1 min-w-0" title={text}>
+      <span className="truncate block select-none text-slate-500 font-normal">
+        {text}
+      </span>
     </div>
   );
 }
 
-// Backwards-compatible alias
-const PingPongText = CircularMarqueeText;
+const CircularMarqueeText = CardFooterText;
+const PingPongText = CardFooterText;
 
-// Smooth easing count-up animation for metrics with refined pacing
-function AnimatedNumber({ value, duration = 1600, prefix = '' }) {
-  const [displayValue, setDisplayValue] = useState(0);
-
-  useEffect(() => {
-    let startTimestamp = null;
-    const startValue = 0;
-    const endValue = typeof value === 'number' ? value : parseFloat(value) || 0;
-
-    if (endValue === 0) {
-      setDisplayValue(0);
-      return;
-    }
-
-    // Adaptive duration: 1000ms for small integers (1-10) so the increments are clearly visible,
-    // and 1600ms for large totals (e.g. 15,000) for an elegant, steady count-up roll.
-    const animDuration = endValue <= 10 ? 1000 : duration;
-
-    const step = (timestamp) => {
-      if (!startTimestamp) startTimestamp = timestamp;
-      const progress = Math.min((timestamp - startTimestamp) / animDuration, 1);
-      // Ease-out cubic
-      const easeProgress = 1 - Math.pow(1 - progress, 3);
-      const current = Math.round(startValue + (endValue - startValue) * easeProgress);
-      setDisplayValue(current);
-
-      if (progress < 1) {
-        window.requestAnimationFrame(step);
-      }
-    };
-
-    const animId = window.requestAnimationFrame(step);
-    return () => window.cancelAnimationFrame(animId);
-  }, [value, duration]);
-
+// Clean direct metric number display
+function AnimatedNumber({ value, prefix = '' }) {
+  const num = typeof value === 'number' ? value : parseFloat(value) || 0;
   return (
     <span>
       {prefix && <span className="text-sm font-semibold text-slate-400 mr-1 font-sans">{prefix}</span>}
-      {displayValue.toLocaleString()}
+      {num.toLocaleString()}
     </span>
   );
 }
@@ -291,7 +207,7 @@ export default function Dashboard() {
 
           <div className="text-[11px] text-slate-400 mt-4 font-normal flex items-center justify-between border-t border-slate-100 pt-3 gap-2">
             <div className="flex items-center gap-1.5 flex-1 min-w-0" title={latestTicketInfo}>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
               <CircularMarqueeText text={latestTicketInfo} />
             </div>
             <span className="text-brand-600 font-semibold group-hover:translate-x-0.5 transition-transform shrink-0">
@@ -326,7 +242,7 @@ export default function Dashboard() {
 
           <div className="text-[11px] text-slate-400 mt-4 font-normal flex items-center justify-between border-t border-slate-100 pt-3 gap-2">
             <div className="flex items-center gap-1.5 flex-1 min-w-0" title={overdueInfo}>
-              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${overdueCount > 0 ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'}`} />
+              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${overdueCount > 0 ? 'bg-red-500' : 'bg-emerald-500'}`} />
               <CircularMarqueeText text={overdueInfo} />
             </div>
             <span className="text-brand-600 font-semibold group-hover:translate-x-0.5 transition-transform shrink-0">
@@ -361,7 +277,7 @@ export default function Dashboard() {
 
           <div className="text-[11px] text-slate-400 mt-4 font-normal flex items-center justify-between border-t border-slate-100 pt-3 gap-2">
             <div className="flex items-center gap-1.5 flex-1 min-w-0" title={activePassInfo}>
-              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${activePasses > 0 ? 'bg-brand-500 animate-pulse' : 'bg-slate-300'}`} />
+              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${activePasses > 0 ? 'bg-brand-500' : 'bg-slate-300'}`} />
               <CircularMarqueeText text={activePassInfo} />
             </div>
             <span className="text-brand-600 font-semibold group-hover:translate-x-0.5 transition-transform shrink-0">
@@ -396,7 +312,7 @@ export default function Dashboard() {
 
           <div className="text-[11px] text-slate-400 mt-4 font-normal flex items-center justify-between border-t border-slate-100 pt-3 gap-2">
             <div className="flex items-center gap-1.5 flex-1 min-w-0" title={overstayInfo}>
-              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${flaggedOverstays > 0 ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'}`} />
+              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${flaggedOverstays > 0 ? 'bg-red-500' : 'bg-emerald-500'}`} />
               <CircularMarqueeText text={overstayInfo} />
             </div>
             <span className="text-brand-600 font-semibold group-hover:translate-x-0.5 transition-transform shrink-0">
