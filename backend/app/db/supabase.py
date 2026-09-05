@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date, timedelta
 import re
 from supabase import create_client, Client
 from app.core.config import settings
@@ -206,7 +206,6 @@ class DatabaseService:
                 "society_maintenance_fee": default_fee,
                 "hamsayaa_saas_fee": 0.0,
                 "utility_charges": 0.0,
-                "total_amount": default_fee,
                 "due_date": due_date,
                 "status": "unpaid",
                 "account_shown": account
