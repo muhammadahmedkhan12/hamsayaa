@@ -528,7 +528,9 @@ class GeminiEngine:
                 f"• 🏦 *Method / Bank:* {bank_or_app}\n"
                 f"• 🔖 *Reference / TxID:* {ref_no}\n"
                 f"• 🏠 *Unit:* {building} - Unit {unit}\n\n"
-                f"📌 *Status:* Attached to your maintenance voucher and submitted to the society management office for verification."
+                f"⏳ *Status: Under Verification*\n"
+                f"Your payment receipt has been attached to your voucher. The society office / admin will manually review and approve the transfer before updating your account to Paid. ✅\n\n"
+                f"_💡 Note: If you ever send a wrong image or make another transfer, simply send the new screenshot here and it will update your verification record._"
             )
             res_payload = {
                 "status": "success",

@@ -4,7 +4,10 @@ from typing import Optional
 import csv
 import io
 import re
+import logging
 from app.db.supabase import db_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -78,6 +81,14 @@ async def create_resident(payload: ResidentCreate, society_id: str = Query(DEFAU
     }
     
     result = db_service.create_resident(data)
+    
+    # Auto-create initial maintenance invoice for the new resident so they immediately appear in the Finance tab
+    if result and isinstance(result, dict) and "id" in result:
+        try:
+            db_service.get_or_create_advance_invoice(society_id, result["id"])
+        except Exception as e:
+            logger.debug(f"Auto-creating invoice for new resident failed: {e}")
+            
     return {"status": "success", "data": result}
 
 @router.patch("/{resident_id}/toggle-block")
@@ -134,6 +145,13 @@ async def bulk_import_residents(
             })
 
     result = db_service.bulk_upsert_residents(residents_to_insert)
+    if result and isinstance(result, list):
+        for r in result:
+            if r and isinstance(r, dict) and "id" in r:
+                try:
+                    db_service.get_or_create_advance_invoice(society_id, r["id"])
+                except Exception:
+                    pass
     return {
         "status": "success",
         "filename": file.filename,
