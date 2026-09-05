@@ -228,7 +228,7 @@ export default function Employees() {
           </button>
           <button
             onClick={() => setShowAddModal(true)}
-            className="px-3.5 py-1.5 bg-navy text-white text-xs font-semibold rounded-lg hover:bg-slate-800 transition-colors flex items-center gap-1.5 shadow-xs"
+            className="px-3.5 py-1.5 bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors flex items-center gap-1.5"
           >
             <Plus className="w-4 h-4" /> Add Staff Member
           </button>
@@ -300,7 +300,7 @@ export default function Employees() {
               onClick={() => setSelectedRoleFilter(cat)}
               className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap ${
                 selectedRoleFilter === cat
-                  ? 'bg-navy text-white shadow-sm'
+                  ? 'bg-brand-500 text-white shadow-sm'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
@@ -540,7 +540,7 @@ export default function Employees() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-4 py-2 bg-navy text-white text-xs font-semibold rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-50"
+                  className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors disabled:opacity-50"
                 >
                   {submitting ? 'Saving...' : 'Save Employee'}
                 </button>
@@ -624,7 +624,7 @@ export default function Employees() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-4 py-2 bg-navy text-white text-xs font-semibold rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-50"
+                  className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors disabled:opacity-50"
                 >
                   {submitting ? 'Updating...' : 'Save Changes'}
                 </button>

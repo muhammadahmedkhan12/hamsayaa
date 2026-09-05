@@ -294,7 +294,7 @@ export default function Assets() {
           </button>
           <button
             onClick={() => setShowAddModal(true)}
-            className="px-3.5 py-1.5 bg-navy text-white text-xs font-semibold rounded-lg hover:bg-slate-800 transition-colors flex items-center gap-1.5 shadow-xs"
+            className="px-3.5 py-1.5 bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors flex items-center gap-1.5"
           >
             <Plus className="w-4 h-4" /> Add Asset
           </button>
@@ -579,7 +579,7 @@ export default function Assets() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-4 py-2 bg-navy text-white text-xs font-semibold rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-50"
+                  className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors disabled:opacity-50"
                 >
                   {submitting ? 'Registering...' : 'Register Asset'}
                 </button>
@@ -664,7 +664,7 @@ export default function Assets() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-4 py-2 bg-navy text-white text-xs font-semibold rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-50"
+                  className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors disabled:opacity-50"
                 >
                   {submitting ? 'Updating...' : 'Save Changes'}
                 </button>
@@ -742,7 +742,7 @@ export default function Assets() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-4 py-2 bg-navy text-white text-xs font-semibold rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-50"
+                  className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors disabled:opacity-50"
                 >
                   {submitting ? 'Saving Log...' : 'Record Service Log'}
                 </button>
