@@ -121,13 +121,40 @@ export default function Dashboard() {
   const activePasses = summary?.active_passes_count ?? 0;
   const flaggedOverstays = summary?.flagged_overstays_count ?? 0;
   const complaints = summary?.recent_complaints ?? [];
+  const overdueInvoices = summary?.overdue_invoices ?? [];
+  const activeVisitorPasses = summary?.active_passes ?? [];
+  const flaggedVehicles = summary?.flagged_overstays ?? (summary?.vehicle_logs?.filter(v => v.is_flagged_overstay || v.isFlaggedOverstay) ?? []);
   const vehicleLogs = summary?.vehicle_logs ?? [];
 
-  // Meaningful context snippet for Card 1 (replaces generic placeholder with real data)
+  // Meaningful context snippet for Card 1 (Open Tickets)
   const latestComplaint = complaints[0];
   const latestTicketInfo = latestComplaint
-    ? `Latest: ${latestComplaint.category || 'Issue'} (Unit ${latestComplaint.residents?.unit_number || latestComplaint.unit || '101'})`
-    : 'WhatsApp AI active';
+    ? `Latest: ${latestComplaint.category || 'Issue'} (Unit ${latestComplaint.residents?.unit_number || latestComplaint.unit || '221'} · Ticket ${latestComplaint.ticket_number || latestComplaint.id || 'Open'})`
+    : 'WhatsApp AI active · 0 open issues';
+
+  // Meaningful context snippet for Card 2 (Overdue Dues)
+  const oldestOverdue = overdueInvoices[0];
+  const overdueInfo = oldestOverdue
+    ? `Oldest overdue: Unit ${oldestOverdue.residents?.unit_number || oldestOverdue.unitNumber || '222'} (Rs. ${Number(oldestOverdue.total_amount || oldestOverdue.totalAmount || 0).toLocaleString()} · Due ${oldestOverdue.due_date || oldestOverdue.dueDate || 'Past Due'})`
+    : overdueCount > 0
+    ? `${overdueCount} units overdue · Total Rs. ${overdueTotal.toLocaleString()}`
+    : 'All maintenance dues cleared · 0 overdue';
+
+  // Meaningful context snippet for Card 3 (Active Guest Passes)
+  const latestPass = activeVisitorPasses[0];
+  const activePassInfo = latestPass
+    ? `Active: ${latestPass.visitor_name || latestPass.visitorName || 'Guest'} (${latestPass.vehicle_plate || latestPass.vehiclePlate || 'Gate'} · Unit ${latestPass.residents?.unit_number || latestPass.unit || '221'} · Pass ${latestPass.pass_code || latestPass.code || 'VP'})`
+    : activePasses > 0
+    ? `${activePasses} guest passes active at gate`
+    : 'Gate security active · 0 visitor passes';
+
+  // Meaningful context snippet for Card 4 (Flagged Overstays)
+  const latestOverstay = flaggedVehicles[0];
+  const overstayInfo = latestOverstay
+    ? `Flagged overstay: ${latestOverstay.vehicle_plate || latestOverstay.vehiclePlate || 'Vehicle'} (Exceeded pass limit · 0-min grace policy · Security notified)`
+    : flaggedOverstays > 0
+    ? `${flaggedOverstays} visitor vehicles exceeding allowed duration`
+    : 'Security active · All visitor gates clear';
 
   // Skeleton shimmer block
   const Skeleton = ({ className = '' }) => (
@@ -285,9 +312,12 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="text-[11px] text-slate-400 mt-4 font-normal flex items-center justify-between border-t border-slate-100 pt-3">
-            <span>Automated notices</span>
-            <span className="text-brand-600 font-semibold group-hover:translate-x-0.5 transition-transform">
+          <div className="text-[11px] text-slate-400 mt-4 font-normal flex items-center justify-between border-t border-slate-100 pt-3 gap-2">
+            <div className="flex items-center gap-1.5 flex-1 min-w-0" title={overdueInfo}>
+              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${overdueCount > 0 ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'}`} />
+              <PingPongText text={overdueInfo} />
+            </div>
+            <span className="text-brand-600 font-semibold group-hover:translate-x-0.5 transition-transform shrink-0">
               View invoices →
             </span>
           </div>
@@ -323,9 +353,12 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="text-[11px] text-slate-400 mt-4 font-normal flex items-center justify-between border-t border-slate-100 pt-3">
-            <span>Pass code verification</span>
-            <span className="text-brand-600 font-semibold group-hover:translate-x-0.5 transition-transform">
+          <div className="text-[11px] text-slate-400 mt-4 font-normal flex items-center justify-between border-t border-slate-100 pt-3 gap-2">
+            <div className="flex items-center gap-1.5 flex-1 min-w-0" title={activePassInfo}>
+              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${activePasses > 0 ? 'bg-brand-500 animate-pulse' : 'bg-slate-300'}`} />
+              <PingPongText text={activePassInfo} />
+            </div>
+            <span className="text-brand-600 font-semibold group-hover:translate-x-0.5 transition-transform shrink-0">
               Gate records →
             </span>
           </div>
@@ -364,9 +397,12 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="text-[11px] text-slate-400 mt-4 font-normal flex items-center justify-between border-t border-slate-100 pt-3">
-            <span>Security monitoring</span>
-            <span className="text-brand-600 font-semibold group-hover:translate-x-0.5 transition-transform">
+          <div className="text-[11px] text-slate-400 mt-4 font-normal flex items-center justify-between border-t border-slate-100 pt-3 gap-2">
+            <div className="flex items-center gap-1.5 flex-1 min-w-0" title={overstayInfo}>
+              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${flaggedOverstays > 0 ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'}`} />
+              <PingPongText text={overstayInfo} />
+            </div>
+            <span className="text-brand-600 font-semibold group-hover:translate-x-0.5 transition-transform shrink-0">
               View overstays →
             </span>
           </div>

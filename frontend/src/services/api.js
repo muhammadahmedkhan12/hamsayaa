@@ -1,4 +1,4 @@
-import { mockResidents, mockInvoices, mockComplaints, mockDashboardMetrics, mockVehicleLogs, mockPolls, mockEmployees, mockAssets, mockMaintenanceLogs, mockAmenities } from './mockData';
+import { mockResidents, mockInvoices, mockComplaints, mockDashboardMetrics, mockVehicleLogs, mockActivePasses, mockPolls, mockEmployees, mockAssets, mockMaintenanceLogs, mockAmenities } from './mockData';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 const API_BASE = `${API_URL}/api/v1`;
@@ -213,6 +213,9 @@ export async function fetchDashboardSummary() {
     active_passes_count: mockDashboardMetrics.activePasses,
     flagged_overstays_count: mockDashboardMetrics.flaggedOverstays,
     recent_complaints: mockComplaints,
+    overdue_invoices: mockInvoices.filter(i => i.status === 'overdue'),
+    active_passes: mockActivePasses,
+    flagged_overstays: mockVehicleLogs.filter(v => v.isFlaggedOverstay || v.is_flagged_overstay),
     vehicle_logs: mockVehicleLogs,
   };
 }

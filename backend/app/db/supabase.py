@@ -288,6 +288,9 @@ class DatabaseService:
                 "active_passes_count": 0,
                 "flagged_overstays_count": 0,
                 "recent_complaints": [],
+                "overdue_invoices": [],
+                "active_passes": [],
+                "flagged_overstays": [],
                 "vehicle_logs": []
             }
 
@@ -311,6 +314,9 @@ class DatabaseService:
                 "active_passes_count": len(passes),
                 "flagged_overstays_count": len(overstays),
                 "recent_complaints": complaints[:5],
+                "overdue_invoices": overdue_invs[:5],
+                "active_passes": passes[:5],
+                "flagged_overstays": overstays[:5],
                 "vehicle_logs": self.get_vehicle_logs(society_id)[:5]
             }
         except Exception as e:
@@ -323,6 +329,9 @@ class DatabaseService:
                 "active_passes_count": 0,
                 "flagged_overstays_count": 0,
                 "recent_complaints": [],
+                "overdue_invoices": [],
+                "active_passes": [],
+                "flagged_overstays": [],
                 "vehicle_logs": []
             }
 
