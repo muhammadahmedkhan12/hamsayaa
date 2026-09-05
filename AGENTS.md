@@ -70,17 +70,23 @@ Every inbound resident WhatsApp text message follows a **Pure LLM-First pipeline
 3. `whatsapp_service.download_media(media_id)` downloads the binary image from Meta Graph API.
 4. `gemini_engine.process_image_message()` uses multimodal vision to classify and process:
    - **`payment_slip`:**
-     - Gemini extracts transaction details (Amount, Transaction ID, Bank, Date).
-     - Binary is uploaded to Supabase Storage (`society-receipts/`).
-     - Image URL is linked to the resident's active invoice via `db_service.attach_invoice_receipt()`.
-     - Advance payment handling: If sent before monthly vouchers are generated, creates an advance invoice (`get_or_create_advance_invoice()`) so the receipt is never lost.
-     - Settled check: If resident is already marked paid/verified, clarifies balance is Rs. 0 without modifying records.
-     - WhatsApp confirmation sent to resident stating receipt has been submitted for office verification.
+     - **AI Fraud & Tampering Inspection:** Gemini inspects visual integrity for signs of photo editing, cloned digits, mismatched fonts, or digital markup alteration (`is_fraudulent_or_tampered`).
+     - **If Flagged as Fraudulent/Edited:**
+       - Rejection notification sent directly to resident stating the screenshot could not be validated as an authentic slip.
+       - Binary uploaded to Supabase Storage (`society-receipts/`) and linked to invoice.
+       - Redis payment audit updated with `suspected_fraud` flag.
+       - Admin dashboard highlights the invoice with a red **`⚠️ Flagged Slip`** badge and detailed security alert banner.
+     - **If Authentic Slip (Standard or Non-Standard Details):**
+       - Gemini extracts transaction details (Amount, Reference / TxID, Bank, Date).
+       - Binary uploaded to Supabase Storage and linked to invoice.
+       - Advance payment handling: If sent before monthly vouchers are generated, auto-creates an advance invoice (`get_or_create_advance_invoice()`).
+       - Settled check: If resident is already marked paid/verified, clarifies balance is Rs. 0.
+       - WhatsApp confirmation sent to resident stating the receipt is **Under Verification** and will be manually reviewed and approved by the admin.
    - **`maintenance_issue`:**
-     - Binary is uploaded to Supabase Storage (`society-receipts/`).
+     - Binary is uploaded to Supabase Storage (`society-voice-notes/`).
      - A complaint ticket is created with category, description, and permanent `photo_url`.
-   - **`irrelevant`:**
-     - Politely guides resident back to society management topics.
+   - **`irrelevant` (Wrong Image Sent):**
+     - Sends an **Unrecognized Image** notice explicitly informing the resident that the image does not match a payment slip or maintenance issue, and prompts them with clear instructions on what to upload.
 
 ### D. Voice Note Processing Pipeline
 1. Resident sends a WhatsApp voice note (`audio` or `voice` payload type).
