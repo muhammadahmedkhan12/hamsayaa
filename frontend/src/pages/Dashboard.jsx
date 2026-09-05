@@ -168,33 +168,36 @@ export default function Dashboard() {
         {/* Card 2: Overdue Maintenance Dues */}
         <Link
           to="/invoices"
-          className="bg-white p-5 rounded-xl border border-slate-200/90 shadow-2xs hover:border-slate-300 hover:shadow-xs transition-all group flex flex-col justify-between"
+          className="relative overflow-hidden bg-gradient-to-b from-white to-slate-50/50 p-5 rounded-xl border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] hover:border-slate-300 hover:-translate-y-0.5 transition-all duration-200 group flex flex-col justify-between"
         >
+          <div className="absolute top-0 right-0 w-24 h-24 bg-brand-500/5 rounded-full blur-xl pointer-events-none -mr-4 -mt-4" />
+
           <div>
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500 group-hover:text-slate-700 transition-colors">
+              <span className="text-xs font-semibold text-slate-600 tracking-wide group-hover:text-navy transition-colors">
                 Overdue Dues
               </span>
-              <AlertTriangle className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-colors" />
+              <div className="w-8 h-8 rounded-lg bg-brand-500/10 border border-brand-500/20 text-brand-600 flex items-center justify-center group-hover:scale-105 transition-transform shadow-2xs">
+                <AlertTriangle className="w-4 h-4" />
+              </div>
             </div>
+
             <div className="mt-3 flex items-baseline gap-2.5 flex-wrap">
-              <span className="text-2xl font-bold text-navy tracking-tight">
-                Rs. {overdueTotal.toLocaleString()}
+              <span className="text-3xl font-bold text-navy tracking-tight">
+                <span className="text-sm font-semibold text-slate-400 mr-1 font-sans">Rs.</span>
+                {overdueTotal.toLocaleString()}
               </span>
-              {overdueCount > 0 ? (
-                <span className="text-[11px] font-medium text-red-700 bg-red-50 border border-red-200/80 px-2 py-0.5 rounded-md">
+              {overdueCount > 0 && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-red-50 text-red-700 border border-red-200/80">
                   {overdueCount} {overdueCount === 1 ? 'unit' : 'units'}
-                </span>
-              ) : (
-                <span className="text-[11px] font-medium text-emerald-600 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-md">
-                  All cleared
                 </span>
               )}
             </div>
           </div>
-          <div className="text-[11px] text-slate-400 mt-3 font-normal flex items-center justify-between border-t border-slate-100 pt-2.5">
-            <span>Payment ledger</span>
-            <span className="text-brand-600 font-medium group-hover:translate-x-0.5 transition-transform">
+
+          <div className="text-[11px] text-slate-400 mt-4 font-normal flex items-center justify-between border-t border-slate-100 pt-3">
+            <span>Automated notices</span>
+            <span className="text-brand-600 font-semibold group-hover:translate-x-0.5 transition-transform">
               View invoices →
             </span>
           </div>
@@ -203,25 +206,34 @@ export default function Dashboard() {
         {/* Card 3: Active Guest Passes */}
         <Link
           to="/vehicles"
-          className="bg-white p-5 rounded-xl border border-slate-200/90 shadow-2xs hover:border-slate-300 hover:shadow-xs transition-all group flex flex-col justify-between"
+          className="relative overflow-hidden bg-gradient-to-b from-white to-slate-50/50 p-5 rounded-xl border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] hover:border-slate-300 hover:-translate-y-0.5 transition-all duration-200 group flex flex-col justify-between"
         >
+          <div className="absolute top-0 right-0 w-24 h-24 bg-brand-500/5 rounded-full blur-xl pointer-events-none -mr-4 -mt-4" />
+
           <div>
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500 group-hover:text-slate-700 transition-colors">
+              <span className="text-xs font-semibold text-slate-600 tracking-wide group-hover:text-navy transition-colors">
                 Active Guest Passes
               </span>
-              <Car className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-colors" />
+              <div className="w-8 h-8 rounded-lg bg-brand-500/10 border border-brand-500/20 text-brand-600 flex items-center justify-center group-hover:scale-105 transition-transform shadow-2xs">
+                <Car className="w-4 h-4" />
+              </div>
             </div>
+
             <div className="mt-3 flex items-baseline gap-2.5">
-              <span className="text-2xl font-bold text-navy tracking-tight">{activePasses}</span>
-              <span className="text-[11px] font-medium text-brand-700 bg-brand-50 border border-brand-200/80 px-2 py-0.5 rounded-md">
-                Valid window
-              </span>
+              <span className="text-3xl font-bold text-navy tracking-tight">{activePasses}</span>
+              {activePasses > 0 && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-brand-50 text-brand-700 border border-brand-200/80">
+                  <span className="w-1.5 h-1.5 rounded-full bg-brand-500" />
+                  Valid window
+                </span>
+              )}
             </div>
           </div>
-          <div className="text-[11px] text-slate-400 mt-3 font-normal flex items-center justify-between border-t border-slate-100 pt-2.5">
-            <span>Pass verification</span>
-            <span className="text-brand-600 font-medium group-hover:translate-x-0.5 transition-transform">
+
+          <div className="text-[11px] text-slate-400 mt-4 font-normal flex items-center justify-between border-t border-slate-100 pt-3">
+            <span>Pass code verification</span>
+            <span className="text-brand-600 font-semibold group-hover:translate-x-0.5 transition-transform">
               Gate records →
             </span>
           </div>
@@ -230,32 +242,37 @@ export default function Dashboard() {
         {/* Card 4: Flagged Overstay Vehicles */}
         <Link
           to="/vehicles"
-          className="bg-white p-5 rounded-xl border border-slate-200/90 shadow-2xs hover:border-slate-300 hover:shadow-xs transition-all group flex flex-col justify-between"
+          className="relative overflow-hidden bg-gradient-to-b from-white to-slate-50/50 p-5 rounded-xl border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] hover:border-slate-300 hover:-translate-y-0.5 transition-all duration-200 group flex flex-col justify-between"
         >
+          <div className="absolute top-0 right-0 w-24 h-24 bg-brand-500/5 rounded-full blur-xl pointer-events-none -mr-4 -mt-4" />
+
           <div>
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500 group-hover:text-slate-700 transition-colors">
+              <span className="text-xs font-semibold text-slate-600 tracking-wide group-hover:text-navy transition-colors">
                 Flagged Overstays
               </span>
-              <ShieldAlert className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-colors" />
+              <div className="w-8 h-8 rounded-lg bg-brand-500/10 border border-brand-500/20 text-brand-600 flex items-center justify-center group-hover:scale-105 transition-transform shadow-2xs">
+                <ShieldAlert className="w-4 h-4" />
+              </div>
             </div>
+
             <div className="mt-3 flex items-baseline gap-2.5">
-              <span className="text-2xl font-bold text-navy tracking-tight">{flaggedOverstays}</span>
-              {flaggedOverstays > 0 ? (
-                <span className="text-[11px] font-medium text-red-700 bg-red-50 border border-red-200/80 px-2 py-0.5 rounded-md flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+              <span className="text-3xl font-bold text-navy tracking-tight">{flaggedOverstays}</span>
+              {flaggedOverstays > 0 && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-red-50 text-red-800 border border-red-200/90 shadow-2xs">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                  </span>
                   0-min grace
-                </span>
-              ) : (
-                <span className="text-[11px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
-                  None flagged
                 </span>
               )}
             </div>
           </div>
-          <div className="text-[11px] text-slate-400 mt-3 font-normal flex items-center justify-between border-t border-slate-100 pt-2.5">
+
+          <div className="text-[11px] text-slate-400 mt-4 font-normal flex items-center justify-between border-t border-slate-100 pt-3">
             <span>Security monitoring</span>
-            <span className="text-brand-600 font-medium group-hover:translate-x-0.5 transition-transform">
+            <span className="text-brand-600 font-semibold group-hover:translate-x-0.5 transition-transform">
               View overstays →
             </span>
           </div>
