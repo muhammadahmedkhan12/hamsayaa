@@ -161,7 +161,7 @@ export default function Residents() {
 
           <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-brand-50 text-brand-500 border border-brand-500 font-semibold text-sm rounded-lg shadow-sm transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold text-sm rounded-lg shadow-sm transition-colors"
           >
             <Plus className="w-4 h-4" />
             <span>Add Resident</span>
