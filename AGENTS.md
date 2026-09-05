@@ -128,6 +128,26 @@ Every inbound resident WhatsApp text message follows a **Pure LLM-First pipeline
    - During loading, renders `animate-pulse bg-slate-200 rounded` skeleton components (sync badge, metric cards, filter tabs, table rows) matching `Dashboard.jsx`.
    - Top toolbar includes a manual **Refresh** button (`<RefreshCw />`).
 
+### G. Resident WhatsApp Announcements & Broadcast Pipeline (`backend/app/api/v1/endpoints/residents.py` & `frontend/src/pages/Residents.jsx`)
+1. **Official WhatsApp Broadcast Dispatch (`POST /api/v1/residents/broadcast-notification`):**
+   - Dispatches official society announcements directly to verified residents' WhatsApp accounts.
+   - Automatically prefixes announcements with category-specific emojis (`🚰` Water, `⚡` Power/Generator, `🛡️` Security, `🧹` Sanitation/Fumigation, `🛠️` Repairs, `📢` General Notices).
+   - Strictly enforces WhatsApp single asterisk `*bold*` and single underscore `_italic_` markdown styling.
+2. **Granular 3-Way Recipient Scope & Dropdown Filtering:**
+   - **Whole Society:** Dispatches to all unique apartments across the entire society.
+   - **Single Building:** Dispatches to all unique apartments within a chosen block (e.g. `Block A`, `Block B`, `Block C`).
+   - **Single Apartment:** Dispatches to one specific apartment selected via a 2-tier Building & Unit dropdown (`Unit 101 — Name (Phone)`).
+3. **Strict 1-Message-per-Apartment Deduplication Policy:**
+   - Where multiple contacts are registered for a single unit (e.g. owner and tenant, or family members), the system sorts by `(not is_owner, not is_tenant)`.
+   - Prioritizes the registered property owner or active tenant as the primary contact.
+   - Deduplicates strictly by `(building, unit_number)` to guarantee zero duplicate alerts per household.
+4. **Resilient Modal UX Architecture:**
+   - Uses `max-h-[90vh] flex flex-col overflow-hidden my-auto` with pinned header and pinned footer (`shrink-0`).
+   - Inner form body scrolls independently (`flex-1 overflow-y-auto`) to guarantee zero top/bottom viewport cut-off on laptop or small screens.
+   - Features quick preset pills, live recipient count badges, and an interactive **`[Hide Preview / Show Preview]`** collapsible WhatsApp mobile chat bubble.
+5. **Redis Broadcast Audit Trail (`GET /api/v1/residents/broadcast-history`):**
+   - Each broadcast is logged to Redis key `broadcast_history:{society_id}` (capped at last 50 entries) recording timestamp, scope, target count, sent count, and failure details.
+
 ---
 
 ## 4. Supabase Database Schema & Storage
@@ -157,6 +177,7 @@ Every inbound resident WhatsApp text message follows a **Pure LLM-First pipeline
 - `receipt_hash:{sha256}`: 180-day binary hash deduplication preventing repeated image submissions.
 - `receipt_txid:{society_id}:{clean_ref}`: 180-day transaction reference deduplication preventing reuse of bank transfer IDs.
 - `partial_payments:{invoice_id}`: 365-day list of cumulative partial payment records with individual receipts and amounts.
+- `broadcast_history:{society_id}`: Rolling log of the last 50 resident WhatsApp announcement broadcasts (`timestamp`, `title`, `scope`, `targets_count`, `sent_count`, `failed_count`).
 
 ---
 
@@ -214,3 +235,4 @@ Every inbound resident WhatsApp text message follows a **Pure LLM-First pipeline
 7. **Idempotent Broadcasts:** Never re-dispatch vouchers to residents whose delivery status is already marked `delivered` in Redis. Always provide isolated retry or resend options for failed units.
 8. **Git & Secret Hygiene:** Never commit `.env` or API credentials to git. All secret scanning must pass clean before pushes to `main`.
 9. **Single Source of Truth:** Keep `AGENTS.md` updated whenever backend routes, database columns, or deployment infrastructure change. Collaborators using Antigravity / Gemini rely on this file as the authoritative architecture specification.
+10. **Strict 1-Message-per-Apartment Policy for Broadcasts:** When sending WhatsApp announcements or alerts to residents, always deduplicate recipients by `(building, unit_number)` and prioritize registered owners or tenants so only one primary contact receives the message per household. Avoid spamming multiple family members for the same unit.
