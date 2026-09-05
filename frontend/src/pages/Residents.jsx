@@ -15,10 +15,64 @@ import {
   Car,
   Phone,
   UserCheck,
-  RefreshCw
+  RefreshCw,
+  Bell,
+  RotateCw,
+  AlertTriangle
 } from 'lucide-react';
 import { mockBuildings, mockResidents } from '../services/mockData';
-import { fetchResidents, createResidentApi, toggleBlockResidentApi, bulkImportResidentsApi } from '../services/api';
+import {
+  fetchResidents,
+  createResidentApi,
+  toggleBlockResidentApi,
+  bulkImportResidentsApi,
+  broadcastResidentNotificationApi
+} from '../services/api';
+
+const NOTIFICATION_PRESETS = [
+  {
+    id: 'general',
+    label: '📢 General Notice',
+    category: 'General',
+    defaultTitle: 'Society Community Announcement',
+    defaultMessage: 'Dear Residents, please be informed of the following update from the society management office.',
+  },
+  {
+    id: 'water',
+    label: '🚰 Water Supply',
+    category: 'Water Supply',
+    defaultTitle: 'Scheduled Water Supply Maintenance',
+    defaultMessage: 'Water supply to the overhead distribution tanks will be paused today from 2:00 PM to 5:00 PM for scheduled pipeline maintenance. Please store sufficient water for your household needs.',
+  },
+  {
+    id: 'power',
+    label: '⚡ Power / Generator',
+    category: 'Power & Generator',
+    defaultTitle: 'Backup Generator Testing Notice',
+    defaultMessage: 'The society backup generator will undergo routine load testing today between 3:00 PM and 4:00 PM. Minor power switchover delays of 1-2 minutes may occur.',
+  },
+  {
+    id: 'security',
+    label: '🛡️ Security Advisory',
+    category: 'Security',
+    defaultTitle: 'Gate Security & Visitor Pass Advisory',
+    defaultMessage: 'Please generate a digital gate pass via our WhatsApp assistant before expecting visiting guests or delivery riders to ensure swift security gate entry.',
+  },
+  {
+    id: 'sanitation',
+    label: '🧹 Fumigation & Sanitation',
+    category: 'Sanitation',
+    defaultTitle: 'Mosquito Fumigation Schedule',
+    defaultMessage: 'Dengue spray and fumigation will be conducted across all building corridors and common parking areas today starting at 6:00 PM. Please keep windows and balconies closed.',
+  },
+  {
+    id: 'maintenance',
+    label: '🛠️ Facility Repair',
+    category: 'Maintenance',
+    defaultTitle: 'Elevator Routine Service',
+    defaultMessage: 'Passenger Lift #1 will be taken offline for quarterly safety inspection from 11:00 AM to 1:00 PM today. Please use Passenger Lift #2 or common stairs.',
+  },
+];
 
 export default function Residents() {
   const [selectedBuilding, setSelectedBuilding] = useState('All');
@@ -29,6 +83,18 @@ export default function Residents() {
   // Modals
   const [showAddModal, setShowAddModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
+  const [isSendingNotification, setIsSendingNotification] = useState(false);
+  const [broadcastResult, setBroadcastResult] = useState(null);
+
+  // Broadcast Notification Form State
+  const [notificationForm, setNotificationForm] = useState({
+    scope: 'all', // 'all' or 'building'
+    building: 'Block A',
+    category: 'General',
+    title: '',
+    message: '',
+  });
 
   // Add Form State
   const [formData, setFormData] = useState({
@@ -132,6 +198,41 @@ export default function Residents() {
     loadResidentsList(selectedBuilding);
   };
 
+  // Available unique buildings for targeting
+  const uniqueBuildings = Array.from(new Set(residents.map((r) => r.building).filter(Boolean)));
+  const availableBuildings = uniqueBuildings.length > 0 ? uniqueBuildings : ['Block A', 'Block B', 'Block C'];
+
+  // Calculate live eligible target count for notification
+  const targetResidentsCount = notificationForm.scope === 'all'
+    ? residents.filter((r) => !r.isBlocked && !r.is_blocked && (r.phoneNumber || r.phone_number)).length
+    : residents.filter((r) => (r.building === notificationForm.building) && !r.isBlocked && !r.is_blocked && (r.phoneNumber || r.phone_number)).length;
+
+  // Handle Dispatch Broadcast
+  const handleSendBroadcast = async (e) => {
+    e.preventDefault();
+    if (!notificationForm.title.trim() || !notificationForm.message.trim()) return;
+
+    setIsSendingNotification(true);
+    setBroadcastResult(null);
+
+    const targetBuilding = notificationForm.scope === 'all' ? 'All' : notificationForm.building;
+    const res = await broadcastResidentNotificationApi({
+      title: notificationForm.title.trim(),
+      message: notificationForm.message.trim(),
+      building: targetBuilding,
+      category: notificationForm.category,
+    });
+
+    setIsSendingNotification(false);
+    setBroadcastResult(res);
+
+    if (res && res.status !== 'error') {
+      setTimeout(() => {
+        setNotificationForm((prev) => ({ ...prev, title: '', message: '' }));
+      }, 1500);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header Bar */}
@@ -149,6 +250,18 @@ export default function Residents() {
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-brand-600' : ''}`} />
             <span>Refresh</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setBroadcastResult(null);
+              setShowNotificationModal(true);
+            }}
+            className="px-3.5 py-2 bg-navy hover:bg-navy/90 text-white font-semibold text-xs rounded-lg shadow-sm transition-colors flex items-center gap-1.5"
+            title="Broadcast WhatsApp notification to residents (society-wide or per building)"
+          >
+            <Bell className="w-3.5 h-3.5 text-brand-400" />
+            <span>Send Notification</span>
           </button>
 
           <button
@@ -500,6 +613,291 @@ export default function Residents() {
                 >
                   Upload & Import
                 </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: BROADCAST WHATSAPP NOTIFICATION */}
+      {showNotificationModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden border border-slate-200 my-8">
+            {/* Header */}
+            <div className="p-5 bg-navy text-white flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-brand-500/20 text-brand-400 border border-brand-500/30 flex items-center justify-center shadow-xs">
+                  <Bell className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base">Broadcast WhatsApp Notification</h3>
+                  <p className="text-xs text-slate-300">
+                    Send official announcements or maintenance notices directly to residents' WhatsApp
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowNotificationModal(false);
+                  setBroadcastResult(null);
+                }}
+                className="text-slate-400 hover:text-white transition-colors p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Broadcast Form */}
+            <form onSubmit={handleSendBroadcast} className="p-6 space-y-5 text-xs">
+              {/* Delivery Result Banner if exists */}
+              {broadcastResult && (
+                <div
+                  className={`p-3.5 rounded-xl border flex items-start gap-2.5 ${
+                    broadcastResult.status === 'error'
+                      ? 'bg-red-50 text-red-900 border-red-200'
+                      : 'bg-emerald-50 text-emerald-900 border-emerald-200'
+                  }`}
+                >
+                  {broadcastResult.status === 'error' ? (
+                    <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                  ) : (
+                    <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-xs">
+                      {broadcastResult.status === 'error' ? 'Broadcast Delivery Error' : 'Broadcast Dispatched Successfully!'}
+                    </p>
+                    <p className="text-[11px] mt-0.5 opacity-90">{broadcastResult.message}</p>
+                    {broadcastResult.sent_count !== undefined && (
+                      <div className="flex items-center gap-2.5 mt-2 text-[10px] font-mono">
+                        <span className="bg-white/80 px-2 py-0.5 rounded border">
+                          Target: <strong>{broadcastResult.targets_count}</strong>
+                        </span>
+                        <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded border border-emerald-200">
+                          Delivered: <strong>{broadcastResult.sent_count}</strong>
+                        </span>
+                        {broadcastResult.failed_count > 0 && (
+                          <span className="bg-red-100 text-red-800 px-2 py-0.5 rounded border border-red-200">
+                            Failed: <strong>{broadcastResult.failed_count}</strong>
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Target Audience Scope Selector */}
+              <div className="space-y-2">
+                <label className="block font-bold text-slate-700 uppercase tracking-wider text-[11px]">
+                  Target Audience Scope
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setNotificationForm({ ...notificationForm, scope: 'all' })}
+                    className={`p-3 rounded-xl border text-left flex items-start gap-2.5 transition-all ${
+                      notificationForm.scope === 'all'
+                        ? 'border-brand-500 bg-brand-500/5 text-navy shadow-xs ring-1 ring-brand-500'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center mt-0.5 shrink-0">
+                      {notificationForm.scope === 'all' && (
+                        <div className="w-2 h-2 rounded-full bg-brand-500" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-bold text-xs flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5 text-brand-600" />
+                        Whole Society
+                      </p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        All buildings & residential units
+                      </p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setNotificationForm({ ...notificationForm, scope: 'building' })}
+                    className={`p-3 rounded-xl border text-left flex items-start gap-2.5 transition-all ${
+                      notificationForm.scope === 'building'
+                        ? 'border-brand-500 bg-brand-500/5 text-navy shadow-xs ring-1 ring-brand-500'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center mt-0.5 shrink-0">
+                      {notificationForm.scope === 'building' && (
+                        <div className="w-2 h-2 rounded-full bg-brand-500" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-bold text-xs flex items-center gap-1.5">
+                        <Building className="w-3.5 h-3.5 text-brand-600" />
+                        Single Building / Block
+                      </p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Target a specific block only
+                      </p>
+                    </div>
+                  </button>
+                </div>
+
+                {/* Single Building Dropdown (if scope === 'building') */}
+                {notificationForm.scope === 'building' && (
+                  <div className="pt-2 flex items-center gap-2">
+                    <span className="text-slate-600 font-semibold text-xs">Select Building:</span>
+                    <select
+                      value={notificationForm.building}
+                      onChange={(e) => setNotificationForm({ ...notificationForm, building: e.target.value })}
+                      className="p-2 border border-slate-300 rounded-lg text-xs bg-white text-navy font-semibold focus:outline-brand-500"
+                    >
+                      {availableBuildings.map((b) => (
+                        <option key={b} value={b}>
+                          {b}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Recipient Count Indicator */}
+                <div className="flex items-center gap-2 pt-1 text-[11px] text-slate-500">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                  <span>
+                    Will be dispatched to <strong className="text-navy">{targetResidentsCount} verified resident{targetResidentsCount === 1 ? '' : 's'}</strong> via WhatsApp Cloud API.
+                  </span>
+                </div>
+              </div>
+
+              {/* Preset Category Quick-Pills */}
+              <div>
+                <label className="block font-bold text-slate-700 uppercase tracking-wider text-[11px] mb-1.5">
+                  Quick Preset Templates
+                </label>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {NOTIFICATION_PRESETS.map((preset) => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() =>
+                        setNotificationForm({
+                          ...notificationForm,
+                          category: preset.category,
+                          title: preset.defaultTitle,
+                          message: preset.defaultMessage,
+                        })
+                      }
+                      className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-medium transition-colors"
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Title Input */}
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Notification Title <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Scheduled Water Tank Maintenance"
+                  value={notificationForm.title}
+                  onChange={(e) => setNotificationForm({ ...notificationForm, title: e.target.value })}
+                  className="w-full p-2.5 border border-slate-300 rounded-lg text-xs bg-white text-slate-800 focus:outline-brand-500"
+                  maxLength={150}
+                />
+              </div>
+
+              {/* Message Textarea */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="font-bold text-slate-700">
+                    Message Body <span className="text-red-500">*</span>
+                  </label>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {notificationForm.message.length} / 2500 chars
+                  </span>
+                </div>
+                <textarea
+                  rows={4}
+                  required
+                  placeholder="Write the announcement or notice here. It will be sent directly to each resident's WhatsApp..."
+                  value={notificationForm.message}
+                  onChange={(e) => setNotificationForm({ ...notificationForm, message: e.target.value })}
+                  className="w-full p-2.5 border border-slate-300 rounded-lg text-xs bg-white text-slate-800 focus:outline-brand-500 leading-relaxed font-sans"
+                  maxLength={2500}
+                />
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Formatting tips: Use <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-600">*text*</code> for bold, <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-600">_text_</code> for italic. WhatsApp does not render HTML or hashtags.
+                </p>
+              </div>
+
+              {/* WhatsApp Live Bubble Preview */}
+              <div>
+                <label className="block font-bold text-slate-700 uppercase tracking-wider text-[11px] mb-2">
+                  Live WhatsApp Chat Preview
+                </label>
+                <div className="bg-[#efeae2] p-4 rounded-xl border border-slate-200/80 shadow-inner">
+                  {/* WhatsApp Message Bubble */}
+                  <div className="bg-[#d9fdd3] text-slate-800 p-3.5 rounded-xl rounded-tl-none max-w-md shadow-xs text-xs space-y-2 border border-[#c3f4bc]">
+                    <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                      <span>📢</span>
+                      <span>SOCIETY NOTICE: {notificationForm.title.trim().toUpperCase() || 'ANNOUNCEMENT TITLE'}</span>
+                    </div>
+
+                    <p className="text-[11px] text-slate-700">
+                      Hello <strong>Muhammad Ahmed</strong> ({notificationForm.scope === 'building' ? notificationForm.building : 'Block A'} - Unit 101),
+                    </p>
+
+                    <p className="text-xs text-slate-800 leading-relaxed whitespace-pre-wrap">
+                      {notificationForm.message.trim() || 'Your broadcast announcement message will appear here...'}
+                    </p>
+
+                    <div className="pt-1.5 border-t border-emerald-200/60 text-[10px] text-slate-500 italic flex items-center justify-between">
+                      <span>Official notice sent by Society Office via Hamsayaa</span>
+                      <span className="text-[9px] not-italic text-slate-400 flex items-center gap-1 font-mono">
+                        12:30 PM <span className="text-brand-600 font-bold">✓✓</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Actions */}
+              <div className="pt-3 border-t border-slate-200 flex items-center justify-between">
+                <div className="text-[11px] text-slate-500">
+                  Target: <strong className="text-navy">{notificationForm.scope === 'all' ? 'Whole Society' : notificationForm.building}</strong> ({targetResidentsCount} units)
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowNotificationModal(false);
+                      setBroadcastResult(null);
+                    }}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition-colors text-xs"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSendingNotification || !notificationForm.title.trim() || !notificationForm.message.trim() || targetResidentsCount === 0}
+                    className="px-5 py-2 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white font-semibold rounded-lg shadow-sm flex items-center gap-1.5 transition-colors text-xs"
+                  >
+                    <RotateCw className={`w-3.5 h-3.5 ${isSendingNotification ? 'animate-spin' : ''}`} />
+                    <span>
+                      {isSendingNotification
+                        ? 'Broadcasting to WhatsApp...'
+                        : `Broadcast via WhatsApp (${targetResidentsCount})`}
+                    </span>
+                  </button>
+                </div>
               </div>
             </form>
           </div>

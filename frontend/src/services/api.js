@@ -75,6 +75,43 @@ export async function bulkImportResidentsApi(file) {
   return { status: 'success', filename: file.name, records_imported: 5 };
 }
 
+export async function broadcastResidentNotificationApi(payload) {
+  try {
+    const res = await fetch(`${API_BASE}/residents/broadcast-notification`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+    const errData = await res.json().catch(() => ({}));
+    return { status: 'error', message: errData.detail || 'Failed to dispatch broadcast notice' };
+  } catch (err) {
+    console.warn('API error during broadcast dispatch:', err);
+    return {
+      status: 'simulated',
+      message: `Simulated broadcast dispatch for ${payload.building || 'Whole Society'}: ${payload.title}`,
+      targets_count: 5,
+      sent_count: 5,
+      failed_count: 0
+    };
+  }
+}
+
+export async function fetchBroadcastHistoryApi() {
+  try {
+    const res = await fetch(`${API_BASE}/residents/broadcast-history`);
+    if (res.ok) {
+      const data = await res.json();
+      return data.history || [];
+    }
+  } catch (err) {
+    console.warn('API error fetching broadcast history:', err);
+  }
+  return [];
+}
+
 // INVOICES API
 export async function fetchInvoices(status = 'All') {
   try {

@@ -158,3 +158,135 @@ async def bulk_import_residents(
         "records_imported": len(residents_to_insert),
         "data": result
     }
+
+class BroadcastNotificationRequest(BaseModel):
+    title: str = Field(..., min_length=2, max_length=150, example="Scheduled Water Tank Maintenance")
+    message: str = Field(..., min_length=5, max_length=2500, example="Water supply will be paused from 2 PM to 5 PM today for routine maintenance.")
+    building: Optional[str] = Field(default=None, example="Block A")  # None or "All" for whole society
+    category: Optional[str] = Field(default="Announcement", example="Water Supply")
+
+@router.post("/broadcast-notification")
+async def broadcast_notification(
+    payload: BroadcastNotificationRequest,
+    society_id: str = Query(DEFAULT_SOCIETY_ID)
+):
+    """
+    Broadcasts an official WhatsApp announcement notification to all residents of a society
+    or to residents of a specific building/block.
+    """
+    from app.services.whatsapp import whatsapp_service
+    from app.api.v1.endpoints.whatsapp import redis_client
+    import json
+    from datetime import datetime, timezone
+
+    target_building = payload.building if payload.building and payload.building != "All" else None
+    residents = db_service.get_residents(society_id=society_id, building=target_building)
+
+    # Filter active, non-blocked residents with valid phone numbers
+    eligible_residents = [
+        r for r in residents
+        if not r.get("is_blocked") and r.get("phone_number") and len(r.get("phone_number", "")) >= 8
+    ]
+
+    if not eligible_residents:
+        return {
+            "status": "success",
+            "message": f"No active residents found for target {payload.building or 'Whole Society'}.",
+            "targets_count": 0,
+            "sent_count": 0,
+            "failed_count": 0,
+            "failed_recipients": []
+        }
+
+    sent_count = 0
+    failed_count = 0
+    failed_recipients = []
+
+    # Choose emoji based on notification category
+    cat_lower = (payload.category or "").lower()
+    if "water" in cat_lower:
+        category_emoji = "🚰"
+    elif "power" in cat_lower or "electric" in cat_lower or "generator" in cat_lower:
+        category_emoji = "⚡"
+    elif "security" in cat_lower or "alert" in cat_lower:
+        category_emoji = "🛡️"
+    elif "sanitation" in cat_lower or "fumigation" in cat_lower or "clean" in cat_lower:
+        category_emoji = "🧹"
+    elif "maintenance" in cat_lower or "repair" in cat_lower:
+        category_emoji = "🛠️"
+    else:
+        category_emoji = "📢"
+
+    for r in eligible_residents:
+        phone = r.get("phone_number")
+        name = r.get("name", "Resident")
+        bld = r.get("building", "Society")
+        unit = r.get("unit_number", "")
+
+        # Format official WhatsApp notice (strictly adheres to WhatsApp bold/italic syntax)
+        formatted_msg = (
+            f"{category_emoji} *SOCIETY NOTICE: {payload.title.upper()}*\n"
+            f"Hello *{name}* ({bld} - Unit {unit}),\n\n"
+            f"{payload.message.strip()}\n\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"_Official notice sent by Society Management Office via Hamsayaa._"
+        )
+
+        try:
+            dispatch_res = await whatsapp_service.send_text_message(phone, formatted_msg)
+            if dispatch_res.get("status") != "error":
+                sent_count += 1
+            else:
+                err = dispatch_res.get("response") or dispatch_res.get("message") or "Meta dispatch error"
+                failed_count += 1
+                failed_recipients.append({"name": name, "unit": unit, "building": bld, "phone": phone, "error": str(err)})
+        except Exception as e:
+            logger.warning(f"Failed to dispatch broadcast notice to {phone}: {e}")
+            failed_count += 1
+            failed_recipients.append({"name": name, "unit": unit, "building": bld, "phone": phone, "error": str(e)})
+
+    # Log broadcast to Redis if available
+    if redis_client:
+        try:
+            log_item = {
+                "id": f"bc_{int(datetime.now(timezone.utc).timestamp())}",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "title": payload.title,
+                "category": payload.category,
+                "building": payload.building or "All",
+                "targets_count": len(eligible_residents),
+                "sent_count": sent_count,
+                "failed_count": failed_count,
+            }
+            redis_client.lpush(f"broadcast_history:{society_id}", json.dumps(log_item))
+            redis_client.ltrim(f"broadcast_history:{society_id}", 0, 49)  # Retain last 50 broadcasts
+        except Exception as ex:
+            logger.debug(f"Redis broadcast logging failed: {ex}")
+
+    scope_name = f"Building {payload.building}" if target_building else "Whole Society"
+    return {
+        "status": "success",
+        "message": f"Broadcast dispatched to {len(eligible_residents)} residents in {scope_name}: {sent_count} sent, {failed_count} failed.",
+        "targets_count": len(eligible_residents),
+        "sent_count": sent_count,
+        "failed_count": failed_count,
+        "building": payload.building or "All",
+        "failed_recipients": failed_recipients
+    }
+
+@router.get("/broadcast-history")
+async def get_broadcast_history(society_id: str = Query(DEFAULT_SOCIETY_ID)):
+    """
+    Returns recent broadcast notifications dispatched to residents.
+    """
+    from app.api.v1.endpoints.whatsapp import redis_client
+    import json
+
+    if not redis_client:
+        return {"history": []}
+    try:
+        raw_items = redis_client.lrange(f"broadcast_history:{society_id}", 0, 19)
+        history = [json.loads(i) for i in raw_items if i]
+        return {"history": history}
+    except Exception:
+        return {"history": []}
