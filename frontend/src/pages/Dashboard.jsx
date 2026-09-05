@@ -16,27 +16,110 @@ import {
 } from 'lucide-react';
 import { fetchDashboardSummary } from '../services/api';
 
-// Clean static contextual info snippet
-function CardFooterText({ text }) {
+// Continuous circular loop marquee ("starts again where it finishes" conveyor belt)
+function CircularMarqueeText({ text }) {
+  const containerRef = useRef(null);
+  const textRef = useRef(null);
+  const [isOverflowing, setIsOverflowing] = useState(false);
+  const [duration, setDuration] = useState(16);
+
+  useEffect(() => {
+    const calculateOverflow = () => {
+      if (containerRef.current && textRef.current) {
+        const textWidth = textRef.current.offsetWidth;
+        const containerWidth = containerRef.current.clientWidth;
+        if (textWidth > containerWidth) {
+          setIsOverflowing(true);
+          // Set duration for calm, steady reading pace (~20px/s)
+          const scrollSpeed = 20;
+          const calculatedDuration = Math.max(12, Math.round((textWidth + 28) / scrollSpeed));
+          setDuration(calculatedDuration);
+        } else {
+          setIsOverflowing(false);
+        }
+      }
+    };
+
+    calculateOverflow();
+    const timer = setTimeout(calculateOverflow, 250);
+    window.addEventListener('resize', calculateOverflow);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', calculateOverflow);
+    };
+  }, [text]);
+
   return (
-    <div className="overflow-hidden flex-1 min-w-0" title={text}>
-      <span className="truncate block select-none text-slate-500 font-normal">
-        {text}
-      </span>
+    <div
+      ref={containerRef}
+      className={`overflow-hidden flex-1 min-w-0 relative ${isOverflowing ? 'mask-fade-loop group/ticker' : ''}`}
+      title={text}
+    >
+      <div
+        className={`inline-flex items-center whitespace-nowrap ${
+          isOverflowing ? 'animate-circular-loop group-hover/ticker:[animation-play-state:paused]' : ''
+        }`}
+        style={isOverflowing ? { '--marquee-duration': `${duration}s` } : {}}
+      >
+        <span ref={textRef} className="inline-flex items-center select-none text-slate-500 font-normal">
+          {text}
+          {isOverflowing && (
+            <span className="text-slate-300 mx-3 text-[7px] shrink-0">●</span>
+          )}
+        </span>
+        {isOverflowing && (
+          <span className="inline-flex items-center select-none text-slate-500 font-normal" aria-hidden="true">
+            {text}
+            <span className="text-slate-300 mx-3 text-[7px] shrink-0">●</span>
+          </span>
+        )}
+      </div>
     </div>
   );
 }
 
-const CircularMarqueeText = CardFooterText;
-const PingPongText = CardFooterText;
+const PingPongText = CircularMarqueeText;
 
-// Clean direct metric number display
-function AnimatedNumber({ value, prefix = '' }) {
-  const num = typeof value === 'number' ? value : parseFloat(value) || 0;
+// Smooth easing count-up animation for metrics with refined, calmer pacing
+function AnimatedNumber({ value, duration = 1800, prefix = '', suffix = '' }) {
+  const [displayValue, setDisplayValue] = useState(0);
+
+  useEffect(() => {
+    let startTimestamp = null;
+    const startValue = 0;
+    const endValue = typeof value === 'number' ? value : parseFloat(value) || 0;
+
+    if (endValue === 0) {
+      setDisplayValue(0);
+      return;
+    }
+
+    // Steady, luxurious count-up roll (not rushed)
+    const animDuration = endValue <= 10 ? 900 : duration;
+
+    const step = (timestamp) => {
+      if (!startTimestamp) startTimestamp = timestamp;
+      const progress = Math.min((timestamp - startTimestamp) / animDuration, 1);
+      // Ease-out cubic
+      const easeProgress = 1 - Math.pow(1 - progress, 3);
+      const current = Math.round(startValue + (endValue - startValue) * easeProgress);
+      setDisplayValue(current);
+
+      if (progress < 1) {
+        window.requestAnimationFrame(step);
+      }
+    };
+
+    const animId = window.requestAnimationFrame(step);
+    return () => window.cancelAnimationFrame(animId);
+  }, [value, duration]);
+
   return (
     <span>
       {prefix && <span className="text-sm font-semibold text-slate-400 mr-1 font-sans">{prefix}</span>}
-      {num.toLocaleString()}
+      {displayValue.toLocaleString()}
+      {suffix && <span className="text-xl font-bold ml-0.5">{suffix}</span>}
     </span>
   );
 }

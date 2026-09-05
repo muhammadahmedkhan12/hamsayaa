@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Receipt,
   Plus,
@@ -39,6 +39,110 @@ import {
   retryFailedVouchersApi,
   resendSingleVoucherApi
 } from '../services/api';
+
+// Continuous circular loop marquee ("starts again where it finishes" conveyor belt)
+function CircularMarqueeText({ text }) {
+  const containerRef = useRef(null);
+  const textRef = useRef(null);
+  const [isOverflowing, setIsOverflowing] = useState(false);
+  const [duration, setDuration] = useState(16);
+
+  useEffect(() => {
+    const calculateOverflow = () => {
+      if (containerRef.current && textRef.current) {
+        const textWidth = textRef.current.offsetWidth;
+        const containerWidth = containerRef.current.clientWidth;
+        if (textWidth > containerWidth) {
+          setIsOverflowing(true);
+          // Calm, steady reading pace (~20px/s)
+          const scrollSpeed = 20;
+          const calculatedDuration = Math.max(12, Math.round((textWidth + 28) / scrollSpeed));
+          setDuration(calculatedDuration);
+        } else {
+          setIsOverflowing(false);
+        }
+      }
+    };
+
+    calculateOverflow();
+    const timer = setTimeout(calculateOverflow, 250);
+    window.addEventListener('resize', calculateOverflow);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', calculateOverflow);
+    };
+  }, [text]);
+
+  return (
+    <div
+      ref={containerRef}
+      className={`overflow-hidden flex-1 min-w-0 relative ${isOverflowing ? 'mask-fade-loop group/ticker' : ''}`}
+      title={text}
+    >
+      <div
+        className={`inline-flex items-center whitespace-nowrap ${
+          isOverflowing ? 'animate-circular-loop group-hover/ticker:[animation-play-state:paused]' : ''
+        }`}
+        style={isOverflowing ? { '--marquee-duration': `${duration}s` } : {}}
+      >
+        <span ref={textRef} className="inline-flex items-center select-none text-slate-500 font-normal">
+          {text}
+          {isOverflowing && (
+            <span className="text-slate-300 mx-3 text-[7px] shrink-0">●</span>
+          )}
+        </span>
+        {isOverflowing && (
+          <span className="inline-flex items-center select-none text-slate-500 font-normal" aria-hidden="true">
+            {text}
+            <span className="text-slate-300 mx-3 text-[7px] shrink-0">●</span>
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Smooth easing count-up animation for metrics with refined, calmer pacing
+function AnimatedNumber({ value, duration = 1800, prefix = '', suffix = '' }) {
+  const [displayValue, setDisplayValue] = useState(0);
+
+  useEffect(() => {
+    let startTimestamp = null;
+    const startValue = 0;
+    const endValue = typeof value === 'number' ? value : parseFloat(value) || 0;
+
+    if (endValue === 0) {
+      setDisplayValue(0);
+      return;
+    }
+
+    const animDuration = endValue <= 10 ? 900 : duration;
+
+    const step = (timestamp) => {
+      if (!startTimestamp) startTimestamp = timestamp;
+      const progress = Math.min((timestamp - startTimestamp) / animDuration, 1);
+      const easeProgress = 1 - Math.pow(1 - progress, 3);
+      const current = Math.round(startValue + (endValue - startValue) * easeProgress);
+      setDisplayValue(current);
+
+      if (progress < 1) {
+        window.requestAnimationFrame(step);
+      }
+    };
+
+    const animId = window.requestAnimationFrame(step);
+    return () => window.cancelAnimationFrame(animId);
+  }, [value, duration]);
+
+  return (
+    <span>
+      {prefix && <span className="text-sm font-semibold text-slate-400 mr-1 font-sans">{prefix}</span>}
+      {displayValue.toLocaleString()}
+      {suffix && <span className="text-xl font-bold ml-0.5">{suffix}</span>}
+    </span>
+  );
+}
 
 export default function Invoices() {
   const [invoices, setInvoices] = useState([]);
@@ -518,7 +622,7 @@ export default function Invoices() {
         {/* Card 1: Total Collection */}
         <div
           onClick={() => setSelectedStatus('Paid')}
-          className="relative overflow-hidden bg-gradient-to-b from-white to-slate-50/50 p-5 rounded-xl border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] hover:border-slate-300 hover:-translate-y-0.5 transition-all duration-200 group flex flex-col justify-between cursor-pointer"
+          className="relative overflow-hidden bg-gradient-to-b from-white to-slate-50/50 p-5 rounded-xl border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] hover:border-slate-300 hover:-translate-y-0.5 transition-transform transition-shadow duration-200 group flex flex-col justify-between cursor-pointer"
         >
           <div className="absolute top-0 right-0 w-24 h-24 bg-brand-500/5 rounded-full blur-xl pointer-events-none -mr-4 -mt-4" />
 
@@ -534,17 +638,15 @@ export default function Invoices() {
 
             <div className="mt-3 flex items-baseline">
               <span className="text-3xl font-bold text-navy tracking-tight">
-                Rs. {totalCollected.toLocaleString()}
+                <AnimatedNumber value={totalCollected} prefix="Rs. " />
               </span>
             </div>
           </div>
 
           <div className="text-[11px] text-slate-400 mt-4 font-normal flex items-center justify-between border-t border-slate-100 pt-3 gap-2">
-            <div className="flex items-center gap-1.5 flex-1 min-w-0" title="Direct society maintenance account">
+            <div className="flex items-center gap-1.5 flex-1 min-w-0" title="Direct society maintenance account · Automated WhatsApp vouchers">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-              <span className="truncate block select-none text-slate-500 font-normal">
-                Direct society maintenance account
-              </span>
+              <CircularMarqueeText text="Direct society maintenance account · Automated WhatsApp vouchers" />
             </div>
             <span className="text-brand-600 font-semibold group-hover:translate-x-0.5 transition-transform shrink-0">
               Filter paid →
@@ -555,7 +657,7 @@ export default function Invoices() {
         {/* Card 2: Overdue Dues */}
         <div
           onClick={() => setSelectedStatus('Overdue')}
-          className="relative overflow-hidden bg-gradient-to-b from-white to-slate-50/50 p-5 rounded-xl border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] hover:border-slate-300 hover:-translate-y-0.5 transition-all duration-200 group flex flex-col justify-between cursor-pointer"
+          className="relative overflow-hidden bg-gradient-to-b from-white to-slate-50/50 p-5 rounded-xl border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] hover:border-slate-300 hover:-translate-y-0.5 transition-transform transition-shadow duration-200 group flex flex-col justify-between cursor-pointer"
         >
           <div className="absolute top-0 right-0 w-24 h-24 bg-brand-500/5 rounded-full blur-xl pointer-events-none -mr-4 -mt-4" />
 
@@ -571,7 +673,7 @@ export default function Invoices() {
 
             <div className="mt-3 flex items-baseline">
               <span className="text-3xl font-bold text-navy tracking-tight">
-                Rs. {totalOverdue.toLocaleString()}
+                <AnimatedNumber value={totalOverdue} prefix="Rs. " />
               </span>
             </div>
           </div>
@@ -581,16 +683,18 @@ export default function Invoices() {
               className="flex items-center gap-1.5 flex-1 min-w-0"
               title={
                 totalOverdue > 0
-                  ? `${invoices.filter((i) => i.status === 'overdue').length} units overdue · Automated WhatsApp notices`
-                  : 'All maintenance dues cleared'
+                  ? `${invoices.filter((i) => i.status === 'overdue').length} units overdue · Automated WhatsApp reminders dispatched`
+                  : 'All maintenance dues cleared · Zero outstanding balance'
               }
             >
               <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${totalOverdue > 0 ? 'bg-red-500' : 'bg-emerald-500'}`} />
-              <span className="truncate block select-none text-slate-500 font-normal">
-                {totalOverdue > 0
-                  ? `${invoices.filter((i) => i.status === 'overdue').length} units overdue · Automated notices`
-                  : 'All maintenance dues cleared'}
-              </span>
+              <CircularMarqueeText
+                text={
+                  totalOverdue > 0
+                    ? `${invoices.filter((i) => i.status === 'overdue').length} units overdue · Automated WhatsApp reminders dispatched`
+                    : 'All maintenance dues cleared · Zero outstanding balance'
+                }
+              />
             </div>
             <span className="text-brand-600 font-semibold group-hover:translate-x-0.5 transition-transform shrink-0">
               Filter overdue →
@@ -601,7 +705,7 @@ export default function Invoices() {
         {/* Card 3: Pending Verification */}
         <div
           onClick={() => setSelectedStatus('Unpaid')}
-          className="relative overflow-hidden bg-gradient-to-b from-white to-slate-50/50 p-5 rounded-xl border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] hover:border-slate-300 hover:-translate-y-0.5 transition-all duration-200 group flex flex-col justify-between cursor-pointer"
+          className="relative overflow-hidden bg-gradient-to-b from-white to-slate-50/50 p-5 rounded-xl border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] hover:border-slate-300 hover:-translate-y-0.5 transition-transform transition-shadow duration-200 group flex flex-col justify-between cursor-pointer"
         >
           <div className="absolute top-0 right-0 w-24 h-24 bg-brand-500/5 rounded-full blur-xl pointer-events-none -mr-4 -mt-4" />
 
@@ -617,7 +721,7 @@ export default function Invoices() {
 
             <div className="mt-3 flex items-baseline">
               <span className="text-3xl font-bold text-navy tracking-tight">
-                {pendingReceiptsCount}
+                <AnimatedNumber value={pendingReceiptsCount} />
               </span>
             </div>
           </div>
@@ -627,16 +731,18 @@ export default function Invoices() {
               className="flex items-center gap-1.5 flex-1 min-w-0"
               title={
                 pendingReceiptsCount > 0
-                  ? `${pendingReceiptsCount} WhatsApp payment slips awaiting review`
-                  : 'All resident payment slips verified'
+                  ? `${pendingReceiptsCount} resident payment slips awaiting review · WhatsApp verification queue`
+                  : 'All resident payment slips verified · Up to date'
               }
             >
               <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${pendingReceiptsCount > 0 ? 'bg-amber-500' : 'bg-emerald-500'}`} />
-              <span className="truncate block select-none text-slate-500 font-normal">
-                {pendingReceiptsCount > 0
-                  ? `${pendingReceiptsCount} slips awaiting review`
-                  : 'All slips verified · Up to date'}
-              </span>
+              <CircularMarqueeText
+                text={
+                  pendingReceiptsCount > 0
+                    ? `${pendingReceiptsCount} resident payment slips awaiting review · WhatsApp verification queue`
+                    : 'All resident payment slips verified · Up to date'
+                }
+              />
             </div>
             <span className="text-brand-600 font-semibold group-hover:translate-x-0.5 transition-transform shrink-0">
               Verify receipts →
@@ -647,7 +753,7 @@ export default function Invoices() {
         {/* Card 4: Collection Rate */}
         <div
           onClick={() => setSelectedStatus('All')}
-          className="relative overflow-hidden bg-gradient-to-b from-white to-slate-50/50 p-5 rounded-xl border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] hover:border-slate-300 hover:-translate-y-0.5 transition-all duration-200 group flex flex-col justify-between cursor-pointer"
+          className="relative overflow-hidden bg-gradient-to-b from-white to-slate-50/50 p-5 rounded-xl border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] hover:border-slate-300 hover:-translate-y-0.5 transition-transform transition-shadow duration-200 group flex flex-col justify-between cursor-pointer"
         >
           <div className="absolute top-0 right-0 w-24 h-24 bg-brand-500/5 rounded-full blur-xl pointer-events-none -mr-4 -mt-4" />
 
@@ -663,7 +769,7 @@ export default function Invoices() {
 
             <div className="mt-3 flex items-baseline">
               <span className="text-3xl font-bold text-navy tracking-tight">
-                {collectionRate}%
+                <AnimatedNumber value={collectionRate} suffix="%" />
               </span>
             </div>
           </div>
@@ -671,12 +777,10 @@ export default function Invoices() {
           <div className="text-[11px] text-slate-400 mt-4 font-normal flex items-center justify-between border-t border-slate-100 pt-3 gap-2">
             <div
               className="flex items-center gap-1.5 flex-1 min-w-0"
-              title={`${paidCount} of ${invoices.length} units settled for current cycle`}
+              title={`${paidCount} of ${invoices.length} units settled for current cycle · High collection health`}
             >
               <span className="w-1.5 h-1.5 rounded-full bg-brand-500 shrink-0" />
-              <span className="truncate block select-none text-slate-500 font-normal">
-                {paidCount} of {invoices.length} units settled
-              </span>
+              <CircularMarqueeText text={`${paidCount} of ${invoices.length} units settled for current cycle · High collection health`} />
             </div>
             <span className="text-brand-600 font-semibold group-hover:translate-x-0.5 transition-transform shrink-0">
               View roster →
