@@ -16,22 +16,32 @@ import {
 } from 'lucide-react';
 import { fetchDashboardSummary } from '../services/api';
 
-// Horizontal ping-pong scrolling text when text overflows container
-function PingPongText({ text }) {
+// Continuous circular loop marquee ("starts again where it finishes" conveyor belt)
+function CircularMarqueeText({ text }) {
   const containerRef = useRef(null);
   const textRef = useRef(null);
-  const [overflowDist, setOverflowDist] = useState(0);
+  const [isOverflowing, setIsOverflowing] = useState(false);
+  const [duration, setDuration] = useState(16);
 
   useEffect(() => {
     const calculateOverflow = () => {
       if (containerRef.current && textRef.current) {
-        const diff = textRef.current.scrollWidth - containerRef.current.clientWidth;
-        setOverflowDist(diff > 2 ? diff + 8 : 0);
+        const textWidth = textRef.current.offsetWidth;
+        const containerWidth = containerRef.current.clientWidth;
+        if (textWidth > containerWidth) {
+          setIsOverflowing(true);
+          // Set duration for calm, steady reading pace (~24px/s)
+          const scrollSpeed = 24;
+          const calculatedDuration = Math.max(12, Math.round((textWidth + 28) / scrollSpeed));
+          setDuration(calculatedDuration);
+        } else {
+          setIsOverflowing(false);
+        }
       }
     };
 
     calculateOverflow();
-    const timer = setTimeout(calculateOverflow, 300);
+    const timer = setTimeout(calculateOverflow, 200);
     window.addEventListener('resize', calculateOverflow);
 
     return () => {
@@ -41,27 +51,39 @@ function PingPongText({ text }) {
   }, [text]);
 
   return (
-    <div ref={containerRef} className="overflow-hidden whitespace-nowrap mask-fade-right flex-1 min-w-0">
-      <span
-        ref={textRef}
-        className="inline-block whitespace-nowrap"
-        style={
-          overflowDist > 0
-            ? {
-                animation: `pingpong-scroll ${Math.max(5, overflowDist * 0.08 + 4.5)}s ease-in-out infinite`,
-                '--scroll-dist': `-${overflowDist}px`
-              }
-            : {}
-        }
+    <div
+      ref={containerRef}
+      className={`overflow-hidden flex-1 min-w-0 relative ${isOverflowing ? 'mask-fade-loop group/ticker' : ''}`}
+      title={text}
+    >
+      <div
+        className={`inline-flex items-center whitespace-nowrap ${
+          isOverflowing ? 'animate-circular-loop group-hover/ticker:[animation-play-state:paused]' : ''
+        }`}
+        style={isOverflowing ? { '--marquee-duration': `${duration}s` } : {}}
       >
-        {text}
-      </span>
+        <span ref={textRef} className="inline-flex items-center select-none">
+          {text}
+          {isOverflowing && (
+            <span className="text-slate-300 mx-3 text-[7px] shrink-0">●</span>
+          )}
+        </span>
+        {isOverflowing && (
+          <span className="inline-flex items-center select-none" aria-hidden="true">
+            {text}
+            <span className="text-slate-300 mx-3 text-[7px] shrink-0">●</span>
+          </span>
+        )}
+      </div>
     </div>
   );
 }
 
-// Smooth easing count-up animation for metrics
-function AnimatedNumber({ value, duration = 650, prefix = '' }) {
+// Backwards-compatible alias
+const PingPongText = CircularMarqueeText;
+
+// Smooth easing count-up animation for metrics with refined pacing
+function AnimatedNumber({ value, duration = 1600, prefix = '' }) {
   const [displayValue, setDisplayValue] = useState(0);
 
   useEffect(() => {
@@ -74,9 +96,13 @@ function AnimatedNumber({ value, duration = 650, prefix = '' }) {
       return;
     }
 
+    // Adaptive duration: 1000ms for small integers (1-10) so the increments are clearly visible,
+    // and 1600ms for large totals (e.g. 15,000) for an elegant, steady count-up roll.
+    const animDuration = endValue <= 10 ? 1000 : duration;
+
     const step = (timestamp) => {
       if (!startTimestamp) startTimestamp = timestamp;
-      const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+      const progress = Math.min((timestamp - startTimestamp) / animDuration, 1);
       // Ease-out cubic
       const easeProgress = 1 - Math.pow(1 - progress, 3);
       const current = Math.round(startValue + (endValue - startValue) * easeProgress);
@@ -129,13 +155,13 @@ export default function Dashboard() {
   // Meaningful context snippet for Card 1 (Open Tickets)
   const latestComplaint = complaints[0];
   const latestTicketInfo = latestComplaint
-    ? `Latest: ${latestComplaint.category || 'Issue'} (Unit ${latestComplaint.residents?.unit_number || latestComplaint.unit || '221'} · Ticket ${latestComplaint.ticket_number || latestComplaint.id || 'Open'})`
+    ? `Latest: ${latestComplaint.category || 'Issue'} (Unit ${latestComplaint.residents?.unit_number || latestComplaint.unit || '221'} · Ticket ${latestComplaint.ticket_number || latestComplaint.id || 'Open'}${humanReview > 0 ? ` · ⚠️ ${humanReview} review needed` : ''})`
     : 'WhatsApp AI active · 0 open issues';
 
   // Meaningful context snippet for Card 2 (Overdue Dues)
   const oldestOverdue = overdueInvoices[0];
   const overdueInfo = oldestOverdue
-    ? `Oldest overdue: Unit ${oldestOverdue.residents?.unit_number || oldestOverdue.unitNumber || '222'} (Rs. ${Number(oldestOverdue.total_amount || oldestOverdue.totalAmount || 0).toLocaleString()} · Due ${oldestOverdue.due_date || oldestOverdue.dueDate || 'Past Due'})`
+    ? `Oldest overdue: Unit ${oldestOverdue.residents?.unit_number || oldestOverdue.unitNumber || '222'} (Rs. ${Number(oldestOverdue.total_amount || oldestOverdue.totalAmount || 0).toLocaleString()} · Due ${oldestOverdue.due_date || oldestOverdue.dueDate || 'Past Due'}${overdueCount > 1 ? ` · ${overdueCount} units overdue` : ''})`
     : overdueCount > 0
     ? `${overdueCount} units overdue · Total Rs. ${overdueTotal.toLocaleString()}`
     : 'All maintenance dues cleared · 0 overdue';
@@ -143,7 +169,7 @@ export default function Dashboard() {
   // Meaningful context snippet for Card 3 (Active Guest Passes)
   const latestPass = activeVisitorPasses[0];
   const activePassInfo = latestPass
-    ? `Active: ${latestPass.visitor_name || latestPass.visitorName || 'Guest'} (${latestPass.vehicle_plate || latestPass.vehiclePlate || 'Gate'} · Unit ${latestPass.residents?.unit_number || latestPass.unit || '221'} · Pass ${latestPass.pass_code || latestPass.code || 'VP'})`
+    ? `Active: ${latestPass.visitor_name || latestPass.visitorName || 'Guest'} (${latestPass.vehicle_plate || latestPass.vehiclePlate || 'Gate'} · Unit ${latestPass.residents?.unit_number || latestPass.unit || '221'} · Pass ${latestPass.pass_code || latestPass.code || 'VP'}${activePasses > 1 ? ` · ${activePasses} active passes` : ''})`
     : activePasses > 0
     ? `${activePasses} guest passes active at gate`
     : 'Gate security active · 0 visitor passes';
@@ -151,7 +177,7 @@ export default function Dashboard() {
   // Meaningful context snippet for Card 4 (Flagged Overstays)
   const latestOverstay = flaggedVehicles[0];
   const overstayInfo = latestOverstay
-    ? `Flagged overstay: ${latestOverstay.vehicle_plate || latestOverstay.vehiclePlate || 'Vehicle'} (Exceeded pass limit · 0-min grace policy · Security notified)`
+    ? `Flagged overstay: ${latestOverstay.vehicle_plate || latestOverstay.vehiclePlate || 'Vehicle'} (Unregistered visitor · 0-min grace policy · Security notified)`
     : flaggedOverstays > 0
     ? `${flaggedOverstays} visitor vehicles exceeding allowed duration`
     : 'Security active · All visitor gates clear';
@@ -256,26 +282,17 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="mt-3 flex items-baseline gap-3">
+            <div className="mt-3 flex items-baseline">
               <span className="text-3xl font-bold text-navy tracking-tight">
                 <AnimatedNumber value={openTickets} />
               </span>
-              {humanReview > 0 && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200/90 shadow-2xs">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-                  </span>
-                  {humanReview} review needed
-                </span>
-              )}
             </div>
           </div>
 
           <div className="text-[11px] text-slate-400 mt-4 font-normal flex items-center justify-between border-t border-slate-100 pt-3 gap-2">
             <div className="flex items-center gap-1.5 flex-1 min-w-0" title={latestTicketInfo}>
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-              <PingPongText text={latestTicketInfo} />
+              <CircularMarqueeText text={latestTicketInfo} />
             </div>
             <span className="text-brand-600 font-semibold group-hover:translate-x-0.5 transition-transform shrink-0">
               View queue →
@@ -300,22 +317,17 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="mt-3 flex items-baseline gap-2.5 flex-wrap">
+            <div className="mt-3 flex items-baseline">
               <span className="text-3xl font-bold text-navy tracking-tight">
                 <AnimatedNumber value={overdueTotal} prefix="Rs." />
               </span>
-              {overdueCount > 0 && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-red-50 text-red-700 border border-red-200/80">
-                  {overdueCount} {overdueCount === 1 ? 'unit' : 'units'}
-                </span>
-              )}
             </div>
           </div>
 
           <div className="text-[11px] text-slate-400 mt-4 font-normal flex items-center justify-between border-t border-slate-100 pt-3 gap-2">
             <div className="flex items-center gap-1.5 flex-1 min-w-0" title={overdueInfo}>
               <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${overdueCount > 0 ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'}`} />
-              <PingPongText text={overdueInfo} />
+              <CircularMarqueeText text={overdueInfo} />
             </div>
             <span className="text-brand-600 font-semibold group-hover:translate-x-0.5 transition-transform shrink-0">
               View invoices →
@@ -340,23 +352,17 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="mt-3 flex items-baseline gap-2.5">
+            <div className="mt-3 flex items-baseline">
               <span className="text-3xl font-bold text-navy tracking-tight">
                 <AnimatedNumber value={activePasses} />
               </span>
-              {activePasses > 0 && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-brand-50 text-brand-700 border border-brand-200/80">
-                  <span className="w-1.5 h-1.5 rounded-full bg-brand-500" />
-                  Valid window
-                </span>
-              )}
             </div>
           </div>
 
           <div className="text-[11px] text-slate-400 mt-4 font-normal flex items-center justify-between border-t border-slate-100 pt-3 gap-2">
             <div className="flex items-center gap-1.5 flex-1 min-w-0" title={activePassInfo}>
               <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${activePasses > 0 ? 'bg-brand-500 animate-pulse' : 'bg-slate-300'}`} />
-              <PingPongText text={activePassInfo} />
+              <CircularMarqueeText text={activePassInfo} />
             </div>
             <span className="text-brand-600 font-semibold group-hover:translate-x-0.5 transition-transform shrink-0">
               Gate records →
@@ -381,26 +387,17 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="mt-3 flex items-baseline gap-2.5">
+            <div className="mt-3 flex items-baseline">
               <span className="text-3xl font-bold text-navy tracking-tight">
                 <AnimatedNumber value={flaggedOverstays} />
               </span>
-              {flaggedOverstays > 0 && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-red-50 text-red-800 border border-red-200/90 shadow-2xs">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                  </span>
-                  0-min grace
-                </span>
-              )}
             </div>
           </div>
 
           <div className="text-[11px] text-slate-400 mt-4 font-normal flex items-center justify-between border-t border-slate-100 pt-3 gap-2">
             <div className="flex items-center gap-1.5 flex-1 min-w-0" title={overstayInfo}>
               <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${flaggedOverstays > 0 ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'}`} />
-              <PingPongText text={overstayInfo} />
+              <CircularMarqueeText text={overstayInfo} />
             </div>
             <span className="text-brand-600 font-semibold group-hover:translate-x-0.5 transition-transform shrink-0">
               View overstays →

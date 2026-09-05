@@ -42,6 +42,25 @@
   -webkit-mask-image: linear-gradient(to right, black calc(100% - 12px), transparent 100%);
 }
 
+/* Continuous seamless circular loop ticker */
+@keyframes circular-loop {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-circular-loop {
+  animation: circular-loop var(--marquee-duration, 16s) linear infinite;
+}
+
+.mask-fade-loop {
+  mask-image: linear-gradient(to right, transparent 0%, black 10px, black calc(100% - 14px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 10px, black calc(100% - 14px), transparent 100%);
+}
+
 @layer components {
   /* Status Pills */
   .status-pill {
