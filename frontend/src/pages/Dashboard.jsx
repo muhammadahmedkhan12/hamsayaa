@@ -122,36 +122,50 @@ export default function Dashboard() {
 
       {/* 4 Summary Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        {/* Card 1: Open Tickets (Aesthetic Minimalist Redesign) */}
+        {/* Card 1: Open Tickets (Rich Aesthetic Redesign) */}
         <Link
           to="/complaints"
-          className="bg-white p-5 rounded-xl border border-slate-200/90 shadow-2xs hover:border-slate-300 hover:shadow-xs transition-all group flex flex-col justify-between"
+          className="relative overflow-hidden bg-gradient-to-b from-white to-slate-50/50 p-5 rounded-xl border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] hover:border-slate-300 hover:-translate-y-0.5 transition-all duration-200 group flex flex-col justify-between"
         >
+          {/* Subtle top-right ambient warmth */}
+          <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-xl pointer-events-none -mr-4 -mt-4" />
+
           <div>
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500 group-hover:text-slate-700 transition-colors">
+              <span className="text-xs font-semibold text-slate-600 tracking-wide group-hover:text-navy transition-colors">
                 Open Tickets
               </span>
-              <Ticket className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-colors" />
+              <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 flex items-center justify-center group-hover:scale-105 transition-transform shadow-2xs">
+                <Ticket className="w-4 h-4" />
+              </div>
             </div>
-            <div className="mt-3 flex items-baseline gap-2.5">
-              <span className="text-2xl font-bold text-navy tracking-tight">{openTickets}</span>
+
+            <div className="mt-3 flex items-baseline gap-3">
+              <span className="text-3xl font-bold text-navy tracking-tight">{openTickets}</span>
               {humanReview > 0 ? (
-                <span className="text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-200/80 px-2 py-0.5 rounded-md flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200/90 shadow-2xs">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                  </span>
                   {humanReview} review needed
                 </span>
               ) : (
-                <span className="text-[11px] font-medium text-emerald-600 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-md">
-                  Active
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/80">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  All clear
                 </span>
               )}
             </div>
           </div>
-          <div className="text-[11px] text-slate-400 mt-3 font-normal flex items-center justify-between border-t border-slate-100 pt-2.5">
-            <span>Complaints queue</span>
-            <span className="text-brand-600 font-medium group-hover:translate-x-0.5 transition-transform">
-              View tickets →
+
+          <div className="text-[11px] text-slate-400 mt-4 font-normal flex items-center justify-between border-t border-slate-100 pt-3">
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              WhatsApp AI active
+            </span>
+            <span className="text-brand-600 font-semibold group-hover:translate-x-0.5 transition-transform">
+              View queue →
             </span>
           </div>
         </Link>
