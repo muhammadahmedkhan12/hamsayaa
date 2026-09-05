@@ -375,48 +375,33 @@ CREATE TABLE amenity_bookings (
 
 ### 7.1 Required Environment Variables
 
-```
+```bash
 # Meta WhatsApp API Secrets
-
-App ID: your_whatsapp_app_id
-App Secret: your_whatsapp_app_secret
-Access Token : your_whatsapp_access_token
-Test Number: 
-+1 (555) 137-2995
+WHATSAPP_APP_ID=your_whatsapp_app_id
+WHATSAPP_APP_SECRET=your_whatsapp_app_secret
+WHATSAPP_ACCESS_TOKEN=your_whatsapp_access_token
+WHATSAPP_TEST_NUMBER=+923001234567
+WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id
+WHATSAPP_VERIFY_TOKEN=your_webhook_verify_token
 
 # Primary LLM Engine (Gemini)
 GEMINI_API_KEY=your_gemini_api_key
-GEMINI_MODEL=gemini-1.5-flash
+GEMINI_MODEL=gemini-3.5-flash-lite
 
-# Database Connection
-
-
+# Database Connection (Supabase / Managed PostgreSQL)
 SUPABASE_URL=https://your-project-id.supabase.co
 SUPABASE_PUBLISHABLE_KEY=your_supabase_anon_key
 SUPABASE_SECRET_KEY=your_supabase_service_role_key
 SUPABASE_JWKS_URL=https://your-project-id.supabase.co/auth/v1/.well-known/jwks.json
 
-# Background Jobs (Phase 1 — required)
-redis-cli --tls -u redis://default:your_upstash_redis_rest_token@your-redis-instance.upstash.io:6379
+# Background Jobs (Upstash Redis)
+UPSTASH_REDIS_REST_URL=https://your-redis-instance.upstash.io
+UPSTASH_REDIS_REST_TOKEN=your_upstash_redis_rest_token
+REDIS_URL=rediss://default:your_token@your-redis-instance.upstash.io:6379
 
-UPSTASH_REDIS_REST_URL="https://your-redis-instance.upstash.io"
-UPSTASH_REDIS_REST_TOKEN="your_upstash_redis_rest_token"
+# Per-society configurable values
+SOCIETY_PAYMENT_ACCOUNT_DETAILS=Standard_Bank_Account_Number_IBAN
 
-from upstash_redis import Redis
-
-redis = Redis(url="https://your-redis-instance.upstash.io", token="your_upstash_redis_rest_token")
-
-redis.set("foo", "bar")
-value = redis.get("foo")
-
-# Per-society configurable values (admin-editable, not hardcoded)
-SOCIETY_PAYMENT_ACCOUNT_DETAILS=your_default_here
-
-# Observability
-sentry_sdk.init(
-    dsn="https://your_sentry_dsn_key@o4511768020844544.ingest.us.sentry.io/4511768069472256",
-    # Add data like request headers and IP for users,
-    # see https://docs.sentry.io/platforms/python/data-management/data-collected/ for more info
-    send_default_pii=True,
-)
+# Observability (Sentry)
+SENTRY_DSN=your_sentry_dsn
 ```
