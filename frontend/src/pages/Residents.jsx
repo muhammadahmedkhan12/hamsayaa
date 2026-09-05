@@ -88,6 +88,7 @@ export default function Residents() {
   const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [isSendingNotification, setIsSendingNotification] = useState(false);
   const [broadcastResult, setBroadcastResult] = useState(null);
+  const [showPreview, setShowPreview] = useState(true);
 
   // Broadcast Notification Form State (1 message per apartment)
   const [notificationForm, setNotificationForm] = useState({
@@ -502,9 +503,9 @@ export default function Residents() {
 
       {/* MODAL 1: ADD RESIDENT FORM */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200">
-            <div className="p-5 bg-navy text-white flex items-center justify-between">
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden border border-slate-200 my-auto">
+            <div className="p-4 sm:p-5 bg-navy text-white flex items-center justify-between shrink-0">
               <h3 className="font-bold text-base flex items-center gap-2">
                 <UserCheck className="w-5 h-5 text-brand-400" /> Add New Resident Record
               </h3>
@@ -513,70 +514,70 @@ export default function Residents() {
               </button>
             </div>
 
-            <form onSubmit={handleCreateSubmit} className="p-5 space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Building / Block</label>
-                  <select
-                    value={formData.building}
-                    onChange={(e) => setFormData({ ...formData, building: e.target.value })}
-                    className="w-full p-2 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 bg-white"
-                  >
-                    <option value="Block A">Block A</option>
-                    <option value="Block B">Block B</option>
-                    <option value="Block C">Block C</option>
-                  </select>
+            <form onSubmit={handleCreateSubmit} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-4 sm:p-5 space-y-4 text-xs overflow-y-auto flex-1">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Building / Block</label>
+                    <select
+                      value={formData.building}
+                      onChange={(e) => setFormData({ ...formData, building: e.target.value })}
+                      className="w-full p-2 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 bg-white"
+                    >
+                      <option value="Block A">Block A</option>
+                      <option value="Block B">Block B</option>
+                      <option value="Block C">Block C</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Apartment / Unit #</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. 104"
+                      value={formData.unit_number}
+                      onChange={(e) => setFormData({ ...formData, unit_number: e.target.value })}
+                      className="w-full p-2 border border-slate-300 rounded-lg text-xs bg-white text-slate-800"
+                    />
+                  </div>
                 </div>
+
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Unit Number</label>
+                  <label className="block font-bold text-slate-700 mb-1">Resident Full Name</label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. 101"
-                    value={formData.unit_number}
-                    onChange={(e) => setFormData({ ...formData, unit_number: e.target.value })}
+                    placeholder="e.g. Tariq Mahmood"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     className="w-full p-2 border border-slate-300 rounded-lg text-xs bg-white text-slate-800"
                   />
                 </div>
-              </div>
 
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Full Name</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Muhammad Ahmed"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full p-2 border border-slate-300 rounded-lg text-xs bg-white text-slate-800"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">WhatsApp Phone (+92...)</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="+923001234567"
-                    value={formData.phone_number}
-                    onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
-                    className="w-full p-2 border border-slate-300 rounded-lg text-xs font-mono bg-white text-slate-800"
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">WhatsApp Phone #</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="+923001234567"
+                      value={formData.phone_number}
+                      onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
+                      className="w-full p-2 border border-slate-300 rounded-lg text-xs font-mono bg-white text-slate-800"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">CNIC (Optional)</label>
+                    <input
+                      type="text"
+                      placeholder="42101-1234567-1"
+                      value={formData.cnic}
+                      onChange={(e) => setFormData({ ...formData, cnic: e.target.value })}
+                      className="w-full p-2 border border-slate-300 rounded-lg text-xs font-mono bg-white text-slate-800"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">CNIC (Optional)</label>
-                  <input
-                    type="text"
-                    placeholder="42101-1234567-1"
-                    value={formData.cnic}
-                    onChange={(e) => setFormData({ ...formData, cnic: e.target.value })}
-                    className="w-full p-2 border border-slate-300 rounded-lg text-xs font-mono bg-white text-slate-800"
-                  />
-                </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Occupancy Role</label>
                   <div className="flex items-center gap-4 pt-1">
@@ -613,17 +614,17 @@ export default function Residents() {
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-slate-200 flex justify-end gap-3">
+              <div className="p-3.5 sm:p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3 shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 bg-slate-100 text-slate-700 font-medium rounded-lg"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg text-xs"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold rounded-lg shadow"
+                  className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold rounded-lg shadow-sm text-xs"
                 >
                   Save Resident
                 </button>
@@ -635,9 +636,9 @@ export default function Residents() {
 
       {/* MODAL 2: BULK EXCEL / CSV ROSTER IMPORT */}
       {showImportModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200">
-            <div className="p-5 bg-navy text-white flex items-center justify-between">
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] flex flex-col overflow-hidden border border-slate-200 my-auto">
+            <div className="p-4 sm:p-5 bg-navy text-white flex items-center justify-between shrink-0">
               <h3 className="font-bold text-base flex items-center gap-2">
                 <UploadCloud className="w-5 h-5 text-brand-400" /> Bulk Import Resident Roster
               </h3>
@@ -646,35 +647,37 @@ export default function Residents() {
               </button>
             </div>
 
-            <form onSubmit={handleImportSubmit} className="p-5 space-y-4 text-xs">
-              <div className="p-4 bg-slate-50 border border-dashed border-slate-300 rounded-lg text-center space-y-2">
-                <UploadCloud className="w-8 h-8 text-slate-400 mx-auto" />
-                <p className="font-bold text-slate-700">Select `.csv` or `.xlsx` File</p>
-                <input
-                  type="file"
-                  accept=".csv,.xlsx,.xls"
-                  required
-                  onChange={(e) => setImportFile(e.target.files[0])}
-                  className="w-full text-xs text-slate-500 cursor-pointer"
-                />
+            <form onSubmit={handleImportSubmit} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-4 sm:p-5 space-y-4 text-xs overflow-y-auto flex-1">
+                <div className="p-4 bg-slate-50 border border-dashed border-slate-300 rounded-lg text-center space-y-2">
+                  <UploadCloud className="w-8 h-8 text-slate-400 mx-auto" />
+                  <p className="font-bold text-slate-700">Select `.csv` or `.xlsx` File</p>
+                  <input
+                    type="file"
+                    accept=".csv,.xlsx,.xls"
+                    required
+                    onChange={(e) => setImportFile(e.target.files[0])}
+                    className="w-full text-xs text-slate-500 cursor-pointer"
+                  />
+                </div>
+
+                <div className="p-3 bg-blue-50 text-blue-800 rounded-lg text-[11px] space-y-1">
+                  <p className="font-bold">Required File Columns:</p>
+                  <p className="font-mono text-[10px]">building, unit_number, name, phone_number, cnic, is_owner, is_tenant</p>
+                </div>
               </div>
 
-              <div className="p-3 bg-blue-50 text-blue-800 rounded-lg text-[11px] space-y-1">
-                <p className="font-bold">Required File Columns:</p>
-                <p className="font-mono text-[10px]">building, unit_number, name, phone_number, cnic, is_owner, is_tenant</p>
-              </div>
-
-              <div className="pt-3 border-t border-slate-200 flex justify-end gap-3">
+              <div className="p-3.5 sm:p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3 shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowImportModal(false)}
-                  className="px-4 py-2 bg-slate-100 text-slate-700 font-medium rounded-lg"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg text-xs"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold rounded-lg shadow"
+                  className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold rounded-lg shadow-sm text-xs"
                 >
                   Upload & Import
                 </button>
@@ -686,18 +689,18 @@ export default function Residents() {
 
       {/* MODAL 3: BROADCAST WHATSAPP NOTIFICATION */}
       {showNotificationModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden border border-slate-200 my-8">
-            {/* Header */}
-            <div className="p-5 bg-navy text-white flex items-center justify-between">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col border border-slate-200 overflow-hidden my-auto animate-fade-in">
+            {/* Header (Fixed at top) */}
+            <div className="p-4 sm:p-4.5 bg-navy text-white flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-brand-500/20 text-brand-400 border border-brand-500/30 flex items-center justify-center shadow-xs">
                   <Bell className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-base">Broadcast WhatsApp Notification</h3>
-                  <p className="text-xs text-slate-300">
-                    Send official announcements or maintenance notices directly to residents' WhatsApp
+                  <h3 className="font-bold text-sm sm:text-base">Broadcast WhatsApp Notification</h3>
+                  <p className="text-[11px] text-slate-300">
+                    Send official announcements or notices directly to residents' WhatsApp
                   </p>
                 </div>
               </div>
@@ -714,189 +717,159 @@ export default function Residents() {
             </div>
 
             {/* Broadcast Form */}
-            <form onSubmit={handleSendBroadcast} className="p-6 space-y-5 text-xs">
-              {/* Delivery Result Banner if exists */}
-              {broadcastResult && (
-                <div
-                  className={`p-3.5 rounded-xl border flex items-start gap-2.5 ${
-                    broadcastResult.status === 'error'
-                      ? 'bg-red-50 text-red-900 border-red-200'
-                      : 'bg-emerald-50 text-emerald-900 border-emerald-200'
-                  }`}
-                >
-                  {broadcastResult.status === 'error' ? (
-                    <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-                  ) : (
-                    <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-xs">
-                      {broadcastResult.status === 'error' ? 'Broadcast Delivery Error' : 'Broadcast Dispatched Successfully!'}
-                    </p>
-                    <p className="text-[11px] mt-0.5 opacity-90">{broadcastResult.message}</p>
-                    {broadcastResult.sent_count !== undefined && (
-                      <div className="flex items-center gap-2.5 mt-2 text-[10px] font-mono">
-                        <span className="bg-white/80 px-2 py-0.5 rounded border">
-                          Target: <strong>{broadcastResult.targets_count}</strong>
-                        </span>
-                        <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded border border-emerald-200">
-                          Delivered: <strong>{broadcastResult.sent_count}</strong>
-                        </span>
-                        {broadcastResult.failed_count > 0 && (
-                          <span className="bg-red-100 text-red-800 px-2 py-0.5 rounded border border-red-200">
-                            Failed: <strong>{broadcastResult.failed_count}</strong>
-                          </span>
-                        )}
-                      </div>
+            <form onSubmit={handleSendBroadcast} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-4 sm:p-5 space-y-4 text-xs overflow-y-auto flex-1">
+                {/* Delivery Result Banner if exists */}
+                {broadcastResult && (
+                  <div
+                    className={`p-3 rounded-xl border flex items-start gap-2.5 ${
+                      broadcastResult.status === 'error'
+                        ? 'bg-red-50 text-red-900 border-red-200'
+                        : 'bg-emerald-50 text-emerald-900 border-emerald-200'
+                    }`}
+                  >
+                    {broadcastResult.status === 'error' ? (
+                      <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                    ) : (
+                      <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                     )}
-                  </div>
-                </div>
-              )}
-
-              {/* Target Audience Scope Selector */}
-              <div className="space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <label className="block font-bold text-slate-700 uppercase tracking-wider text-[11px]">
-                    Target Audience Scope (Filter Recipients)
-                  </label>
-                  <span className="text-[10px] text-brand-600 bg-brand-50 px-2 py-0.5 rounded-full font-semibold border border-brand-200/60 flex items-center gap-1">
-                    <CheckCheck className="w-3 h-3 text-brand-600" />
-                    1 Msg per Apartment
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                  {/* Scope 1: Whole Society */}
-                  <button
-                    type="button"
-                    onClick={() => setNotificationForm((prev) => ({ ...prev, scope: 'all' }))}
-                    className={`p-3 rounded-xl border text-left flex items-start gap-2.5 transition-all ${
-                      notificationForm.scope === 'all'
-                        ? 'border-brand-500 bg-brand-500/5 text-navy shadow-xs ring-1 ring-brand-500'
-                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center mt-0.5 shrink-0">
-                      {notificationForm.scope === 'all' && (
-                        <div className="w-2 h-2 rounded-full bg-brand-500" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-xs">
+                        {broadcastResult.status === 'error' ? 'Broadcast Delivery Error' : 'Broadcast Dispatched Successfully!'}
+                      </p>
+                      <p className="text-[11px] mt-0.5 opacity-90">{broadcastResult.message}</p>
+                      {broadcastResult.sent_count !== undefined && (
+                        <div className="flex items-center gap-2 mt-2 text-[10px] font-mono">
+                          <span className="bg-white/80 px-2 py-0.5 rounded border">
+                            Target: <strong>{broadcastResult.targets_count}</strong>
+                          </span>
+                          <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded border border-emerald-200">
+                            Delivered: <strong>{broadcastResult.sent_count}</strong>
+                          </span>
+                          {broadcastResult.failed_count > 0 && (
+                            <span className="bg-red-100 text-red-800 px-2 py-0.5 rounded border border-red-200">
+                              Failed: <strong>{broadcastResult.failed_count}</strong>
+                            </span>
+                          )}
+                        </div>
                       )}
                     </div>
-                    <div>
-                      <p className="font-bold text-xs flex items-center gap-1.5">
-                        <Users className="w-3.5 h-3.5 text-brand-600" />
-                        Whole Society
-                      </p>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
-                        All society apartments
-                      </p>
-                    </div>
-                  </button>
-
-                  {/* Scope 2: Single Building */}
-                  <button
-                    type="button"
-                    onClick={() => setNotificationForm((prev) => ({ ...prev, scope: 'building' }))}
-                    className={`p-3 rounded-xl border text-left flex items-start gap-2.5 transition-all ${
-                      notificationForm.scope === 'building'
-                        ? 'border-brand-500 bg-brand-500/5 text-navy shadow-xs ring-1 ring-brand-500'
-                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center mt-0.5 shrink-0">
-                      {notificationForm.scope === 'building' && (
-                        <div className="w-2 h-2 rounded-full bg-brand-500" />
-                      )}
-                    </div>
-                    <div>
-                      <p className="font-bold text-xs flex items-center gap-1.5">
-                        <Building className="w-3.5 h-3.5 text-brand-600" />
-                        Single Building
-                      </p>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
-                        All units in 1 block
-                      </p>
-                    </div>
-                  </button>
-
-                  {/* Scope 3: Single Apartment */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const bld = notificationForm.building || availableBuildings[0] || 'Block A';
-                      const bldApts = allApartments.filter((a) => a.building === bld);
-                      const firstUnit = bldApts.length > 0 ? bldApts[0].unitNumber : '';
-                      setNotificationForm((prev) => ({
-                        ...prev,
-                        scope: 'apartment',
-                        building: bld,
-                        unit_number: prev.unit_number && bldApts.some((a) => a.unitNumber === prev.unit_number) ? prev.unit_number : firstUnit,
-                      }));
-                    }}
-                    className={`p-3 rounded-xl border text-left flex items-start gap-2.5 transition-all ${
-                      notificationForm.scope === 'apartment'
-                        ? 'border-brand-500 bg-brand-500/5 text-navy shadow-xs ring-1 ring-brand-500'
-                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center mt-0.5 shrink-0">
-                      {notificationForm.scope === 'apartment' && (
-                        <div className="w-2 h-2 rounded-full bg-brand-500" />
-                      )}
-                    </div>
-                    <div>
-                      <p className="font-bold text-xs flex items-center gap-1.5">
-                        <Home className="w-3.5 h-3.5 text-brand-600" />
-                        Single Apartment
-                      </p>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
-                        1 specific household
-                      </p>
-                    </div>
-                  </button>
-                </div>
-
-                {/* Single Building Dropdown (if scope === 'building') */}
-                {notificationForm.scope === 'building' && (
-                  <div className="pt-2 flex items-center gap-2.5 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                    <span className="text-slate-700 font-semibold text-xs flex items-center gap-1.5 shrink-0">
-                      <Building className="w-3.5 h-3.5 text-brand-600" />
-                      Select Building / Block:
-                    </span>
-                    <select
-                      value={notificationForm.building}
-                      onChange={(e) => setNotificationForm((prev) => ({ ...prev, building: e.target.value }))}
-                      className="p-1.5 border border-slate-300 rounded-lg text-xs bg-white text-navy font-semibold focus:outline-brand-500 w-full max-w-xs"
-                    >
-                      {availableBuildings.map((b) => (
-                        <option key={b} value={b}>
-                          {b}
-                        </option>
-                      ))}
-                    </select>
                   </div>
                 )}
 
-                {/* Single Apartment Dropdowns (if scope === 'apartment') */}
-                {notificationForm.scope === 'apartment' && (
-                  <div className="pt-2 grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
-                    <div>
-                      <label className="block text-slate-700 font-semibold text-xs mb-1 flex items-center gap-1.5">
+                {/* Target Audience Scope Selector */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="block font-bold text-slate-700 uppercase tracking-wider text-[11px]">
+                      Target Audience Scope
+                    </label>
+                    <span className="text-[10px] text-brand-600 bg-brand-50 px-2 py-0.5 rounded-full font-semibold border border-brand-200/60 flex items-center gap-1">
+                      <CheckCheck className="w-3 h-3 text-brand-600" />
+                      1 Msg per Apartment
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {/* Scope 1: Whole Society */}
+                    <button
+                      type="button"
+                      onClick={() => setNotificationForm((prev) => ({ ...prev, scope: 'all' }))}
+                      className={`p-2.5 rounded-xl border text-left flex items-start gap-2 transition-all ${
+                        notificationForm.scope === 'all'
+                          ? 'border-brand-500 bg-brand-500/5 text-navy shadow-xs ring-1 ring-brand-500'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="w-3.5 h-3.5 rounded-full border border-slate-300 flex items-center justify-center mt-0.5 shrink-0">
+                        {notificationForm.scope === 'all' && (
+                          <div className="w-1.5 h-1.5 rounded-full bg-brand-500" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-bold text-xs flex items-center gap-1">
+                          <Users className="w-3.5 h-3.5 text-brand-600" />
+                          Whole Society
+                        </p>
+                        <p className="text-[10px] text-slate-500 mt-0.5">
+                          All society apartments
+                        </p>
+                      </div>
+                    </button>
+
+                    {/* Scope 2: Single Building */}
+                    <button
+                      type="button"
+                      onClick={() => setNotificationForm((prev) => ({ ...prev, scope: 'building' }))}
+                      className={`p-2.5 rounded-xl border text-left flex items-start gap-2 transition-all ${
+                        notificationForm.scope === 'building'
+                          ? 'border-brand-500 bg-brand-500/5 text-navy shadow-xs ring-1 ring-brand-500'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="w-3.5 h-3.5 rounded-full border border-slate-300 flex items-center justify-center mt-0.5 shrink-0">
+                        {notificationForm.scope === 'building' && (
+                          <div className="w-1.5 h-1.5 rounded-full bg-brand-500" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-bold text-xs flex items-center gap-1">
+                          <Building className="w-3.5 h-3.5 text-brand-600" />
+                          Single Building
+                        </p>
+                        <p className="text-[10px] text-slate-500 mt-0.5">
+                          All units in 1 block
+                        </p>
+                      </div>
+                    </button>
+
+                    {/* Scope 3: Single Apartment */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const bld = notificationForm.building || availableBuildings[0] || 'Block A';
+                        const bldApts = allApartments.filter((a) => a.building === bld);
+                        const firstUnit = bldApts.length > 0 ? bldApts[0].unitNumber : '';
+                        setNotificationForm((prev) => ({
+                          ...prev,
+                          scope: 'apartment',
+                          building: bld,
+                          unit_number: prev.unit_number && bldApts.some((a) => a.unitNumber === prev.unit_number) ? prev.unit_number : firstUnit,
+                        }));
+                      }}
+                      className={`p-2.5 rounded-xl border text-left flex items-start gap-2 transition-all ${
+                        notificationForm.scope === 'apartment'
+                          ? 'border-brand-500 bg-brand-500/5 text-navy shadow-xs ring-1 ring-brand-500'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="w-3.5 h-3.5 rounded-full border border-slate-300 flex items-center justify-center mt-0.5 shrink-0">
+                        {notificationForm.scope === 'apartment' && (
+                          <div className="w-1.5 h-1.5 rounded-full bg-brand-500" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-bold text-xs flex items-center gap-1">
+                          <Home className="w-3.5 h-3.5 text-brand-600" />
+                          Single Apartment
+                        </p>
+                        <p className="text-[10px] text-slate-500 mt-0.5">
+                          1 specific household
+                        </p>
+                      </div>
+                    </button>
+                  </div>
+
+                  {/* Single Building Dropdown */}
+                  {notificationForm.scope === 'building' && (
+                    <div className="pt-1 flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
+                      <span className="text-slate-700 font-semibold text-xs flex items-center gap-1 shrink-0">
                         <Building className="w-3.5 h-3.5 text-brand-600" />
-                        1. Filter Building:
-                      </label>
+                        Select Building / Block:
+                      </span>
                       <select
                         value={notificationForm.building}
-                        onChange={(e) => {
-                          const newBld = e.target.value;
-                          const bldApts = allApartments.filter((a) => a.building === newBld);
-                          const firstUnit = bldApts.length > 0 ? bldApts[0].unitNumber : '';
-                          setNotificationForm((prev) => ({
-                            ...prev,
-                            building: newBld,
-                            unit_number: firstUnit,
-                          }));
-                        }}
-                        className="w-full p-2 border border-slate-300 rounded-lg text-xs bg-white text-navy font-semibold focus:outline-brand-500"
+                        onChange={(e) => setNotificationForm((prev) => ({ ...prev, building: e.target.value }))}
+                        className="p-1 border border-slate-300 rounded-md text-xs bg-white text-navy font-semibold focus:outline-brand-500 w-full max-w-xs"
                       >
                         {availableBuildings.map((b) => (
                           <option key={b} value={b}>
@@ -905,163 +878,209 @@ export default function Residents() {
                         ))}
                       </select>
                     </div>
+                  )}
 
-                    <div>
-                      <label className="block text-slate-700 font-semibold text-xs mb-1 flex items-center gap-1.5">
-                        <Home className="w-3.5 h-3.5 text-brand-600" />
-                        2. Select Apartment / Unit:
-                      </label>
-                      <select
-                        value={notificationForm.unit_number}
-                        onChange={(e) => setNotificationForm((prev) => ({ ...prev, unit_number: e.target.value }))}
-                        className="w-full p-2 border border-slate-300 rounded-lg text-xs bg-white text-navy font-semibold focus:outline-brand-500"
-                      >
-                        {currentBuildingApartments.length === 0 ? (
-                          <option value="">No registered apartments found in this block</option>
-                        ) : (
-                          currentBuildingApartments.map((apt) => (
-                            <option key={apt.unitNumber} value={apt.unitNumber}>
-                              Unit {apt.unitNumber} — {apt.displayName} ({apt.phone})
+                  {/* Single Apartment Dropdowns */}
+                  {notificationForm.scope === 'apartment' && (
+                    <div className="pt-1 grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                      <div>
+                        <label className="block text-slate-700 font-semibold text-[11px] mb-1 flex items-center gap-1">
+                          <Building className="w-3.5 h-3.5 text-brand-600" />
+                          1. Filter Building:
+                        </label>
+                        <select
+                          value={notificationForm.building}
+                          onChange={(e) => {
+                            const newBld = e.target.value;
+                            const bldApts = allApartments.filter((a) => a.building === newBld);
+                            const firstUnit = bldApts.length > 0 ? bldApts[0].unitNumber : '';
+                            setNotificationForm((prev) => ({
+                              ...prev,
+                              building: newBld,
+                              unit_number: firstUnit,
+                            }));
+                          }}
+                          className="w-full p-1.5 border border-slate-300 rounded-md text-xs bg-white text-navy font-semibold focus:outline-brand-500"
+                        >
+                          {availableBuildings.map((b) => (
+                            <option key={b} value={b}>
+                              {b}
                             </option>
-                          ))
-                        )}
-                      </select>
-                    </div>
-                  </div>
-                )}
+                          ))}
+                        </select>
+                      </div>
 
-                {/* Recipient Count Indicator */}
-                <div className="flex items-center gap-2 pt-1 text-[11px] text-slate-500">
+                      <div>
+                        <label className="block text-slate-700 font-semibold text-[11px] mb-1 flex items-center gap-1">
+                          <Home className="w-3.5 h-3.5 text-brand-600" />
+                          2. Select Apartment / Unit:
+                        </label>
+                        <select
+                          value={notificationForm.unit_number}
+                          onChange={(e) => setNotificationForm((prev) => ({ ...prev, unit_number: e.target.value }))}
+                          className="w-full p-1.5 border border-slate-300 rounded-md text-xs bg-white text-navy font-semibold focus:outline-brand-500"
+                        >
+                          {currentBuildingApartments.length === 0 ? (
+                            <option value="">No registered apartments found in this block</option>
+                          ) : (
+                            currentBuildingApartments.map((apt) => (
+                              <option key={apt.unitNumber} value={apt.unitNumber}>
+                                Unit {apt.unitNumber} — {apt.displayName} ({apt.phone})
+                              </option>
+                            ))
+                          )}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Recipient Count Indicator */}
+                  <div className="flex items-center gap-2 pt-0.5 text-[11px] text-slate-500">
+                    <span className={`w-2 h-2 rounded-full ${targetApartmentsCount > 0 ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                    <span>
+                      Will be dispatched to <strong className="text-navy font-bold">{targetApartmentsCount} apartment{targetApartmentsCount === 1 ? '' : 's'}</strong> (strictly 1 WhatsApp message per household).
+                    </span>
+                  </div>
+                </div>
+
+                {/* Preset Category Quick-Pills */}
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase tracking-wider text-[11px] mb-1">
+                    Quick Preset Templates
+                  </label>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {NOTIFICATION_PRESETS.map((preset) => (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() =>
+                          setNotificationForm((prev) => ({
+                            ...prev,
+                            category: preset.category,
+                            title: preset.defaultTitle,
+                            message: preset.defaultMessage,
+                          }))
+                        }
+                        className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-[11px] font-medium transition-colors border border-slate-200/60"
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Title Input */}
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    Notification Title <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Scheduled Water Tank Maintenance"
+                    value={notificationForm.title}
+                    onChange={(e) => setNotificationForm((prev) => ({ ...prev, title: e.target.value }))}
+                    className="w-full p-2 border border-slate-300 rounded-lg text-xs bg-white text-slate-800 focus:outline-brand-500"
+                    maxLength={150}
+                  />
+                </div>
+
+                {/* Message Textarea */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="font-bold text-slate-700">
+                      Message Body <span className="text-red-500">*</span>
+                    </label>
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      {notificationForm.message.length} / 2500 chars
+                    </span>
+                  </div>
+                  <textarea
+                    rows={3}
+                    required
+                    placeholder="Write the announcement or notice here. It will be sent directly to each resident's WhatsApp..."
+                    value={notificationForm.message}
+                    onChange={(e) => setNotificationForm((prev) => ({ ...prev, message: e.target.value }))}
+                    className="w-full p-2 border border-slate-300 rounded-lg text-xs bg-white text-slate-800 focus:outline-brand-500 leading-relaxed font-sans"
+                    maxLength={2500}
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Formatting tips: Use <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-600">*text*</code> for bold, <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-600">_text_</code> for italic. WhatsApp does not render HTML or hashtags.
+                  </p>
+                </div>
+
+                {/* WhatsApp Live Bubble Preview */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="font-bold text-slate-700 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                      <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+                      Live WhatsApp Chat Preview
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowPreview((prev) => !prev)}
+                      className="text-[10px] font-semibold text-brand-600 hover:text-brand-700 underline cursor-pointer"
+                    >
+                      {showPreview ? 'Hide Preview' : 'Show Preview'}
+                    </button>
+                  </div>
+                  {showPreview && (
+                    <div className="bg-[#efeae2] p-3 rounded-xl border border-slate-200/80 shadow-inner">
+                      <div className="bg-[#d9fdd3] text-slate-800 p-3 rounded-xl rounded-tl-none max-w-md shadow-xs text-xs space-y-1.5 border border-[#c3f4bc]">
+                        <div className="font-bold text-slate-900 flex items-center gap-1.5 text-[11px]">
+                          <span>📢</span>
+                          <span>SOCIETY NOTICE: {notificationForm.title.trim().toUpperCase() || 'ANNOUNCEMENT TITLE'}</span>
+                        </div>
+
+                        <p className="text-[11px] text-slate-700">
+                          Hello <strong>{previewResidentName}</strong> ({previewLocation}),
+                        </p>
+
+                        <p className="text-xs text-slate-800 leading-relaxed whitespace-pre-wrap">
+                          {notificationForm.message.trim() || 'Your broadcast announcement message will appear here...'}
+                        </p>
+
+                        <div className="pt-1.5 border-t border-emerald-200/60 text-[10px] text-slate-500 italic flex items-center justify-between">
+                          <span>Official notice sent by Society Office via Hamsayaa</span>
+                          <span className="text-[9px] not-italic text-slate-400 flex items-center gap-1 font-mono">
+                            12:30 PM <span className="text-brand-600 font-bold">✓✓</span>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Modal Actions (Fixed at bottom) */}
+              <div className="p-3.5 sm:p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
+                <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
                   <span className={`w-2 h-2 rounded-full ${targetApartmentsCount > 0 ? 'bg-emerald-500' : 'bg-amber-500'}`} />
                   <span>
-                    Will be dispatched to <strong className="text-navy font-bold">{targetApartmentsCount} apartment{targetApartmentsCount === 1 ? '' : 's'}</strong> (strictly 1 WhatsApp message per household).
+                    Target: <strong className="text-navy font-semibold">
+                      {notificationForm.scope === 'all'
+                        ? 'Whole Society'
+                        : notificationForm.scope === 'building'
+                        ? notificationForm.building
+                        : `${notificationForm.building} - Unit ${notificationForm.unit_number || 'All'}`}
+                    </strong> ({targetApartmentsCount} apartment{targetApartmentsCount === 1 ? '' : 's'})
                   </span>
                 </div>
-              </div>
-
-              {/* Preset Category Quick-Pills */}
-              <div>
-                <label className="block font-bold text-slate-700 uppercase tracking-wider text-[11px] mb-1.5">
-                  Quick Preset Templates
-                </label>
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  {NOTIFICATION_PRESETS.map((preset) => (
-                    <button
-                      key={preset.id}
-                      type="button"
-                      onClick={() =>
-                        setNotificationForm({
-                          ...notificationForm,
-                          category: preset.category,
-                          title: preset.defaultTitle,
-                          message: preset.defaultMessage,
-                        })
-                      }
-                      className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-medium transition-colors"
-                    >
-                      {preset.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Title Input */}
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">
-                  Notification Title <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Scheduled Water Tank Maintenance"
-                  value={notificationForm.title}
-                  onChange={(e) => setNotificationForm({ ...notificationForm, title: e.target.value })}
-                  className="w-full p-2.5 border border-slate-300 rounded-lg text-xs bg-white text-slate-800 focus:outline-brand-500"
-                  maxLength={150}
-                />
-              </div>
-
-              {/* Message Textarea */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="font-bold text-slate-700">
-                    Message Body <span className="text-red-500">*</span>
-                  </label>
-                  <span className="text-[10px] text-slate-400 font-mono">
-                    {notificationForm.message.length} / 2500 chars
-                  </span>
-                </div>
-                <textarea
-                  rows={4}
-                  required
-                  placeholder="Write the announcement or notice here. It will be sent directly to each resident's WhatsApp..."
-                  value={notificationForm.message}
-                  onChange={(e) => setNotificationForm({ ...notificationForm, message: e.target.value })}
-                  className="w-full p-2.5 border border-slate-300 rounded-lg text-xs bg-white text-slate-800 focus:outline-brand-500 leading-relaxed font-sans"
-                  maxLength={2500}
-                />
-                <p className="text-[10px] text-slate-400 mt-1">
-                  Formatting tips: Use <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-600">*text*</code> for bold, <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-600">_text_</code> for italic. WhatsApp does not render HTML or hashtags.
-                </p>
-              </div>
-
-              {/* WhatsApp Live Bubble Preview */}
-              <div>
-                <label className="block font-bold text-slate-700 uppercase tracking-wider text-[11px] mb-2">
-                  Live WhatsApp Chat Preview
-                </label>
-                <div className="bg-[#efeae2] p-4 rounded-xl border border-slate-200/80 shadow-inner">
-                  {/* WhatsApp Message Bubble */}
-                  <div className="bg-[#d9fdd3] text-slate-800 p-3.5 rounded-xl rounded-tl-none max-w-md shadow-xs text-xs space-y-2 border border-[#c3f4bc]">
-                    <div className="font-bold text-slate-900 flex items-center gap-1.5">
-                      <span>📢</span>
-                      <span>SOCIETY NOTICE: {notificationForm.title.trim().toUpperCase() || 'ANNOUNCEMENT TITLE'}</span>
-                    </div>
-
-                    <p className="text-[11px] text-slate-700">
-                      Hello <strong>{previewResidentName}</strong> ({previewLocation}),
-                    </p>
-
-                    <p className="text-xs text-slate-800 leading-relaxed whitespace-pre-wrap">
-                      {notificationForm.message.trim() || 'Your broadcast announcement message will appear here...'}
-                    </p>
-
-                    <div className="pt-1.5 border-t border-emerald-200/60 text-[10px] text-slate-500 italic flex items-center justify-between">
-                      <span>Official notice sent by Society Office via Hamsayaa</span>
-                      <span className="text-[9px] not-italic text-slate-400 flex items-center gap-1 font-mono">
-                        12:30 PM <span className="text-brand-600 font-bold">✓✓</span>
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Modal Actions */}
-              <div className="pt-3 border-t border-slate-200 flex items-center justify-between">
-                <div className="text-[11px] text-slate-500">
-                  Target: <strong className="text-navy">
-                    {notificationForm.scope === 'all'
-                      ? 'Whole Society'
-                      : notificationForm.scope === 'building'
-                      ? notificationForm.building
-                      : `${notificationForm.building} - Unit ${notificationForm.unit_number || 'All'}`}
-                  </strong> ({targetApartmentsCount} apartment{targetApartmentsCount === 1 ? '' : 's'})
-                </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2.5">
                   <button
                     type="button"
                     onClick={() => {
                       setShowNotificationModal(false);
                       setBroadcastResult(null);
                     }}
-                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition-colors text-xs"
+                    className="px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-medium rounded-lg transition-colors text-xs"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isSendingNotification || !notificationForm.title.trim() || !notificationForm.message.trim() || targetApartmentsCount === 0}
-                    className="px-5 py-2 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white font-semibold rounded-lg shadow-sm flex items-center gap-1.5 transition-colors text-xs"
+                    className="px-4.5 py-2 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white font-semibold rounded-lg shadow-sm flex items-center gap-1.5 transition-colors text-xs"
                   >
                     <RotateCw className={`w-3.5 h-3.5 ${isSendingNotification ? 'animate-spin' : ''}`} />
                     <span>
