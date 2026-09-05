@@ -24,6 +24,24 @@
   }
 }
 
+/* Smooth ping-pong horizontal text scroll */
+@keyframes pingpong-scroll {
+  0%, 20% {
+    transform: translateX(0);
+  }
+  50%, 70% {
+    transform: translateX(var(--scroll-dist, -40px));
+  }
+  90%, 100% {
+    transform: translateX(0);
+  }
+}
+
+.mask-fade-right {
+  mask-image: linear-gradient(to right, black calc(100% - 12px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - 12px), transparent 100%);
+}
+
 @layer components {
   /* Status Pills */
   .status-pill {

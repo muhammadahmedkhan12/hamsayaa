@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Ticket,
@@ -15,6 +15,50 @@ import {
   Zap
 } from 'lucide-react';
 import { fetchDashboardSummary } from '../services/api';
+
+// Horizontal ping-pong scrolling text when text overflows container
+function PingPongText({ text }) {
+  const containerRef = useRef(null);
+  const textRef = useRef(null);
+  const [overflowDist, setOverflowDist] = useState(0);
+
+  useEffect(() => {
+    const calculateOverflow = () => {
+      if (containerRef.current && textRef.current) {
+        const diff = textRef.current.scrollWidth - containerRef.current.clientWidth;
+        setOverflowDist(diff > 2 ? diff + 8 : 0);
+      }
+    };
+
+    calculateOverflow();
+    const timer = setTimeout(calculateOverflow, 300);
+    window.addEventListener('resize', calculateOverflow);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', calculateOverflow);
+    };
+  }, [text]);
+
+  return (
+    <div ref={containerRef} className="overflow-hidden whitespace-nowrap mask-fade-right flex-1 min-w-0">
+      <span
+        ref={textRef}
+        className="inline-block whitespace-nowrap"
+        style={
+          overflowDist > 0
+            ? {
+                animation: `pingpong-scroll ${Math.max(5, overflowDist * 0.08 + 4.5)}s ease-in-out infinite`,
+                '--scroll-dist': `-${overflowDist}px`
+              }
+            : {}
+        }
+      >
+        {text}
+      </span>
+    </div>
+  );
+}
 
 // Smooth easing count-up animation for metrics
 function AnimatedNumber({ value, duration = 650, prefix = '' }) {
@@ -201,11 +245,11 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="text-[11px] text-slate-400 mt-4 font-normal flex items-center justify-between border-t border-slate-100 pt-3">
-            <span className="flex items-center gap-1.5 truncate mr-2" title={latestTicketInfo}>
+          <div className="text-[11px] text-slate-400 mt-4 font-normal flex items-center justify-between border-t border-slate-100 pt-3 gap-2">
+            <div className="flex items-center gap-1.5 flex-1 min-w-0" title={latestTicketInfo}>
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-              <span className="truncate">{latestTicketInfo}</span>
-            </span>
+              <PingPongText text={latestTicketInfo} />
+            </div>
             <span className="text-brand-600 font-semibold group-hover:translate-x-0.5 transition-transform shrink-0">
               View queue →
             </span>
