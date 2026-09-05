@@ -16,6 +16,45 @@ import {
 } from 'lucide-react';
 import { fetchDashboardSummary } from '../services/api';
 
+// Smooth easing count-up animation for metrics
+function AnimatedNumber({ value, duration = 650, prefix = '' }) {
+  const [displayValue, setDisplayValue] = useState(0);
+
+  useEffect(() => {
+    let startTimestamp = null;
+    const startValue = 0;
+    const endValue = typeof value === 'number' ? value : parseFloat(value) || 0;
+
+    if (endValue === 0) {
+      setDisplayValue(0);
+      return;
+    }
+
+    const step = (timestamp) => {
+      if (!startTimestamp) startTimestamp = timestamp;
+      const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+      // Ease-out cubic
+      const easeProgress = 1 - Math.pow(1 - progress, 3);
+      const current = Math.round(startValue + (endValue - startValue) * easeProgress);
+      setDisplayValue(current);
+
+      if (progress < 1) {
+        window.requestAnimationFrame(step);
+      }
+    };
+
+    const animId = window.requestAnimationFrame(step);
+    return () => window.cancelAnimationFrame(animId);
+  }, [value, duration]);
+
+  return (
+    <span>
+      {prefix && <span className="text-sm font-semibold text-slate-400 mr-1 font-sans">{prefix}</span>}
+      {displayValue.toLocaleString()}
+    </span>
+  );
+}
+
 export default function Dashboard() {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -39,6 +78,12 @@ export default function Dashboard() {
   const flaggedOverstays = summary?.flagged_overstays_count ?? 0;
   const complaints = summary?.recent_complaints ?? [];
   const vehicleLogs = summary?.vehicle_logs ?? [];
+
+  // Meaningful context snippet for Card 1 (replaces generic placeholder with real data)
+  const latestComplaint = complaints[0];
+  const latestTicketInfo = latestComplaint
+    ? `Latest: ${latestComplaint.category || 'Issue'} (Unit ${latestComplaint.residents?.unit_number || latestComplaint.unit || '101'})`
+    : 'WhatsApp AI active';
 
   // Skeleton shimmer block
   const Skeleton = ({ className = '' }) => (
@@ -141,7 +186,9 @@ export default function Dashboard() {
             </div>
 
             <div className="mt-3 flex items-baseline gap-3">
-              <span className="text-3xl font-bold text-navy tracking-tight">{openTickets}</span>
+              <span className="text-3xl font-bold text-navy tracking-tight">
+                <AnimatedNumber value={openTickets} />
+              </span>
               {humanReview > 0 && (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200/90 shadow-2xs">
                   <span className="relative flex h-2 w-2">
@@ -155,11 +202,11 @@ export default function Dashboard() {
           </div>
 
           <div className="text-[11px] text-slate-400 mt-4 font-normal flex items-center justify-between border-t border-slate-100 pt-3">
-            <span className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              WhatsApp AI active
+            <span className="flex items-center gap-1.5 truncate mr-2" title={latestTicketInfo}>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+              <span className="truncate">{latestTicketInfo}</span>
             </span>
-            <span className="text-brand-600 font-semibold group-hover:translate-x-0.5 transition-transform">
+            <span className="text-brand-600 font-semibold group-hover:translate-x-0.5 transition-transform shrink-0">
               View queue →
             </span>
           </div>
@@ -184,8 +231,7 @@ export default function Dashboard() {
 
             <div className="mt-3 flex items-baseline gap-2.5 flex-wrap">
               <span className="text-3xl font-bold text-navy tracking-tight">
-                <span className="text-sm font-semibold text-slate-400 mr-1 font-sans">Rs.</span>
-                {overdueTotal.toLocaleString()}
+                <AnimatedNumber value={overdueTotal} prefix="Rs." />
               </span>
               {overdueCount > 0 && (
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-red-50 text-red-700 border border-red-200/80">
@@ -221,7 +267,9 @@ export default function Dashboard() {
             </div>
 
             <div className="mt-3 flex items-baseline gap-2.5">
-              <span className="text-3xl font-bold text-navy tracking-tight">{activePasses}</span>
+              <span className="text-3xl font-bold text-navy tracking-tight">
+                <AnimatedNumber value={activePasses} />
+              </span>
               {activePasses > 0 && (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-brand-50 text-brand-700 border border-brand-200/80">
                   <span className="w-1.5 h-1.5 rounded-full bg-brand-500" />
@@ -257,7 +305,9 @@ export default function Dashboard() {
             </div>
 
             <div className="mt-3 flex items-baseline gap-2.5">
-              <span className="text-3xl font-bold text-navy tracking-tight">{flaggedOverstays}</span>
+              <span className="text-3xl font-bold text-navy tracking-tight">
+                <AnimatedNumber value={flaggedOverstays} />
+              </span>
               {flaggedOverstays > 0 && (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-red-50 text-red-800 border border-red-200/90 shadow-2xs">
                   <span className="relative flex h-2 w-2">
