@@ -745,11 +745,19 @@ export default function Invoices() {
                           {receiptUrl && (
                             <button
                               onClick={() => { setSelectedInvoice(inv); setShowReceiptModal(true); }}
-                              className="px-2.5 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded border border-blue-200 transition-colors flex items-center gap-1 font-semibold"
-                              title="View Payment Receipt Screenshot"
+                              className={`px-2.5 py-1 rounded border transition-colors flex items-center gap-1 font-semibold ${
+                                inv.payment_audit?.flag === 'suspected_fraud'
+                                  ? 'bg-red-50 text-red-700 hover:bg-red-100 border-red-300 shadow-xs'
+                                  : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200'
+                              }`}
+                              title={inv.payment_audit?.flag === 'suspected_fraud' ? `⚠️ Suspected Fraud: ${inv.payment_audit?.reason || 'Altered image'}` : 'View Payment Receipt Screenshot'}
                             >
-                              <Eye className="w-3.5 h-3.5" />
-                              <span>Receipt</span>
+                              {inv.payment_audit?.flag === 'suspected_fraud' ? (
+                                <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
+                              ) : (
+                                <Eye className="w-3.5 h-3.5" />
+                              )}
+                              <span>{inv.payment_audit?.flag === 'suspected_fraud' ? 'Flagged Slip' : 'Receipt'}</span>
                             </button>
                           )}
 
@@ -1180,6 +1188,22 @@ export default function Invoices() {
                   Amount Due: <strong className="text-navy font-mono">Rs. {(selectedInvoice.totalAmount || selectedInvoice.total_amount || selectedInvoice.societyMaintenanceFee || selectedInvoice.society_maintenance_fee || 0).toLocaleString()}</strong>
                 </p>
               </div>
+
+              {/* AI Security Fraud Alert Banner if Flagged */}
+              {selectedInvoice.payment_audit?.flag === 'suspected_fraud' && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-900 text-xs space-y-1">
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                    <span>AI Security Warning: Suspected Image Alteration</span>
+                  </div>
+                  <p className="text-[11px] text-red-700 leading-relaxed">
+                    {selectedInvoice.payment_audit?.reason || 'The visual scanner detected potential signs of digital editing or altered digits on this screenshot.'}
+                  </p>
+                  <p className="text-[10px] text-red-600 font-semibold pt-0.5">
+                    Carefully cross-check the transaction reference in your society bank statement before approving.
+                  </p>
+                </div>
+              )}
 
               {/* Receipt Image Preview */}
               <div className="border border-slate-200 rounded-lg overflow-hidden max-h-64 bg-slate-100 flex items-center justify-center">

@@ -430,23 +430,28 @@ class GeminiEngine:
         if self.client and USING_NEW_GENAI:
             image_part = types.Part.from_bytes(data=image_bytes, mime_type=mime_type)
             vision_prompt = (
-                f"You are Hamsayaa AI Concierge analyzing an image sent via WhatsApp by a verified resident.\n"
+                f"You are Hamsayaa AI Security & Concierge engine analyzing an image sent via WhatsApp by a verified resident.\n"
                 f"Resident: {name} ({building} - Unit {unit})\n"
                 f"Resident Caption: \"{caption}\"\n\n"
-                f"Analyze BOTH the visual content and the resident's caption together to determine intent:\n"
-                f"1. 'payment_slip': If the image shows a bank transfer slip, receipt, cheque, or transaction screen, OR if the resident sent a slip image stating they paid their maintenance dues/fee.\n"
-                f"2. 'maintenance_issue': If the image or caption shows or describes a physical defect, damage, leak, broken fixture, elevator fault, sanitation issue, electrical hazard, or repair need.\n"
-                f"3. 'irrelevant': A selfie, greeting, meme, nature photo, or image completely unrelated to society maintenance or fee payments.\n\n"
+                f"Task 1: Classify image_type:\n"
+                f"  - 'payment_slip': If the image shows a bank transfer slip, receipt, cheque, Raast transfer, ATM slip, or banking app transaction screen.\n"
+                f"  - 'maintenance_issue': If the image or caption shows or describes a physical defect, damage, leak, broken fixture, elevator fault, sanitation issue, electrical hazard, or repair need.\n"
+                f"  - 'irrelevant': A selfie, greeting, meme, food photo, random scenery, sticker, or image completely unrelated to society maintenance or fee payments.\n\n"
+                f"Task 2: If 'payment_slip', inspect authenticity:\n"
+                f"  - 'is_fraudulent_or_tampered': Set to true ONLY if there is clear visual evidence of digital tampering, image editing, mismatched/pasted fonts, cloned/edited digits, Photoshop/markup tool modifications, or obvious fake mockup generators.\n"
+                f"  - Note: An authentic screenshot that merely has an unexpected amount, different beneficiary account, or partial transfer is NOT fraudulent; set is_fraudulent_or_tampered to false. Reserve true strictly for visually altered/doctored images.\n"
+                f"  - 'fraud_reason': If is_fraudulent_or_tampered is true, explain what visual alteration was detected.\n\n"
                 f"Return ONLY a JSON object with this schema:\n"
                 f"{{\n"
                 f"  \"image_type\": \"payment_slip\" | \"maintenance_issue\" | \"irrelevant\",\n"
+                f"  \"is_fraudulent_or_tampered\": boolean,\n"
+                f"  \"fraud_reason\": string or null,\n"
                 f"  \"amount\": number or null,\n"
                 f"  \"bank_or_app\": string or null,\n"
                 f"  \"reference_number\": string or null,\n"
                 f"  \"payment_date\": string or null,\n"
                 f"  \"complaint_category\": \"Water & Plumbing\" | \"Electrical & Power\" | \"Elevators & Lifts\" | \"Sanitation & Waste\" | \"Security & Parking\" | \"General Maintenance & Repair\" | null,\n"
-                f"  \"description\": string,\n"
-                f"  \"reply_text\": string\n"
+                f"  \"description\": string\n"
                 f"}}"
             )
 
@@ -480,6 +485,8 @@ class GeminiEngine:
             }
 
         image_type = vision_data.get("image_type", "payment_slip")
+        is_tampered = bool(vision_data.get("is_fraudulent_or_tampered"))
+        fraud_reason = vision_data.get("fraud_reason") or "Potential digital image tampering or alterations detected."
         amount = vision_data.get("amount")
         bank_or_app = vision_data.get("bank_or_app") or "Bank Transfer"
         ref_no = vision_data.get("reference_number") or "N/A"
@@ -493,7 +500,42 @@ class GeminiEngine:
             # 2. Lookup or create advance invoice
             inv = db_service.get_or_create_advance_invoice(society_id, res_id) if res_id else None
 
-            # 3. Check if already settled
+            # 3. Check for Fraudulent / Tampered Screenshot
+            if is_tampered:
+                if inv:
+                    db_service.attach_invoice_receipt(inv["id"], receipt_url)
+                    # Log audit flag in Redis for admin inspection
+                    if self.redis:
+                        try:
+                            audit_payload = {
+                                "collector": "AI Security Scanner",
+                                "method": "Flagged Altered Slip",
+                                "collected_at": datetime.now(timezone.utc).isoformat(),
+                                "flag": "suspected_fraud",
+                                "reason": fraud_reason
+                            }
+                            self.redis.set(f"payment_audit:{inv['id']}", json.dumps(audit_payload), ex=365 * 86400)
+                        except Exception as e:
+                            logger.debug(f"Redis audit flag error: {e}")
+
+                reply = (
+                    f"⚠️ *INVALID PAYMENT SCREENSHOT*\n\n"
+                    f"Hello *{name}* ({building} - Unit {unit}),\n\n"
+                    f"This screenshot could not be validated as an authentic bank payment slip. Our automated verification system detected potential digital alterations or image editing.\n\n"
+                    f"📌 *Status:* This submission has been flagged and forwarded to the society management office for manual inspection.\n\n"
+                    f"If you made an authentic transfer, please export the original, unedited digital receipt directly from your official banking app (or deposit cash at the society office) and send it here."
+                )
+                res_payload = {
+                    "status": "flagged_fraud",
+                    "intent": "payment_receipt_flagged",
+                    "receipt_url": receipt_url,
+                    "reason": fraud_reason,
+                    "invoice_id": inv.get("id") if inv else None,
+                    "reply_text": reply
+                }
+                return self._dispatch_response(res_payload, resident, caption or "[Flagged Payment Screenshot]")
+
+            # 4. Check if already settled
             is_already_settled = False
             if inv:
                 is_already_settled = bool(inv.get("is_already_settled") or inv.get("status") in ["paid", "verified"])
@@ -586,13 +628,11 @@ class GeminiEngine:
         # Case 3: Irrelevant Image / Off-topic
         else:
             reply = (
-                f"Hello *{name}*! We received your image, but it does not appear to be a maintenance fault or payment receipt.\n\n"
-                f"As Hamsayaa Concierge, I can assist you with:\n"
-                f"• 🛠️ Logging maintenance complaints\n"
-                f"• 🧾 Checking maintenance vouchers & recording payment slips\n"
-                f"• 🎫 Issuing guest visitor passes\n"
-                f"• 🏊 Facility timings & community polls\n\n"
-                f"Please let me know if you need assistance with any of these!"
+                f"⚠️ *UNRECOGNIZED IMAGE RECEIVED*\n\n"
+                f"Hello *{name}*! We received your image, but it does not appear to be a bank payment receipt or a society maintenance issue.\n\n"
+                f"• *Submitting a payment?* Please send a clear screenshot of your bank transfer, Raast receipt, or ATM slip.\n"
+                f"• *Reporting an issue?* Please send a photo of the defect along with a brief description or voice note explaining what needs repair.\n\n"
+                f"_If you sent this by mistake, no worries! Just let us know how we can assist you._"
             )
             res_payload = {
                 "status": "success",
