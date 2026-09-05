@@ -748,16 +748,32 @@ export default function Invoices() {
                               className={`px-2.5 py-1 rounded border transition-colors flex items-center gap-1 font-semibold ${
                                 inv.payment_audit?.flag === 'suspected_fraud'
                                   ? 'bg-red-50 text-red-700 hover:bg-red-100 border-red-300 shadow-xs'
+                                  : inv.payment_audit?.is_partial
+                                  ? 'bg-amber-50 text-amber-800 hover:bg-amber-100 border-amber-300 shadow-xs'
                                   : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200'
                               }`}
-                              title={inv.payment_audit?.flag === 'suspected_fraud' ? `⚠️ Suspected Fraud: ${inv.payment_audit?.reason || 'Altered image'}` : 'View Payment Receipt Screenshot'}
+                              title={
+                                inv.payment_audit?.flag === 'suspected_fraud'
+                                  ? `⚠️ Suspected Fraud: ${inv.payment_audit?.reason || 'Altered image'}`
+                                  : inv.payment_audit?.is_partial
+                                  ? `⏳ Partial Payment (Rem: Rs. ${Number(inv.payment_audit.remaining_balance || 0).toLocaleString()})`
+                                  : 'View Payment Receipt Screenshot'
+                              }
                             >
                               {inv.payment_audit?.flag === 'suspected_fraud' ? (
                                 <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
+                              ) : inv.payment_audit?.is_partial ? (
+                                <Clock className="w-3.5 h-3.5 text-amber-600" />
                               ) : (
                                 <Eye className="w-3.5 h-3.5" />
                               )}
-                              <span>{inv.payment_audit?.flag === 'suspected_fraud' ? 'Flagged Slip' : 'Receipt'}</span>
+                              <span>
+                                {inv.payment_audit?.flag === 'suspected_fraud'
+                                  ? 'Flagged Slip'
+                                  : inv.payment_audit?.is_partial
+                                  ? 'Partial Slip'
+                                  : 'Receipt'}
+                              </span>
                             </button>
                           )}
 
@@ -1205,6 +1221,85 @@ export default function Invoices() {
                 </div>
               )}
 
+              {/* Bank Statement Cross-Check & Reconciliation Card */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2.5">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                  <span className="font-bold text-slate-700 text-xs flex items-center gap-1.5">
+                    <Building className="w-4 h-4 text-brand-600" />
+                    Society Bank Statement Cross-Check
+                  </span>
+                  {selectedInvoice.payment_audit?.is_partial ? (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                      Partial (Rem: Rs. {Number(selectedInvoice.payment_audit.remaining_balance || 0).toLocaleString()})
+                    </span>
+                  ) : selectedInvoice.payment_audit?.reference_number ? (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                      Details Extracted
+                    </span>
+                  ) : null}
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                  <div className="bg-white p-2 rounded-lg border border-slate-200">
+                    <span className="text-slate-400 block text-[10px] uppercase font-semibold">TxID / Reference</span>
+                    <span className="font-mono font-bold text-slate-800 select-all">
+                      {selectedInvoice.payment_audit?.reference_number || 'See receipt image'}
+                    </span>
+                  </div>
+
+                  <div className="bg-white p-2 rounded-lg border border-slate-200">
+                    <span className="text-slate-400 block text-[10px] uppercase font-semibold">Amount on Slip</span>
+                    <span className="font-mono font-bold text-emerald-700 text-xs">
+                      Rs. {Number(selectedInvoice.payment_audit?.this_slip_amount || selectedInvoice.payment_audit?.amount_paid || selectedInvoice.totalAmount || selectedInvoice.total_amount || 0).toLocaleString()}
+                    </span>
+                  </div>
+
+                  <div className="bg-white p-2 rounded-lg border border-slate-200">
+                    <span className="text-slate-400 block text-[10px] uppercase font-semibold">Transaction Date</span>
+                    <span className="font-medium text-slate-700">
+                      {selectedInvoice.payment_audit?.payment_date || 'Check receipt'}
+                    </span>
+                  </div>
+
+                  <div className="bg-white p-2 rounded-lg border border-slate-200">
+                    <span className="text-slate-400 block text-[10px] uppercase font-semibold">Bank / Channel</span>
+                    <span className="font-medium text-slate-700">
+                      {selectedInvoice.payment_audit?.bank_or_app || 'Bank Transfer'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Beneficiary Match */}
+                <div className="bg-white p-2 rounded-lg border border-slate-200 text-[11px] flex items-center justify-between">
+                  <div className="truncate mr-2">
+                    <span className="text-slate-400 block text-[10px] uppercase font-semibold">Beneficiary Account</span>
+                    <span className="font-mono text-slate-700 text-[10px] truncate block" title={selectedInvoice.payment_audit?.destination_account || selectedInvoice.account_shown}>
+                      {selectedInvoice.payment_audit?.destination_account || selectedInvoice.account_shown || 'Society Maintenance Account'}
+                    </span>
+                  </div>
+                  <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded text-[10px] font-semibold border border-emerald-200 shrink-0">
+                    Matched
+                  </span>
+                </div>
+
+                {/* Linked Partial Slips History if multiple slips exist */}
+                {selectedInvoice.payment_audit?.partial_payments && selectedInvoice.payment_audit.partial_payments.length > 1 && (
+                  <div className="mt-2 pt-2 border-t border-slate-200">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
+                      All Receipts Linked ({selectedInvoice.payment_audit.partial_payments.length}):
+                    </span>
+                    <div className="space-y-1">
+                      {selectedInvoice.payment_audit.partial_payments.map((p, idx) => (
+                        <div key={idx} className="flex items-center justify-between text-[10px] bg-slate-100/70 p-1.5 rounded">
+                          <span className="font-mono text-slate-700">Slip #{idx + 1}: {p.reference_number || 'N/A'}</span>
+                          <span className="font-bold font-mono text-emerald-700">Rs. {Number(p.amount || 0).toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Receipt Image Preview */}
               <div className="border border-slate-200 rounded-lg overflow-hidden max-h-64 bg-slate-100 flex items-center justify-center">
                 <img
@@ -1234,7 +1329,7 @@ export default function Invoices() {
                 className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold rounded-lg shadow flex items-center gap-1.5 transition-colors text-xs"
               >
                 <ShieldCheck className="w-4 h-4" />
-                <span>Verify Payment</span>
+                <span>Approve & Mark Verified</span>
               </button>
             </div>
           </div>

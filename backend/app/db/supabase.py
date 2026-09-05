@@ -131,6 +131,16 @@ class DatabaseService:
             logger.error(f"Error fetching invoices (database may be paused or unreachable): {e}")
             return []
 
+    def get_invoice_by_id(self, invoice_id: str):
+        if not self.client or not invoice_id:
+            return None
+        try:
+            res = self.client.table("invoices").select("*, residents(id, name, unit_number, building, phone_number)").eq("id", invoice_id).execute()
+            return res.data[0] if (res and res.data) else None
+        except Exception as e:
+            logger.error(f"Error fetching invoice by ID {invoice_id}: {e}")
+            return None
+
     def update_invoice(self, invoice_id: str, update_data: dict):
         if not self.client:
             return None

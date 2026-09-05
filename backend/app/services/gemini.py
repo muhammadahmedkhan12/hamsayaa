@@ -4,6 +4,7 @@ import random
 import logging
 import re
 from datetime import datetime, timezone, timedelta
+import hashlib
 
 logger = logging.getLogger(__name__)
 
@@ -426,31 +427,89 @@ class GeminiEngine:
         if not image_bytes:
             return {"status": "error", "reply_text": "I could not process the image because the image payload was empty."}
 
+        # --- STEP 0: SHA-256 Exact Image Binary Deduplication ---
+        img_hash = hashlib.sha256(image_bytes).hexdigest()
+        if self.redis:
+            try:
+                dup_hash_raw = self.redis.get(f"receipt_hash:{img_hash}")
+                if dup_hash_raw:
+                    logger.info(f"Duplicate receipt hash detected: {img_hash[:12]}...")
+                    reply = (
+                        f"⚠️ *DUPLICATE PAYMENT SCREENSHOT*\n\n"
+                        f"Hello *{name}* ({building} - Unit {unit}),\n\n"
+                        f"This exact payment receipt screenshot has already been submitted and is currently on file in our system.\n\n"
+                        f"• *Status:* Previously received & under verification\n"
+                        f"• *Notice:* You do not need to resend the same screenshot. Our management office is already reviewing it.\n\n"
+                        f"If you made an additional or separate transfer, please export and upload the new transaction slip."
+                    )
+                    return self._dispatch_response({
+                        "status": "duplicate_receipt",
+                        "intent": "payment_duplicate_image",
+                        "reply_text": reply
+                    }, resident, caption or "[Duplicate Screenshot]")
+            except Exception as e:
+                logger.debug(f"Redis duplicate hash check error: {e}")
+
+        # Fetch active or advance invoice to provide exact expected account & due amount context
+        inv = db_service.get_or_create_advance_invoice(society_id, res_id) if res_id else None
+        expected_account = (inv.get("account_shown") if inv else None) or "Meezan Bank - A/C 01020304050607 - Lakeview Maint Account"
+        total_due = float(inv.get("total_amount") or inv.get("society_maintenance_fee") or 6500.0) if inv else 6500.0
+
+        existing_partials = []
+        if self.redis and inv:
+            try:
+                raw_partials = self.redis.get(f"partial_payments:{inv['id']}")
+                if raw_partials:
+                    existing_partials = json.loads(raw_partials) if isinstance(raw_partials, str) else raw_partials
+            except Exception as e:
+                logger.debug(f"Redis partial payments fetch error: {e}")
+
+        prior_paid = sum(float(p.get("amount", 0)) for p in existing_partials if isinstance(p, dict) and p.get("amount"))
+        effective_due = max(0.0, total_due - prior_paid)
+
         vision_data = None
         if self.client and USING_NEW_GENAI:
             image_part = types.Part.from_bytes(data=image_bytes, mime_type=mime_type)
             vision_prompt = (
                 f"You are Hamsayaa AI Security & Concierge engine analyzing an image sent via WhatsApp by a verified resident.\n"
                 f"Resident: {name} ({building} - Unit {unit})\n"
-                f"Resident Caption: \"{caption}\"\n\n"
+                f"Resident Caption: \"{caption}\"\n"
+                f"Expected Society Destination Account: \"{expected_account}\"\n"
+                f"Current Balance Due: PKR {effective_due:,.0f} (Total Voucher: PKR {total_due:,.0f})\n\n"
                 f"Task 1: Classify image_type:\n"
                 f"  - 'payment_slip': If the image shows a bank transfer slip, receipt, cheque, Raast transfer, ATM slip, or banking app transaction screen.\n"
                 f"  - 'maintenance_issue': If the image or caption shows or describes a physical defect, damage, leak, broken fixture, elevator fault, sanitation issue, electrical hazard, or repair need.\n"
                 f"  - 'irrelevant': A selfie, greeting, meme, food photo, random scenery, sticker, or image completely unrelated to society maintenance or fee payments.\n\n"
                 f"Task 2: If 'payment_slip', inspect authenticity:\n"
                 f"  - 'is_fraudulent_or_tampered': Set to true ONLY if there is clear visual evidence of digital tampering, image editing, mismatched/pasted fonts, cloned/edited digits, Photoshop/markup tool modifications, or obvious fake mockup generators.\n"
-                f"  - Note: An authentic screenshot that merely has an unexpected amount, different beneficiary account, or partial transfer is NOT fraudulent; set is_fraudulent_or_tampered to false. Reserve true strictly for visually altered/doctored images.\n"
                 f"  - 'fraud_reason': If is_fraudulent_or_tampered is true, explain what visual alteration was detected.\n\n"
+                f"Task 3: If 'payment_slip', inspect destination beneficiary account:\n"
+                f"  - 'destination_account_title': Name / title of beneficiary recipient shown on the slip (or null).\n"
+                f"  - 'destination_account_number': Recipient account number, IBAN, or Raast ID on slip (or null).\n"
+                f"  - 'is_account_match': Set to true if the destination beneficiary matches or reasonably aligns with the expected society account (e.g. mentions Lakeview, society, or matching account digits/title). Set to false ONLY if the slip clearly shows the money was transferred to an entirely unrelated person, personal friend/family account, or third-party merchant. Set to null if recipient details are not legible or omitted in this screenshot.\n"
+                f"  - 'account_mismatch_reason': If is_account_match is false, describe who or what account the payment was sent to.\n\n"
+                f"Task 4: Extract financial fields:\n"
+                f"  - 'amount': Exact numeric amount transferred in PKR (number, no commas/currency symbol).\n"
+                f"  - 'bank_or_app': Sending or receiving bank name or mobile app (e.g., Meezan, HBL, Bank Alfalah, Raast, Nayapay, Sadapay, Easypaisa, JazzCash).\n"
+                f"  - 'reference_number': Transaction reference ID, TxID, Raast Reference, or Stan number.\n"
+                f"  - 'payment_date': Date and time of payment shown on slip (string, e.g. '2026-09-05 14:30').\n\n"
+                f"Task 5: If 'maintenance_issue':\n"
+                f"  - 'complaint_category': \"Water & Plumbing\" | \"Electrical & Power\" | \"Elevators & Lifts\" | \"Sanitation & Waste\" | \"Security & Parking\" | \"General Maintenance & Repair\"\n"
+                f"  - 'description': Clear factual description of the visible defect.\n\n"
                 f"Return ONLY a JSON object with this schema:\n"
                 f"{{\n"
                 f"  \"image_type\": \"payment_slip\" | \"maintenance_issue\" | \"irrelevant\",\n"
                 f"  \"is_fraudulent_or_tampered\": boolean,\n"
                 f"  \"fraud_reason\": string or null,\n"
+                f"  \"destination_account_title\": string or null,\n"
+                f"  \"destination_account_number\": string or null,\n"
+                f"  \"is_account_match\": boolean or null,\n"
+                f"  \"account_mismatch_reason\": string or null,\n"
                 f"  \"amount\": number or null,\n"
                 f"  \"bank_or_app\": string or null,\n"
                 f"  \"reference_number\": string or null,\n"
                 f"  \"payment_date\": string or null,\n"
-                f"  \"complaint_category\": \"Water & Plumbing\" | \"Electrical & Power\" | \"Elevators & Lifts\" | \"Sanitation & Waste\" | \"Security & Parking\" | \"General Maintenance & Repair\" | null,\n"
+                f"  \"complaint_category\": string or null,\n"
                 f"  \"description\": string\n"
                 f"}}"
             )
@@ -479,6 +538,9 @@ class GeminiEngine:
                 "bank_or_app": None,
                 "reference_number": None,
                 "payment_date": None,
+                "destination_account_title": None,
+                "destination_account_number": None,
+                "is_account_match": None,
                 "complaint_category": "General Maintenance & Repair",
                 "description": caption or "Image received from resident",
                 "reply_text": ""
@@ -490,6 +552,9 @@ class GeminiEngine:
         amount = vision_data.get("amount")
         bank_or_app = vision_data.get("bank_or_app") or "Bank Transfer"
         ref_no = vision_data.get("reference_number") or "N/A"
+        dest_title = vision_data.get("destination_account_title")
+        is_account_match = vision_data.get("is_account_match")
+        payment_date = vision_data.get("payment_date")
 
         # Case 1: Payment Slip / Receipt Screenshot
         if image_type == "payment_slip":
@@ -497,14 +562,10 @@ class GeminiEngine:
             filename = f"receipt_{res_id or 'guest'}_{random.randint(10000, 99999)}.jpg"
             receipt_url = db_service.upload_image(image_bytes, filename, bucket_name="society-receipts", mime_type=mime_type)
 
-            # 2. Lookup or create advance invoice
-            inv = db_service.get_or_create_advance_invoice(society_id, res_id) if res_id else None
-
-            # 3. Check for Fraudulent / Tampered Screenshot
+            # 2. Check for Fraudulent / Tampered Screenshot
             if is_tampered:
                 if inv:
                     db_service.attach_invoice_receipt(inv["id"], receipt_url)
-                    # Log audit flag in Redis for admin inspection
                     if self.redis:
                         try:
                             audit_payload = {
@@ -515,6 +576,7 @@ class GeminiEngine:
                                 "reason": fraud_reason
                             }
                             self.redis.set(f"payment_audit:{inv['id']}", json.dumps(audit_payload), ex=365 * 86400)
+                            self.redis.set(f"receipt_hash:{img_hash}", json.dumps({"invoice_id": inv["id"], "flag": "fraud"}), ex=180 * 86400)
                         except Exception as e:
                             logger.debug(f"Redis audit flag error: {e}")
 
@@ -535,12 +597,54 @@ class GeminiEngine:
                 }
                 return self._dispatch_response(res_payload, resident, caption or "[Flagged Payment Screenshot]")
 
-            # 4. Check if already settled
+            # 3. Duplicate Transaction Reference (TxID) Check
+            clean_ref = re.sub(r'[^A-Za-z0-9]', '', str(ref_no or "")).upper()
+            if len(clean_ref) >= 6 and clean_ref not in ["NONE", "NULL", "UNKNOWN", "NOTAVAILABLE", "PENDING", "SUCCESS", "APPROVED"]:
+                if self.redis:
+                    try:
+                        dup_tx_raw = self.redis.get(f"receipt_txid:{society_id}:{clean_ref}")
+                        if dup_tx_raw:
+                            logger.info(f"Duplicate TxID detected: {clean_ref}")
+                            reply = (
+                                f"⚠️ *DUPLICATE TRANSACTION REFERENCE*\n\n"
+                                f"Hello *{name}* ({building} - Unit {unit}),\n\n"
+                                f"A payment slip with Reference / TxID *{ref_no}* has already been submitted in our system.\n\n"
+                                f"• *Reference ID:* `{ref_no}`\n"
+                                f"• *Notice:* Each transaction reference can only be submitted once. If you made a separate payment, please upload its unique receipt.\n\n"
+                                f"If you believe this is an error, please contact the society management office."
+                            )
+                            return self._dispatch_response({
+                                "status": "duplicate_txid",
+                                "intent": "payment_duplicate_txid",
+                                "reply_text": reply
+                            }, resident, caption or "[Duplicate TxID]")
+                    except Exception as e:
+                        logger.debug(f"Redis duplicate txid check error: {e}")
+
+            # 4. Beneficiary Account Match Check
+            if is_account_match is False:
+                logger.warning(f"Beneficiary mismatch: slip sent to '{dest_title}', expected '{expected_account}'")
+                reply = (
+                    f"⚠️ *ACCOUNT MISMATCH - PAYMENT NOT RECORDED*\n\n"
+                    f"Hello *{name}* ({building} - Unit {unit}),\n\n"
+                    f"The payment screenshot you provided appears to be transferred to a different recipient account:\n\n"
+                    f"• ❌ *Recipient Detected:* {dest_title or 'Unrecognized Third-Party Account'}\n"
+                    f"• 🏛️ *Expected Society Account:*\n  *{expected_account}*\n\n"
+                    f"Society maintenance fees must be deposited directly into the designated society account shown above.\n\n"
+                    f"Please verify your payment receipt or visit the society management office if you need assistance."
+                )
+                return self._dispatch_response({
+                    "status": "account_mismatch",
+                    "intent": "payment_account_mismatch",
+                    "reply_text": reply
+                }, resident, caption or "[Account Mismatch]")
+
+            # 5. Check if Dues Already Settled
             is_already_settled = False
             if inv:
                 is_already_settled = bool(inv.get("is_already_settled") or inv.get("status") in ["paid", "verified"])
 
-            if is_already_settled:
+            if is_already_settled and effective_due <= 50.0:
                 amt_str = f"PKR {amount:,.0f}" if amount else "your payment"
                 reply = (
                     f"ℹ️ *DUES ALREADY SETTLED*\n\n"
@@ -557,28 +661,161 @@ class GeminiEngine:
                 }
                 return self._dispatch_response(res_payload, resident, caption or "[Payment Screenshot]")
 
-            # Not settled: attach receipt to active / advance invoice
+            # 6. Valid Authentic Slip: Attach to Invoice
             if inv:
                 db_service.attach_invoice_receipt(inv["id"], receipt_url)
 
-            amt_display = f"PKR {amount:,.0f}" if amount else "Maintenance Dues"
-            reply = (
-                f"✅ *PAYMENT RECEIPT RECEIVED*\n\n"
-                f"Hello *{name}* ({building} - Unit {unit}), thank you!\n\n"
-                f"We have received your payment transfer screenshot:\n"
-                f"• 💰 *Amount:* {amt_display}\n"
-                f"• 🏦 *Method / Bank:* {bank_or_app}\n"
-                f"• 🔖 *Reference / TxID:* {ref_no}\n"
-                f"• 🏠 *Unit:* {building} - Unit {unit}\n\n"
-                f"⏳ *Status: Under Verification*\n"
-                f"Your payment receipt has been attached to your voucher. The society office / admin will manually review and approve the transfer before updating your account to Paid. ✅\n\n"
-                f"_💡 Note: If you ever send a wrong image or make another transfer, simply send the new screenshot here and it will update your verification record._"
-            )
+            # 7. Amount Validation & Partial Payment Lifecycle
+            curr_amt = None
+            if amount is not None:
+                try:
+                    curr_amt = float(amount)
+                except (ValueError, TypeError):
+                    curr_amt = None
+
+            payment_entry = {
+                "amount": curr_amt,
+                "reference_number": ref_no,
+                "bank_or_app": bank_or_app,
+                "payment_date": payment_date or datetime.now(timezone.utc).strftime("%d %b %Y, %H:%M"),
+                "destination_account": dest_title or expected_account,
+                "receipt_url": receipt_url,
+                "submitted_at": datetime.now(timezone.utc).isoformat()
+            }
+
+            if curr_amt is not None and curr_amt > 0:
+                new_total_paid = prior_paid + curr_amt
+                remaining_balance = max(0.0, total_due - new_total_paid)
+
+                if remaining_balance > 50.0:
+                    # Partial Payment
+                    new_partials = existing_partials + [payment_entry]
+                    if self.redis and inv:
+                        self.redis.set(f"partial_payments:{inv['id']}", json.dumps(new_partials), ex=365 * 86400)
+                        audit_payload = {
+                            "collector": "AI WhatsApp Scanner",
+                            "method": f"Partial Slip ({bank_or_app})",
+                            "collected_at": datetime.now(timezone.utc).isoformat(),
+                            "amount_paid": new_total_paid,
+                            "this_slip_amount": curr_amt,
+                            "total_due": total_due,
+                            "remaining_balance": remaining_balance,
+                            "is_partial": True,
+                            "reference_number": ref_no,
+                            "bank_or_app": bank_or_app,
+                            "payment_date": payment_date,
+                            "destination_account": dest_title or expected_account,
+                            "receipt_url": receipt_url,
+                            "partial_payments": new_partials
+                        }
+                        self.redis.set(f"payment_audit:{inv['id']}", json.dumps(audit_payload), ex=365 * 86400)
+
+                    reply = (
+                        f"⏳ *PARTIAL PAYMENT RECORDED*\n\n"
+                        f"Hello *{name}* ({building} - Unit {unit}), thank you!\n\n"
+                        f"We have received and recorded your partial payment transfer:\n"
+                        f"• 💰 *Amount Received:* PKR {curr_amt:,.0f}\n"
+                        f"• 🔖 *Reference / TxID:* `{ref_no}`\n"
+                        f"• 🏦 *Bank / App:* {bank_or_app}\n"
+                        f"• 📅 *Date:* {payment_date or 'Today'}\n"
+                        f"• 📊 *Total Monthly Due:* PKR {total_due:,.0f}\n"
+                        f"• ⚠️ *Remaining Balance Due:* *PKR {remaining_balance:,.0f}*\n\n"
+                        f"⏳ *Status: Under Verification*\n"
+                        f"Your partial receipt has been submitted for admin review.\n\n"
+                        f"💡 *Next Step:* Whenever you pay the remaining balance (*PKR {remaining_balance:,.0f}*), simply share the new receipt here. We will link both slips and clear your dues! ✅"
+                    )
+                else:
+                    # Full payment or Remaining final clearance!
+                    new_partials = existing_partials + [payment_entry] if existing_partials else [payment_entry]
+                    is_multi = len(new_partials) > 1
+                    if self.redis and inv:
+                        self.redis.set(f"partial_payments:{inv['id']}", json.dumps(new_partials), ex=365 * 86400)
+                        audit_payload = {
+                            "collector": "AI WhatsApp Scanner",
+                            "method": f"Full Clearance ({len(new_partials)} Slips)" if is_multi else f"WhatsApp Slip ({bank_or_app})",
+                            "collected_at": datetime.now(timezone.utc).isoformat(),
+                            "amount_paid": new_total_paid if is_multi else curr_amt,
+                            "this_slip_amount": curr_amt,
+                            "total_due": total_due,
+                            "remaining_balance": 0.0,
+                            "is_partial": False,
+                            "reference_number": f"{ref_no} (Final)" if is_multi else ref_no,
+                            "bank_or_app": bank_or_app,
+                            "payment_date": payment_date,
+                            "destination_account": dest_title or expected_account,
+                            "receipt_url": receipt_url,
+                            "partial_payments": new_partials
+                        }
+                        self.redis.set(f"payment_audit:{inv['id']}", json.dumps(audit_payload), ex=365 * 86400)
+
+                    if existing_partials:
+                        reply = (
+                            f"✅ *FINAL PAYMENT SLIP RECEIVED - DUES COVERED*\n\n"
+                            f"Hello *{name}* ({building} - Unit {unit}), thank you!\n\n"
+                            f"We have received your remaining payment screenshot:\n"
+                            f"• 💰 *This Payment:* PKR {curr_amt:,.0f}\n"
+                            f"• 📊 *Total Paid for this Cycle:* PKR {new_total_paid:,.0f} of PKR {total_due:,.0f}\n"
+                            f"• 🔖 *Reference / TxID:* `{ref_no}`\n"
+                            f"• 🏦 *Bank / App:* {bank_or_app}\n"
+                            f"• ✨ *Remaining Balance:* *PKR 0 (Fully Covered)*\n\n"
+                            f"⏳ *Status: Under Verification*\n"
+                            f"All required receipts for this cycle are now on file and awaiting final admin verification. Thank you for clearing your dues! ✅"
+                        )
+                    else:
+                        reply = (
+                            f"✅ *PAYMENT RECEIPT RECEIVED*\n\n"
+                            f"Hello *{name}* ({building} - Unit {unit}), thank you!\n\n"
+                            f"We have received your payment transfer screenshot:\n"
+                            f"• 💰 *Amount:* PKR {curr_amt:,.0f}\n"
+                            f"• 🏦 *Method / Bank:* {bank_or_app}\n"
+                            f"• 🔖 *Reference / TxID:* `{ref_no}`\n"
+                            f"• 📅 *Date:* {payment_date or 'Today'}\n"
+                            f"• 🏠 *Unit:* {building} - Unit {unit}\n\n"
+                            f"⏳ *Status: Under Verification*\n"
+                            f"Your payment receipt has been attached to your voucher. The society office / admin will manually review and cross-check with the bank statement before updating your account to Paid. ✅\n\n"
+                            f"_💡 Note: If you ever send a wrong image or make another transfer, simply send the new screenshot here and it will update your verification record._"
+                        )
+            else:
+                # Amount could not be read cleanly
+                if self.redis and inv:
+                    audit_payload = {
+                        "collector": "AI WhatsApp Scanner",
+                        "method": f"WhatsApp Slip ({bank_or_app})",
+                        "collected_at": datetime.now(timezone.utc).isoformat(),
+                        "reference_number": ref_no,
+                        "bank_or_app": bank_or_app,
+                        "payment_date": payment_date,
+                        "destination_account": dest_title or expected_account,
+                        "receipt_url": receipt_url,
+                    }
+                    self.redis.set(f"payment_audit:{inv['id']}", json.dumps(audit_payload), ex=365 * 86400)
+
+                reply = (
+                    f"✅ *PAYMENT RECEIPT RECEIVED*\n\n"
+                    f"Hello *{name}* ({building} - Unit {unit}), thank you!\n\n"
+                    f"We have received your payment transfer screenshot:\n"
+                    f"• 🏦 *Method / Bank:* {bank_or_app}\n"
+                    f"• 🔖 *Reference / TxID:* `{ref_no}`\n"
+                    f"• 📅 *Date:* {payment_date or 'Today'}\n"
+                    f"• 🏠 *Unit:* {building} - Unit {unit}\n\n"
+                    f"⏳ *Status: Under Verification*\n"
+                    f"Your payment receipt has been submitted for admin verification. The society office will cross-check the transfer with the bank statement and update your dues. ✅"
+                )
+
+            # 8. Record Deduplication in Redis
+            if self.redis and inv:
+                try:
+                    self.redis.set(f"receipt_hash:{img_hash}", json.dumps({"invoice_id": inv["id"], "resident_id": res_id}), ex=180 * 86400)
+                    if clean_ref and len(clean_ref) >= 6 and clean_ref not in ["NONE", "NULL", "UNKNOWN", "NOTAVAILABLE", "PENDING", "SUCCESS", "APPROVED"]:
+                        self.redis.set(f"receipt_txid:{society_id}:{clean_ref}", json.dumps({"invoice_id": inv["id"], "resident_id": res_id}), ex=180 * 86400)
+                except Exception as e:
+                    logger.debug(f"Error setting deduplication keys in Redis: {e}")
+
             res_payload = {
                 "status": "success",
                 "intent": "payment_receipt_submitted",
                 "receipt_url": receipt_url,
-                "amount": amount,
+                "amount": curr_amt,
                 "invoice_id": inv.get("id") if inv else None,
                 "reply_text": reply
             }

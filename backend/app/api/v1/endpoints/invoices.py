@@ -71,15 +71,20 @@ def set_delivery_status(invoice_id: str, status: str, error: str = None):
         logger.debug(f"Redis set delivery error: {e}")
 
 
-def set_payment_audit(invoice_id: str, collector: str, method: str = "Cash", timestamp: str = None):
+def set_payment_audit(invoice_id: str, collector: str, method: str = "Cash", timestamp: str = None, extra: dict = None):
     if not redis_client:
         return
     try:
-        payload = {
+        payload = get_payment_audit(invoice_id) or {}
+        payload.update({
             "collector": collector,
-            "method": method,
-            "collected_at": timestamp or datetime.now(timezone.utc).isoformat()
-        }
+            "method": method or payload.get("method") or "Cash",
+            "collected_at": timestamp or datetime.now(timezone.utc).isoformat(),
+            "verified_by": collector,
+            "verified_at": timestamp or datetime.now(timezone.utc).isoformat()
+        })
+        if extra:
+            payload.update(extra)
         redis_client.set(f"payment_audit:{invoice_id}", json.dumps(payload), ex=365 * 86400)
     except Exception as e:
         logger.debug(f"Redis set payment audit error: {e}")
@@ -465,6 +470,29 @@ async def verify_invoice_receipt(invoice_id: str, payload: ReceiptVerifyRequest)
         "verified_at": "now()",
     })
     set_payment_audit(invoice_id, collector=collector, method="WhatsApp Slip", timestamp=now_iso)
+
+    # Dispatch WhatsApp approval confirmation to resident
+    try:
+        target_inv = db_service.get_invoice_by_id(invoice_id)
+        if target_inv and target_inv.get("residents"):
+            res = target_inv["residents"]
+            phone = res.get("phone_number")
+            if phone:
+                res_name = res.get("name", "Resident")
+                bld = res.get("building", "")
+                unit = res.get("unit_number", "")
+                tot = target_inv.get("total_amount") or target_inv.get("society_maintenance_fee") or 0
+                approval_msg = (
+                    f"✅ *PAYMENT VERIFIED & APPROVED*\n\n"
+                    f"Hello *{res_name}* ({bld} - Unit {unit}),\n\n"
+                    f"Your maintenance payment receipt of *PKR {float(tot):,.0f}* has been verified and approved by the society office (*{collector}*).\n\n"
+                    f"• *Status:* Paid & Verified ✅\n"
+                    f"• *Balance Due:* PKR 0\n\n"
+                    f"Thank you for your prompt clearance of society maintenance dues!"
+                )
+                await whatsapp_service.send_text_message(phone, approval_msg)
+    except Exception as e:
+        logger.warning(f"Failed to dispatch verification confirmation WhatsApp: {e}")
 
     return {
         "status": "success",

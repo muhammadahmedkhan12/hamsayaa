@@ -68,22 +68,29 @@ Every inbound resident WhatsApp text message follows a **Pure LLM-First pipeline
 1. Resident sends an image via WhatsApp (bank transfer screenshot, ATM receipt, or photo of maintenance damage).
 2. `whatsapp.py` webhook extracts `media_id`, `caption`, and `mime_type`.
 3. `whatsapp_service.download_media(media_id)` downloads the binary image from Meta Graph API.
-4. `gemini_engine.process_image_message()` uses multimodal vision to classify and process:
-   - **`payment_slip`:**
-     - **AI Fraud & Tampering Inspection:** Gemini inspects visual integrity for signs of photo editing, cloned digits, mismatched fonts, or digital markup alteration (`is_fraudulent_or_tampered`).
-     - **If Flagged as Fraudulent/Edited:**
-       - Rejection notification sent directly to resident stating the screenshot could not be validated as an authentic slip.
-       - Binary uploaded to Supabase Storage (`society-receipts/`) and linked to invoice.
-       - Redis payment audit updated with `suspected_fraud` flag.
-       - Admin dashboard highlights the invoice with a red **`⚠️ Flagged Slip`** badge and detailed security alert banner.
-     - **If Authentic Slip (Standard or Non-Standard Details):**
-       - Gemini extracts transaction details (Amount, Reference / TxID, Bank, Date).
-       - Binary uploaded to Supabase Storage and linked to invoice.
-       - Advance payment handling: If sent before monthly vouchers are generated, auto-creates an advance invoice (`get_or_create_advance_invoice()`).
-       - Settled check: If resident is already marked paid/verified, clarifies balance is Rs. 0.
-       - WhatsApp confirmation sent to resident stating the receipt is **Under Verification** and will be manually reviewed and approved by the admin.
+4. `gemini_engine.process_image_message()` processes the image through a **4-Stage Security & Reconciliation Pipeline**:
+   - **Stage 0: Image Binary Hash Deduplication (`receipt_hash:{sha256}`):**
+     - Computes SHA-256 hash of the image bytes before calling Gemini.
+     - If the exact screenshot was previously received, rejects instantly with duplicate warning (saving API tokens).
+   - **Stage 1: Multimodal Vision & Fraud Detection:**
+     - Gemini classifies `payment_slip` vs `maintenance_issue` vs `irrelevant`.
+     - Inspects visual authenticity (`is_fraudulent_or_tampered`). Flagged altered screenshots trigger a red **`⚠️ Flagged Slip`** badge on dashboard and immediate WhatsApp notice.
+   - **Stage 2: Transaction Reference (TxID) Deduplication (`receipt_txid:{society_id}:{txid}`):**
+     - Extracts alphanumeric reference / TxID. If already logged in Redis, rejects duplicate submission.
+   - **Stage 3: Destination Beneficiary Account Validation:**
+     - Compares detected recipient title / account against the official society maintenance account configured in the invoice (`account_shown`).
+     - If transferred to an unrelated third party (`is_account_match: false`), alerts resident that dues were not credited to the society account.
+   - **Stage 4: Amount Validation & Partial Payment Lifecycle:**
+     - **Partial Payments:** If paid amount is less than total due (e.g. Rs. 3,500 of Rs. 6,500 due):
+       - Appends payment details to Redis `partial_payments:{inv_id}` and updates `payment_audit:{inv_id}` with `is_partial: true` and `remaining_balance`.
+       - WhatsApp informs resident of partial credit and remaining due, advising they can share the remaining slip whenever they complete payment.
+     - **Final Clearance:** When the remaining receipt is shared (e.g. Rs. 3,000), total payments are aggregated, remaining balance clears to Rs. 0, and resident receives full clearance notice.
+     - **Single Full Payment:** Immediately attached to invoice and submitted for admin verification.
+   - **Admin Reconciliation Experience (`Invoices.jsx`):**
+     - Receipt modal displays a dedicated **Society Bank Statement Cross-Check Card** with TxID, Amount, Date, Bank / Channel, Matched Beneficiary, and linked partial slips.
+     - Clicking **"Approve & Mark Verified"** marks dues verified in Supabase and automatically dispatches a WhatsApp approval receipt to the resident.
    - **`maintenance_issue`:**
-     - Binary is uploaded to Supabase Storage (`society-voice-notes/`).
+     - Binary uploaded to Supabase Storage (`society-voice-notes/`).
      - A complaint ticket is created with category, description, and permanent `photo_url`.
    - **`irrelevant` (Wrong Image Sent):**
      - Sends an **Unrecognized Image** notice explicitly informing the resident that the image does not match a payment slip or maintenance issue, and prompts them with clear instructions on what to upload.
@@ -146,7 +153,10 @@ Every inbound resident WhatsApp text message follows a **Pure LLM-First pipeline
 - `chat_history:{phone}`: 24-hr sliding window chat turns per resident.
 - `processed_wamid:{msg_id}`: 24-hr idempotency deduplication for inbound WhatsApp webhooks.
 - `whatsapp_delivery:{invoice_id}`: 30-day delivery status (`delivered`, `failed`, `pending`) and error details.
-- `payment_audit:{invoice_id}`: 365-day collector accountability record (`collector`, `method`, `collected_at`).
+- `payment_audit:{invoice_id}`: 365-day collector accountability and bank statement cross-check record (`collector`, `method`, `amount_paid`, `reference_number`, `is_partial`, `partial_payments`).
+- `receipt_hash:{sha256}`: 180-day binary hash deduplication preventing repeated image submissions.
+- `receipt_txid:{society_id}:{clean_ref}`: 180-day transaction reference deduplication preventing reuse of bank transfer IDs.
+- `partial_payments:{invoice_id}`: 365-day list of cumulative partial payment records with individual receipts and amounts.
 
 ---
 
