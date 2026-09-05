@@ -122,24 +122,39 @@ export default function Dashboard() {
 
       {/* 4 Summary Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        {/* Card 1: Open Tickets */}
-        <div className="metric-card border-l-4 border-l-amber-500">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Open Tickets</span>
-            <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
-              <Ticket className="w-4 h-4" />
+        {/* Card 1: Open Tickets (Aesthetic Minimalist Redesign) */}
+        <Link
+          to="/complaints"
+          className="bg-white p-5 rounded-xl border border-slate-200/90 shadow-2xs hover:border-slate-300 hover:shadow-xs transition-all group flex flex-col justify-between"
+        >
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-slate-500 group-hover:text-slate-700 transition-colors">
+                Open Tickets
+              </span>
+              <Ticket className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-colors" />
+            </div>
+            <div className="mt-3 flex items-baseline gap-2.5">
+              <span className="text-2xl font-bold text-navy tracking-tight">{openTickets}</span>
+              {humanReview > 0 ? (
+                <span className="text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-200/80 px-2 py-0.5 rounded-md flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  {humanReview} review needed
+                </span>
+              ) : (
+                <span className="text-[11px] font-medium text-emerald-600 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-md">
+                  Active
+                </span>
+              )}
             </div>
           </div>
-          <div className="mt-3 flex items-baseline justify-between">
-            <span className="text-3xl font-bold text-navy">{openTickets}</span>
-            {humanReview > 0 && (
-              <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-300 flex items-center gap-1">
-                <AlertTriangle className="w-3 h-3 text-amber-600" /> {humanReview} Needs Review
-              </span>
-            )}
+          <div className="text-[11px] text-slate-400 mt-3 font-normal flex items-center justify-between border-t border-slate-100 pt-2.5">
+            <span>Complaints queue</span>
+            <span className="text-brand-600 font-medium group-hover:translate-x-0.5 transition-transform">
+              View tickets →
+            </span>
           </div>
-          <p className="text-xs text-slate-500 mt-2 font-medium">WhatsApp AI Concierge Queue</p>
-        </div>
+        </Link>
 
         {/* Card 2: Overdue Maintenance Dues */}
         <Link to="/invoices" className="metric-card border-l-4 border-l-red-500 hover:shadow-md transition-shadow cursor-pointer block">
