@@ -63,10 +63,10 @@ export default function Dashboard() {
         {/* Skeleton Metric Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="metric-card border-l-4 border-l-slate-200 space-y-3">
+            <div key={i} className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-2xs space-y-3">
               <div className="flex items-center justify-between">
                 <Skeleton className="h-3 w-24" />
-                <Skeleton className="h-8 w-8 rounded-lg" />
+                <Skeleton className="h-4 w-4 rounded" />
               </div>
               <Skeleton className="h-8 w-16 mt-2" />
               <Skeleton className="h-3 w-32 mt-1" />
@@ -157,54 +157,100 @@ export default function Dashboard() {
         </Link>
 
         {/* Card 2: Overdue Maintenance Dues */}
-        <Link to="/invoices" className="metric-card border-l-4 border-l-red-500 hover:shadow-md transition-shadow cursor-pointer block">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Overdue Dues</span>
-            <div className="w-8 h-8 rounded-lg bg-red-50 text-red-600 flex items-center justify-center">
-              <AlertTriangle className="w-4 h-4" />
+        <Link
+          to="/invoices"
+          className="bg-white p-5 rounded-xl border border-slate-200/90 shadow-2xs hover:border-slate-300 hover:shadow-xs transition-all group flex flex-col justify-between"
+        >
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-slate-500 group-hover:text-slate-700 transition-colors">
+                Overdue Dues
+              </span>
+              <AlertTriangle className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-colors" />
+            </div>
+            <div className="mt-3 flex items-baseline gap-2.5 flex-wrap">
+              <span className="text-2xl font-bold text-navy tracking-tight">
+                Rs. {overdueTotal.toLocaleString()}
+              </span>
+              {overdueCount > 0 ? (
+                <span className="text-[11px] font-medium text-red-700 bg-red-50 border border-red-200/80 px-2 py-0.5 rounded-md">
+                  {overdueCount} {overdueCount === 1 ? 'unit' : 'units'}
+                </span>
+              ) : (
+                <span className="text-[11px] font-medium text-emerald-600 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-md">
+                  All cleared
+                </span>
+              )}
             </div>
           </div>
-          <div className="mt-3 flex items-baseline justify-between">
-            <span className="text-2xl font-bold text-navy">Rs. {overdueTotal.toLocaleString()}</span>
-            <span className="text-xs font-bold text-red-600 font-mono">{overdueCount} Units</span>
+          <div className="text-[11px] text-slate-400 mt-3 font-normal flex items-center justify-between border-t border-slate-100 pt-2.5">
+            <span>Payment ledger</span>
+            <span className="text-brand-600 font-medium group-hover:translate-x-0.5 transition-transform">
+              View invoices →
+            </span>
           </div>
-          <p className="text-xs text-slate-500 mt-2 font-medium flex items-center justify-between">
-            <span>Manual Block Control</span>
-            <span className="text-brand-600 font-semibold hover:underline">View Invoices →</span>
-          </p>
         </Link>
 
         {/* Card 3: Active Guest Passes */}
-        <div className="metric-card border-l-4 border-l-brand-500">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Active Guest Passes</span>
-            <div className="w-8 h-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center">
-              <Car className="w-4 h-4" />
+        <Link
+          to="/vehicles"
+          className="bg-white p-5 rounded-xl border border-slate-200/90 shadow-2xs hover:border-slate-300 hover:shadow-xs transition-all group flex flex-col justify-between"
+        >
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-slate-500 group-hover:text-slate-700 transition-colors">
+                Active Guest Passes
+              </span>
+              <Car className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-colors" />
+            </div>
+            <div className="mt-3 flex items-baseline gap-2.5">
+              <span className="text-2xl font-bold text-navy tracking-tight">{activePasses}</span>
+              <span className="text-[11px] font-medium text-brand-700 bg-brand-50 border border-brand-200/80 px-2 py-0.5 rounded-md">
+                Valid window
+              </span>
             </div>
           </div>
-          <div className="mt-3 flex items-baseline justify-between">
-            <span className="text-3xl font-bold text-navy">{activePasses}</span>
-            <span className="text-xs font-bold text-brand-600 font-mono">Valid Window</span>
-          </div>
-          <p className="text-xs text-slate-500 mt-2 font-medium">Visual Pass Code Verification</p>
-        </div>
-
-        {/* Card 4: Flagged Overstay Vehicles */}
-        <div className="metric-card border-l-4 border-l-navy">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Flagged Overstays</span>
-            <div className="w-8 h-8 rounded-lg bg-slate-100 text-navy flex items-center justify-center">
-              <ShieldAlert className="w-4 h-4 text-red-600" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline justify-between">
-            <span className="text-3xl font-bold text-navy">{flaggedOverstays}</span>
-            <span className="bg-red-50 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded border border-red-200">
-              0-Min Grace
+          <div className="text-[11px] text-slate-400 mt-3 font-normal flex items-center justify-between border-t border-slate-100 pt-2.5">
+            <span>Pass verification</span>
+            <span className="text-brand-600 font-medium group-hover:translate-x-0.5 transition-transform">
+              Gate records →
             </span>
           </div>
-          <p className="text-xs text-slate-500 mt-2 font-medium">Unregistered Visitor Vehicles</p>
-        </div>
+        </Link>
+
+        {/* Card 4: Flagged Overstay Vehicles */}
+        <Link
+          to="/vehicles"
+          className="bg-white p-5 rounded-xl border border-slate-200/90 shadow-2xs hover:border-slate-300 hover:shadow-xs transition-all group flex flex-col justify-between"
+        >
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-slate-500 group-hover:text-slate-700 transition-colors">
+                Flagged Overstays
+              </span>
+              <ShieldAlert className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-colors" />
+            </div>
+            <div className="mt-3 flex items-baseline gap-2.5">
+              <span className="text-2xl font-bold text-navy tracking-tight">{flaggedOverstays}</span>
+              {flaggedOverstays > 0 ? (
+                <span className="text-[11px] font-medium text-red-700 bg-red-50 border border-red-200/80 px-2 py-0.5 rounded-md flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                  0-min grace
+                </span>
+              ) : (
+                <span className="text-[11px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                  None flagged
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="text-[11px] text-slate-400 mt-3 font-normal flex items-center justify-between border-t border-slate-100 pt-2.5">
+            <span>Security monitoring</span>
+            <span className="text-brand-600 font-medium group-hover:translate-x-0.5 transition-transform">
+              View overstays →
+            </span>
+          </div>
+        </Link>
       </div>
 
       {/* Immediate Red Overstay Alert Banner */}

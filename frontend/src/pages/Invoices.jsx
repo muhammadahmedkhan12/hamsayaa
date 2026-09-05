@@ -364,10 +364,10 @@ export default function Invoices() {
         {/* Skeleton Metric Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="metric-card border-l-4 border-l-slate-200 space-y-3">
+            <div key={i} className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-2xs space-y-3">
               <div className="flex items-center justify-between">
                 <Skeleton className="h-3 w-24" />
-                <Skeleton className="h-8 w-8 rounded-lg" />
+                <Skeleton className="h-4 w-4 rounded" />
               </div>
               <Skeleton className="h-8 w-24 mt-2" />
               <Skeleton className="h-3 w-32 mt-1" />
@@ -515,46 +515,155 @@ export default function Invoices() {
 
       {/* 4 Summary Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <div className="metric-card border-l-4 border-l-emerald-500">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Collection</span>
-          {loading ? (
-            <div className="mt-2 h-8 w-32 bg-slate-200 animate-pulse rounded"></div>
-          ) : (
-            <div className="mt-2 text-2xl font-bold text-navy">Rs. {totalCollected.toLocaleString()}</div>
-          )}
-          <p className="text-xs text-emerald-600 font-semibold mt-1">Direct Society Bank Account</p>
+        {/* Card 1: Total Collection */}
+        <div
+          onClick={() => setSelectedStatus('Paid')}
+          className="bg-white p-5 rounded-xl border border-slate-200/90 shadow-2xs hover:border-slate-300 hover:shadow-xs transition-all cursor-pointer group flex flex-col justify-between"
+        >
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-slate-500 group-hover:text-slate-700 transition-colors">
+                Total Collection
+              </span>
+              <DollarSign className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-colors" />
+            </div>
+            <div className="mt-3 flex items-baseline gap-2.5">
+              {loading ? (
+                <div className="h-8 w-32 bg-slate-200/70 animate-pulse rounded-md" />
+              ) : (
+                <>
+                  <span className="text-2xl font-bold text-navy tracking-tight">
+                    Rs. {totalCollected.toLocaleString()}
+                  </span>
+                  <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-md">
+                    Received
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+          <div className="text-[11px] text-slate-400 mt-3 font-normal flex items-center justify-between border-t border-slate-100 pt-2.5">
+            <span>Direct society account</span>
+            <span className="text-brand-600 font-medium group-hover:translate-x-0.5 transition-transform">
+              Filter paid →
+            </span>
+          </div>
         </div>
 
-        <div className="metric-card border-l-4 border-l-red-500">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Overdue Dues</span>
-          {loading ? (
-            <div className="mt-2 h-8 w-32 bg-slate-200 animate-pulse rounded"></div>
-          ) : (
-            <div className="mt-2 text-2xl font-bold text-navy">Rs. {totalOverdue.toLocaleString()}</div>
-          )}
-          <p className="text-xs text-red-600 font-semibold mt-1">Automated WhatsApp notices</p>
+        {/* Card 2: Overdue Dues */}
+        <div
+          onClick={() => setSelectedStatus('Overdue')}
+          className="bg-white p-5 rounded-xl border border-slate-200/90 shadow-2xs hover:border-slate-300 hover:shadow-xs transition-all cursor-pointer group flex flex-col justify-between"
+        >
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-slate-500 group-hover:text-slate-700 transition-colors">
+                Overdue Dues
+              </span>
+              <AlertTriangle className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-colors" />
+            </div>
+            <div className="mt-3 flex items-baseline gap-2.5">
+              {loading ? (
+                <div className="h-8 w-32 bg-slate-200/70 animate-pulse rounded-md" />
+              ) : (
+                <>
+                  <span className="text-2xl font-bold text-navy tracking-tight">
+                    Rs. {totalOverdue.toLocaleString()}
+                  </span>
+                  {totalOverdue > 0 ? (
+                    <span className="text-[11px] font-medium text-red-700 bg-red-50 border border-red-200/80 px-2 py-0.5 rounded-md">
+                      Unsettled
+                    </span>
+                  ) : (
+                    <span className="text-[11px] font-medium text-emerald-600 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-md">
+                      All cleared
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+          <div className="text-[11px] text-slate-400 mt-3 font-normal flex items-center justify-between border-t border-slate-100 pt-2.5">
+            <span>Automated WhatsApp notices</span>
+            <span className="text-brand-600 font-medium group-hover:translate-x-0.5 transition-transform">
+              Filter overdue →
+            </span>
+          </div>
         </div>
 
-        <div className="metric-card border-l-4 border-l-amber-500">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Pending Verification</span>
-          {loading ? (
-            <div className="mt-2 h-8 w-24 bg-slate-200 animate-pulse rounded"></div>
-          ) : (
-            <div className="mt-2 text-2xl font-bold text-navy">{pendingReceiptsCount} Receipts</div>
-          )}
-          <p className="text-xs text-amber-600 font-semibold mt-1">WhatsApp Receipt Photos Sent</p>
+        {/* Card 3: Pending Verification */}
+        <div
+          onClick={() => setSelectedStatus('Unpaid')}
+          className="bg-white p-5 rounded-xl border border-slate-200/90 shadow-2xs hover:border-slate-300 hover:shadow-xs transition-all cursor-pointer group flex flex-col justify-between"
+        >
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-slate-500 group-hover:text-slate-700 transition-colors">
+                Pending Verification
+              </span>
+              <Receipt className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-colors" />
+            </div>
+            <div className="mt-3 flex items-baseline gap-2.5">
+              {loading ? (
+                <div className="h-8 w-24 bg-slate-200/70 animate-pulse rounded-md" />
+              ) : (
+                <>
+                  <span className="text-2xl font-bold text-navy tracking-tight">
+                    {pendingReceiptsCount} {pendingReceiptsCount === 1 ? 'Receipt' : 'Receipts'}
+                  </span>
+                  {pendingReceiptsCount > 0 ? (
+                    <span className="text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-200/80 px-2 py-0.5 rounded-md flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                      Review needed
+                    </span>
+                  ) : (
+                    <span className="text-[11px] font-medium text-slate-400">
+                      Up to date
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+          <div className="text-[11px] text-slate-400 mt-3 font-normal flex items-center justify-between border-t border-slate-100 pt-2.5">
+            <span>WhatsApp slips sent</span>
+            <span className="text-brand-600 font-medium group-hover:translate-x-0.5 transition-transform">
+              Verify receipts →
+            </span>
+          </div>
         </div>
 
-        <div className="metric-card border-l-4 border-l-navy">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Collection Rate</span>
-          {loading ? (
-            <div className="mt-2 h-8 w-20 bg-slate-200 animate-pulse rounded"></div>
-          ) : (
-            <div className="mt-2 text-2xl font-bold text-navy">{collectionRate}%</div>
-          )}
-          <p className="text-xs text-slate-500 mt-1">
-            {loading ? 'Calculating settlement rate...' : `${paidCount} of ${invoices.length} units settled`}
-          </p>
+        {/* Card 4: Collection Rate */}
+        <div
+          onClick={() => setSelectedStatus('All')}
+          className="bg-white p-5 rounded-xl border border-slate-200/90 shadow-2xs hover:border-slate-300 hover:shadow-xs transition-all cursor-pointer group flex flex-col justify-between"
+        >
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-slate-500 group-hover:text-slate-700 transition-colors">
+                Collection Rate
+              </span>
+              <Percent className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-colors" />
+            </div>
+            <div className="mt-3 flex items-baseline gap-2.5">
+              {loading ? (
+                <div className="h-8 w-20 bg-slate-200/70 animate-pulse rounded-md" />
+              ) : (
+                <>
+                  <span className="text-2xl font-bold text-navy tracking-tight">{collectionRate}%</span>
+                  <span className="text-[11px] font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
+                    {paidCount}/{invoices.length} units
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+          <div className="text-[11px] text-slate-400 mt-3 font-normal flex items-center justify-between border-t border-slate-100 pt-2.5">
+            <span>Cycle settlement</span>
+            <span className="text-brand-600 font-medium group-hover:translate-x-0.5 transition-transform">
+              View roster →
+            </span>
+          </div>
         </div>
       </div>
 
