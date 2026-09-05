@@ -54,7 +54,7 @@ export default function Complaints() {
     const ticketId = c.ticket_number || c.id || '';
     const unit = c.unit_number || c.unit || '';
     const resName = c.residents?.name || c.residentName || '';
-    const desc = c.description || '';
+    const desc = (c.description || '').replace(/\[Audio:\s*https?:\/\/[^\]]+\]/gi, '').trim();
     const matchesSearch =
       ticketId.toLowerCase().includes(q) ||
       unit.toLowerCase().includes(q) ||
@@ -145,7 +145,7 @@ export default function Complaints() {
               const unit = c.unit_number || c.unit || '';
               const resName = c.residents?.name || c.residentName || 'Unknown';
               const building = c.residents?.building || '';
-              const desc = c.description || '';
+              const desc = (c.description || '').replace(/\[Audio:\s*https?:\/\/[^\]]+\]/gi, '').trim();
               const category = c.category || '';
               const timestamp = c.created_at
                 ? new Date(c.created_at).toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })

@@ -258,7 +258,9 @@ export default function Dashboard() {
                       )}
                     </div>
 
-                    <p className="text-xs text-slate-600 line-clamp-2">{c.description}</p>
+                    <p className="text-xs text-slate-600 line-clamp-2">
+                      {(c.description || '').replace(/\[Audio:\s*https?:\/\/[^\]]+\]/gi, '').trim()}
+                    </p>
                     <p className="text-[10px] text-slate-400 font-mono">Category: {c.category || 'General'}</p>
                   </div>
                 );

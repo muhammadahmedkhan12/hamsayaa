@@ -781,15 +781,12 @@ class GeminiEngine:
             ticket_num = self._generate_ticket_number()
             if resident and db_service.client:
                 try:
-                    full_desc = description
-                    if audio_url:
-                        full_desc += f" [Audio: {audio_url}]"
                     db_service.client.table("complaints").insert({
                         "society_id": resident.get("society_id"),
                         "resident_id": resident.get("id"),
                         "ticket_number": ticket_num,
                         "category": category,
-                        "description": full_desc,
+                        "description": description,
                         "status": "open",
                         "photo_url": audio_url
                     }).execute()
