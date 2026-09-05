@@ -141,29 +141,29 @@ export default function Residents() {
           <p className="text-sm text-slate-500 mt-0.5">Manage unit occupancy, WhatsApp bot access, and manual payment blocks.</p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <button
             onClick={() => loadResidentsList(selectedBuilding)}
-            className="px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-medium text-xs rounded-lg shadow-xs transition-colors flex items-center gap-1.5"
-            title="Refresh residents from database"
+            className="flex items-center gap-1.5 px-3 py-2 bg-white text-slate-700 font-medium text-sm rounded-lg border border-surface-border hover:bg-slate-50 transition-colors shadow-xs"
+            title="Reload residents from database"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-brand-600' : ''}`} />
-            <span>Refresh</span>
+            <span>Reload</span>
           </button>
 
           <button
             onClick={() => setShowImportModal(true)}
-            className="px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-medium text-xs rounded-lg shadow-xs transition-colors flex items-center gap-1.5"
+            className="flex items-center gap-2 px-3.5 py-2 bg-white text-slate-700 font-medium text-sm rounded-lg border border-surface-border hover:bg-slate-50 transition-colors shadow-sm"
           >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-brand-600" />
+            <FileSpreadsheet className="w-4 h-4 text-brand-600" />
             <span>Bulk Excel Roster</span>
           </button>
 
           <button
             onClick={() => setShowAddModal(true)}
-            className="px-3.5 py-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold text-xs rounded-lg shadow-sm transition-colors flex items-center gap-1.5"
+            className="flex items-center gap-2 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold text-sm rounded-lg shadow-sm transition-colors"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="w-4 h-4" />
             <span>Add Resident</span>
           </button>
         </div>

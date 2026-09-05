@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
+  Settings as SettingsIcon,
   Building2,
   CreditCard,
   ShieldAlert,
@@ -128,7 +129,10 @@ export default function Settings() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-navy tracking-tight">Society Settings & Configuration</h1>
+          <h1 className="text-2xl font-bold text-navy tracking-tight flex items-center gap-2.5">
+            <SettingsIcon className="w-6 h-6 text-brand-500" />
+            Society Settings & Configuration
+          </h1>
           <p className="text-sm text-slate-500 mt-0.5">
             Configure community profile, financial parameters, gatekeeper rules, and AI engine status.
           </p>
@@ -137,14 +141,14 @@ export default function Settings() {
         <div className="flex items-center gap-2">
           <button
             onClick={loadSettings}
-            className="px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-medium text-xs rounded-lg shadow-xs transition-colors flex items-center gap-1.5"
+            className="px-3 py-1.5 bg-slate-100 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-200 transition-colors flex items-center gap-1.5"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Refresh
           </button>
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-3.5 py-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold text-xs rounded-lg shadow-sm transition-colors flex items-center gap-1.5 disabled:opacity-50"
+            className="px-4 py-1.5 bg-navy text-white text-xs font-semibold rounded-lg hover:bg-slate-800 transition-colors flex items-center gap-1.5 shadow-xs disabled:opacity-50"
           >
             <Save className="w-4 h-4" /> {saving ? 'Saving...' : 'Save All Changes'}
           </button>

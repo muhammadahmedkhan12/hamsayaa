@@ -156,19 +156,19 @@ export default function Polls() {
           <p className="text-sm text-slate-500 mt-0.5">Create society digital polls and auto-export PDF/Excel voting audits upon expiry.</p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <button
             onClick={loadPollsData}
-            className="px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-medium text-xs rounded-lg shadow-xs transition-colors flex items-center gap-1.5"
+            className="flex items-center gap-1.5 px-3 py-2 bg-white text-slate-700 font-medium text-sm rounded-lg border border-surface-border hover:bg-slate-50 transition-colors shadow-xs"
             title="Refresh active polls data"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-brand-600' : ''}`} />
-            <span>Refresh</span>
+            <span>Reload</span>
           </button>
 
           <button
             onClick={() => setShowCreateModal(true)}
-            className="px-3.5 py-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold text-xs rounded-lg shadow-sm transition-colors flex items-center gap-1.5"
+            className="flex items-center gap-2 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold text-sm rounded-lg shadow-sm transition-colors"
           >
             <Plus className="w-4 h-4" />
             <span>Create New Poll</span>

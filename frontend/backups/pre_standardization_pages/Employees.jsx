@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
+  Contact,
   ShieldCheck,
   Shield,
   Wrench,
@@ -209,7 +210,10 @@ export default function Employees() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-navy tracking-tight">Employee & Staff Directory</h1>
+          <h1 className="text-2xl font-bold text-navy tracking-tight flex items-center gap-2.5">
+            <Contact className="w-6 h-6 text-brand-500" />
+            Employee & Staff Directory
+          </h1>
           <p className="text-sm text-slate-500 mt-0.5">
             Operational contact records for gate guards, technicians, and building staff.
           </p>
@@ -218,13 +222,13 @@ export default function Employees() {
         <div className="flex items-center gap-2">
           <button
             onClick={loadEmployeesData}
-            className="px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-medium text-xs rounded-lg shadow-xs transition-colors flex items-center gap-1.5"
+            className="px-3 py-1.5 bg-slate-100 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-200 transition-colors flex items-center gap-1.5"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-brand-600' : ''}`} /> Refresh
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Refresh
           </button>
           <button
             onClick={() => setShowAddModal(true)}
-            className="px-3.5 py-2 bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors flex items-center gap-1.5"
+            className="px-3.5 py-1.5 bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors flex items-center gap-1.5"
           >
             <Plus className="w-4 h-4" /> Add Staff Member
           </button>

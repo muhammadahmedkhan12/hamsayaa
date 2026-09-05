@@ -479,12 +479,12 @@ export default function Invoices() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           {/* Action 0: Refresh Button */}
           <button
             onClick={loadInvoicesData}
             disabled={loading}
-            className="px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-medium text-xs rounded-lg shadow-xs transition-colors flex items-center gap-1.5 disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 font-semibold text-xs rounded-lg shadow-2xs transition-colors disabled:opacity-50"
             title="Refresh invoices and delivery notices"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-brand-600' : 'text-slate-500'}`} />
@@ -494,7 +494,7 @@ export default function Invoices() {
           {/* Action 1: Edit Voucher Form */}
           <button
             onClick={() => setShowEditVoucherModal(true)}
-            className="px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-medium text-xs rounded-lg shadow-xs transition-colors flex items-center gap-1.5"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 font-semibold text-xs rounded-lg shadow-2xs transition-colors"
             title="Configure monthly maintenance services and society bank account"
           >
             <Settings className="w-3.5 h-3.5 text-slate-500" />
@@ -504,7 +504,7 @@ export default function Invoices() {
           {/* Action 2: Send Vouchers (Updates portal & sends WhatsApp messages) */}
           <button
             onClick={() => setShowSendConfirmModal(true)}
-            className="px-3.5 py-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold text-xs rounded-lg shadow-sm transition-colors flex items-center gap-1.5"
+            className="flex items-center gap-1.5 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold text-xs rounded-lg shadow-sm transition-colors"
             title="Issue monthly vouchers on the portal and broadcast WhatsApp bills to residents"
           >
             <Send className="w-3.5 h-3.5" />

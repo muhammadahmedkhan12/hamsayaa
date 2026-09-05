@@ -276,7 +276,10 @@ export default function Assets() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-navy tracking-tight">Asset Directory & Maintenance</h1>
+          <h1 className="text-2xl font-bold text-navy tracking-tight flex items-center gap-2.5">
+            <Wrench className="w-6 h-6 text-brand-500" />
+            Asset Directory & Maintenance
+          </h1>
           <p className="text-sm text-slate-500 mt-0.5">
             Preventive service scheduling and maintenance records for society infrastructure.
           </p>
@@ -285,13 +288,13 @@ export default function Assets() {
         <div className="flex items-center gap-2">
           <button
             onClick={loadAssetsData}
-            className="px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-medium text-xs rounded-lg shadow-xs transition-colors flex items-center gap-1.5"
+            className="px-3 py-1.5 bg-slate-100 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-200 transition-colors flex items-center gap-1.5"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-brand-600' : ''}`} /> Refresh
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Refresh
           </button>
           <button
             onClick={() => setShowAddModal(true)}
-            className="px-3.5 py-2 bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors flex items-center gap-1.5"
+            className="px-3.5 py-1.5 bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors flex items-center gap-1.5"
           >
             <Plus className="w-4 h-4" /> Add Asset
           </button>
