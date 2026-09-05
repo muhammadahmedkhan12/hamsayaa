@@ -89,6 +89,7 @@ Every inbound resident WhatsApp text message follows a **Pure LLM-First pipeline
    - Passes raw audio to Gemini multimodal endpoint for instant English / Urdu / Roman Urdu transcription.
    - Uploads `.ogg` to Supabase Storage (`society-voice-notes/`).
    - Routes transcribed text through `process_resident_message()`.
+   - Resulting complaint ticket stores clean transcribed text in `description` (displaying as normal plain text on the dashboard) and stores the audio link in `photo_url`.
 
 ### E. Complaint Resolution & Notification Pipeline
 1. Society admin views active complaints in React Dashboard (`Complaints.jsx`).
@@ -149,21 +150,42 @@ Every inbound resident WhatsApp text message follows a **Pure LLM-First pipeline
 - **`start.bat`**: Automatically starts Backend (port 8000), Frontend (port 3000), and ngrok in separate windows using relative paths (`%~dp0`).
 - **`stop.bat`**: Cleanly kills all running Python, Node, and ngrok processes.
 
-### Environment Setup (`backend/.env`):
-- `WHATSAPP_*`: Meta Developer App credentials (Access Token, Phone Number ID, Verify Token).
-- `GEMINI_API_KEY`: Google AI Studio API key.
-- `GEMINI_MODEL`: `gemini-3.5-flash-lite` (primary) or `gemini-3.7-flash`.
-- `SUPABASE_*`: Shared project URL and Service Role Key (`sb_secret_...` or JWT).
-- `UPSTASH_*`: Redis REST URL and Token.
+### Local Environment Setup:
+- Template: `.env.example` at root and `backend/.env.example`.
+- Collaborators must copy `.env.example` to `backend/.env` and supply shared team credentials.
+- `backend/.env` is strictly gitignored (0 secrets committed).
 
-### Meta WhatsApp Webhook Setup:
+### Meta WhatsApp Webhook Setup (Local Dev):
 - **Callback URL:** `https://<YOUR-NGROK-DOMAIN>/api/v1/whatsapp/webhook`
 - **Verify Token:** `hamsayaa_webhook_verify_token_secure`
 - **Subscription Fields:** `messages`
 
 ---
 
-## 6. Critical Rules for Agents & Developers
+## 6. Production Cloud Deployments
+
+### Backend Deployment (Railway):
+- **Service Type:** Dockerfile container running on Debian slim with Python 3.12 (`backend/Dockerfile`).
+- **Root Directory Setting:** `backend`
+- **Port Strategy:** `socat` bridges container ports `8000` and `8080` simultaneously, ensuring zero 502 routing errors regardless of whether Railway proxy routes to 8000 or 8080.
+- **Environment Variables:** Set in Railway service **Variables** tab (use **Raw Editor** to paste from `backend/.env`).
+- **Public Domain:** `https://hamsayaa-production.up.railway.app`
+  - Health endpoint: `/api/v1/health`
+  - Swagger docs: `/docs`
+  - WhatsApp webhook: `/api/v1/whatsapp/webhook`
+
+### Frontend Deployment (Vercel):
+- **Framework Preset:** Vite (React 18 SPA).
+- **Root Directory Setting:** `frontend`
+- **SPA Routing & API Proxy:** Configured via [`frontend/vercel.json`](frontend/vercel.json):
+  - Rewrites all `/api/(.*)` requests to `https://hamsayaa-production.up.railway.app/api/$1` (zero CORS issues).
+  - Rewrites all other routes `/(.*)` to `/index.html` (prevents 404s on browser reload).
+- **Environment Variables:** None required on Vercel (optional `VITE_API_URL` supported via [`frontend/src/services/api.js`](frontend/src/services/api.js)).
+- **Security Rule:** NEVER import `.env` into Vercel. Database and AI API keys are backend-only.
+
+---
+
+## 7. Critical Rules for Agents & Developers
 
 1. **WhatsApp Markdown Syntax:** WhatsApp does NOT render standard markdown headers (`#`) or double asterisks (`**`).
    - Use `*bold*` (single asterisk) and `_italic_` (single underscore).
@@ -174,3 +196,5 @@ Every inbound resident WhatsApp text message follows a **Pure LLM-First pipeline
 5. **Supabase Auto-Pause Awareness:** Free-tier Supabase databases auto-pause after 7 days of inactivity. If queries fail with `ConnectError: getaddrinfo failed` or 401, check the Supabase Dashboard and click "Resume Project".
 6. **Zero Resident Exposure of Platform Fees:** `hamsayaa_saas_fee` is strictly a B2B SaaS platform fee paid by the society management office. Never display SaaS platform fees to residents on WhatsApp or in their invoices view.
 7. **Idempotent Broadcasts:** Never re-dispatch vouchers to residents whose delivery status is already marked `delivered` in Redis. Always provide isolated retry or resend options for failed units.
+8. **Git & Secret Hygiene:** Never commit `.env` or API credentials to git. All secret scanning must pass clean before pushes to `main`.
+9. **Single Source of Truth:** Keep `AGENTS.md` updated whenever backend routes, database columns, or deployment infrastructure change. Collaborators using Antigravity / Gemini rely on this file as the authoritative architecture specification.
