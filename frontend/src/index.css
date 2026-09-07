@@ -1,0 +1,94 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scrollbar-gutter: stable;
+  }
+
+  /* Sleek modern dashboard scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+}
+
+/* Smooth ping-pong horizontal text scroll */
+@keyframes pingpong-scroll {
+  0%, 20% {
+    transform: translateX(0);
+  }
+  50%, 70% {
+    transform: translateX(var(--scroll-dist, -40px));
+  }
+  90%, 100% {
+    transform: translateX(0);
+  }
+}
+
+.mask-fade-right {
+  mask-image: linear-gradient(to right, black calc(100% - 12px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - 12px), transparent 100%);
+}
+
+/* Continuous seamless circular loop ticker */
+@keyframes circular-loop {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-circular-loop {
+  animation: circular-loop var(--marquee-duration, 16s) linear infinite;
+}
+
+.mask-fade-loop {
+  mask-image: linear-gradient(to right, transparent 0%, black 10px, black calc(100% - 14px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 10px, black calc(100% - 14px), transparent 100%);
+}
+
+@layer components {
+  /* Status Pills */
+  .status-pill {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider;
+  }
+  .status-pill-paid {
+    @apply bg-emerald-50 text-emerald-700 border border-emerald-200;
+  }
+  .status-pill-overdue {
+    @apply bg-red-50 text-red-800 border border-red-200 font-bold animate-pulse;
+  }
+  .status-pill-unpaid {
+    @apply bg-red-50 text-red-700 border border-red-200;
+  }
+  .status-pill-pending {
+    @apply bg-amber-50 text-amber-700 border border-amber-200;
+  }
+  .status-pill-open {
+    @apply bg-blue-50 text-blue-700 border border-blue-200;
+  }
+
+  /* Metric Cards */
+  .metric-card {
+    @apply bg-white border border-surface-border rounded-lg p-5 shadow-sm hover:shadow-md transition-shadow;
+  }
+
+  /* Pass code visual format */
+  .code-pass {
+    @apply font-mono text-lg font-bold tracking-widest text-navy;
+  }
+}

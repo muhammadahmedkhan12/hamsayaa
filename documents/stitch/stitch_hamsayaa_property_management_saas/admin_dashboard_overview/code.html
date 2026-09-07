@@ -1,0 +1,523 @@
+<!DOCTYPE html><html class="light" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Hamsayaa Admin Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;display=swap" rel="stylesheet">
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .active-nav-border {
+            border-left: 4px solid #6ffbbe;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #131b2e;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3f465c;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6ffbbe;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary-container": "#6cf8bb",
+                        "on-error-container": "#93000a",
+                        "primary-fixed": "#dae2fd",
+                        "on-secondary-container": "#00714d",
+                        "primary-container": "#131b2e",
+                        "surface-dim": "#d8dadc",
+                        "status-overdue": "#B91C1C",
+                        "on-primary-fixed-variant": "#3f465c",
+                        "tertiary-fixed": "#d3e4fe",
+                        "surface-container-lowest": "#ffffff",
+                        "error-container": "#ffdad6",
+                        "outline-variant": "#c6c6cd",
+                        "surface": "#f7f9fb",
+                        "surface-variant": "#e0e3e5",
+                        "on-background": "#191c1e",
+                        "on-secondary": "#ffffff",
+                        "on-primary-fixed": "#131b2e",
+                        "secondary-fixed-dim": "#4edea3",
+                        "error": "#ba1a1a",
+                        "surface-container-highest": "#e0e3e5",
+                        "status-warning": "#F59E0B",
+                        "inverse-primary": "#bec6e0",
+                        "status-verified": "#10B981",
+                        "inverse-surface": "#2d3133",
+                        "surface-bright": "#f7f9fb",
+                        "tertiary-fixed-dim": "#b7c8e1",
+                        "on-tertiary-fixed-variant": "#38485d",
+                        "on-primary": "#ffffff",
+                        "outline": "#76777d",
+                        "on-secondary-fixed": "#002113",
+                        "tertiary-container": "#0b1c30",
+                        "on-tertiary-container": "#75859d",
+                        "surface-muted": "#F1F5F9",
+                        "background": "#f7f9fb",
+                        "on-primary-container": "#7c839b",
+                        "secondary-fixed": "#6ffbbe",
+                        "status-unpaid": "#EF4444",
+                        "tertiary": "#000000",
+                        "status-open": "#3B82F6",
+                        "inverse-on-surface": "#eff1f3",
+                        "on-error": "#ffffff",
+                        "on-tertiary": "#ffffff",
+                        "on-tertiary-fixed": "#0b1c30",
+                        "on-surface-variant": "#45464d",
+                        "primary-fixed-dim": "#bec6e0",
+                        "on-secondary-fixed-variant": "#005236",
+                        "surface-container": "#eceef0",
+                        "surface-container-low": "#f2f4f6",
+                        "on-surface": "#191c1e",
+                        "surface-container-high": "#e6e8ea",
+                        "primary": "#000000",
+                        "secondary": "#006c49",
+                        "surface-tint": "#565e74"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "gutter": "1.5rem",
+                        "stack-md": "1rem",
+                        "stack-sm": "0.5rem",
+                        "stack-lg": "2rem",
+                        "margin-mobile": "1rem",
+                        "container-max": "1440px"
+                    },
+                    "fontFamily": {
+                        "code-pass": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "body-md": ["Inter"],
+                        "headline-xl": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "label-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "code-pass": ["18px", {"lineHeight": "24px", "letterSpacing": "0.1em", "fontWeight": "700"}],
+                        "headline-lg": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "headline-xl": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background font-body-md text-on-surface overflow-x-hidden">
+<!-- Sidebar (Shared Component JSON: SideNavBar) -->
+<aside class="h-screen w-64 fixed left-0 top-0 bg-primary-container shadow-sm flex flex-col py-6 z-50">
+<div class="px-6 mb-10 flex items-center gap-3">
+
+<div>
+<img src="https://lh3.googleusercontent.com/aida-public/AB6AXuCzJr4QADXMcFWMtwTnRRxPGtRblrlq4ADfR8d8jN7nfNq0vYp5RgDrrr2InmTqY2yy0bw_p4EThjkWxv2U-TNr0TaFtmuZURtSYhuMQK42LzTUMuLsDaw2fO7_Z3WV7vPrFq5pqIhMQWkeHagv9k9FWvinnByyg3FG0us8YCFJbgvD7ee5vLfemM17zs6Xh3poLM5Ivxuc2K8EpLemDfsdgWR3DoM2KJIc0ttpZ2085D6skL4gPlwoLj7JiroA22UftJc" alt="Hamsayaa Logo" class="h-8 w-auto object-contain">
+<p class="text-on-primary-container font-label-md text-label-md uppercase tracking-wider">Admin Portal</p>
+</div>
+</div>
+<nav class="flex-1 space-y-1">
+<!-- Active Tab: Overview -->
+<a class="flex items-center gap-3 px-6 py-3 text-secondary-fixed font-bold border-l-4 border-secondary-fixed bg-on-primary-fixed-variant/20 active:scale-95 duration-150 transition-colors" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-body-md text-body-md">Overview</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-3 text-on-primary-container/70 hover:text-white hover:bg-on-primary-fixed-variant/10 transition-colors active:scale-95 duration-150" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-body-md text-body-md">Billing</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-3 text-on-primary-container/70 hover:text-white hover:bg-on-primary-fixed-variant/10 transition-colors active:scale-95 duration-150" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="font-body-md text-body-md">Residents</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-3 text-on-primary-container/70 hover:text-white hover:bg-on-primary-fixed-variant/10 transition-colors active:scale-95 duration-150" href="#">
+<span class="material-symbols-outlined">report_problem</span>
+<span class="font-body-md text-body-md">Complaints</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-3 text-on-primary-container/70 hover:text-white hover:bg-on-primary-fixed-variant/10 transition-colors active:scale-95 duration-150" href="#">
+<span class="material-symbols-outlined">poll</span>
+<span class="font-body-md text-body-md">Polls</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-3 text-on-primary-container/70 hover:text-white hover:bg-on-primary-fixed-variant/10 transition-colors active:scale-95 duration-150" href="#">
+<span class="material-symbols-outlined">receipt_long</span>
+<span class="font-body-md text-body-md">Expenses</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-3 text-on-primary-container/70 hover:text-white hover:bg-on-primary-fixed-variant/10 transition-colors active:scale-95 duration-150" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+<span class="font-body-md text-body-md">Assets</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-3 text-on-primary-container/70 hover:text-white hover:bg-on-primary-fixed-variant/10 transition-colors active:scale-95 duration-150" href="#">
+<span class="material-symbols-outlined">badge</span>
+<span class="font-body-md text-body-md">Employees</span>
+</a>
+</nav>
+<div class="px-6 mt-auto pt-6 border-t border-on-primary-fixed-variant/20">
+<div class="bg-on-primary-fixed-variant/10 p-4 rounded-xl">
+<p class="text-white font-label-md text-label-md opacity-60 mb-2">Gate Status</p>
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-status-verified animate-pulse"></div>
+<span class="text-white text-xs font-bold">LIVE CONNECTION</span>
+</div>
+</div>
+</div>
+</aside>
+<!-- Top Bar (Shared Component JSON: TopNavBar) -->
+<header class="h-16 w-full sticky top-0 z-40 bg-surface border-b border-outline-variant flex justify-between items-center px-gutter ml-64 max-w-[calc(100%-16rem)]">
+<div class="flex items-center gap-6">
+<div class="relative group">
+<div class="flex items-center gap-2 cursor-pointer bg-surface-container px-3 py-1.5 rounded-lg border border-outline-variant/30 hover:border-primary transition-colors">
+<span class="material-symbols-outlined text-primary text-[20px]">apartment</span>
+<span class="font-headline-md text-headline-md text-primary truncate max-w-[200px]">Lakeview Apartments</span>
+<span class="material-symbols-outlined text-on-surface-variant">expand_more</span>
+</div>
+</div>
+<div class="relative hidden lg:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">search</span>
+<input class="bg-surface-container-low border-none rounded-full pl-10 pr-4 py-2 w-72 text-body-md focus:ring-2 focus:ring-primary placeholder:text-on-surface-variant/50" placeholder="Search residents, vehicles, tickets..." type="text">
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-3 border-r border-outline-variant pr-4">
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors relative">
+<span class="material-symbols-outlined text-on-surface-variant">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant">chat</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant">settings</span>
+</button>
+</div>
+<div class="flex items-center gap-3 pl-2">
+<div class="text-right hidden sm:block">
+<p class="font-label-md text-label-md text-on-surface leading-tight">Ahmed Khan</p>
+<p class="text-[10px] text-on-surface-variant uppercase tracking-tighter">Chief Administrator</p>
+</div>
+<img class="w-9 h-9 rounded-full object-cover border border-outline-variant" data-alt="A professional headshot of a middle-aged South Asian male administrator in a clean office setting. He is wearing a dark blue formal shirt, looking confident and focused. The background is a modern, minimalist office with soft lighting and a sleek, technical vibe, consistent with a high-contrast corporate SaaS aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDJfsBRPUsaDIa2iAOfACmDAMSq_vCem-sHtQ6PKT2IrskXe-gNFBaBosQLLsb5iJ4oyfmv_I0Xmj5UYjGifI54bUOgAOiOCLUtefwkKCOsFH5vaDfZmQ2yZa41vYfICFHmf_qX4Bh0TpRbYCygApGsHFQO4NkS3FWaMC9GEU8GQ1ieKAxish3bB4sJCL8rBoyFdGs2r4kQpz8HRfE7WKq4Pi7UQPs2CnYon_h-eDDmb5kNTqfzt9JWnw">
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="ml-64 p-gutter max-w-[calc(100%-16rem)]">
+<!-- Metric Cards Row -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-stack-lg">
+<!-- Card 1: Active Residents -->
+<div class="bg-surface-container-lowest border border-outline-variant p-5 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-primary-fixed/20 rounded-lg">
+<span class="material-symbols-outlined text-primary-fixed-dim" style="font-variation-settings: &quot;FILL&quot; 1;">group</span>
+</div>
+<span class="text-status-verified font-label-md text-label-md flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">trending_up</span> +12%
+                    </span>
+</div>
+<h3 class="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Active Residents</h3>
+<p class="text-headline-xl font-headline-xl text-primary mt-1">240 <span class="text-body-md font-normal text-on-surface-variant">Units</span></p>
+<p class="text-on-surface-variant text-xs mt-3">98% Occupancy Rate</p>
+</div>
+<!-- Card 2: Unpaid Invoices -->
+<div class="bg-surface-container-lowest border border-outline-variant p-5 rounded-xl shadow-sm hover:shadow-md transition-shadow group">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-error-container/30 rounded-lg">
+<span class="material-symbols-outlined text-status-unpaid" style="font-variation-settings: &quot;FILL&quot; 1;">payments</span>
+</div>
+<div class="px-2 py-1 bg-error-container text-on-error-container rounded text-[10px] font-bold animate-pulse">WARNING</div>
+</div>
+<h3 class="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Unpaid Invoices</h3>
+<p class="text-headline-xl font-headline-xl text-status-unpaid mt-1">Rs. 450k</p>
+<div class="flex items-center justify-between mt-3">
+<p class="text-on-surface-variant text-xs">24 Pending Overdue</p>
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors cursor-pointer">arrow_forward</span>
+</div>
+</div>
+<!-- Card 3: Active Visitor Passes -->
+<div class="bg-surface-container-lowest border border-outline-variant p-5 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-secondary-container/20 rounded-lg">
+<span class="material-symbols-outlined text-on-secondary-container" style="font-variation-settings: &quot;FILL&quot; 1;">confirmation_number</span>
+</div>
+<span class="text-on-surface-variant font-label-md text-label-md italic">Today</span>
+</div>
+<h3 class="text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">Active Visitor Passes</h3>
+<p class="text-headline-xl font-headline-xl text-primary mt-1">34</p>
+<div class="w-full bg-surface-container mt-4 h-1.5 rounded-full overflow-hidden">
+<div class="bg-on-secondary-container h-full w-[65%]"></div>
+</div>
+<p class="text-on-surface-variant text-xs mt-2">Peak hour expected at 6:00 PM</p>
+</div>
+<!-- Card 4: Overstay Alerts -->
+<div class="bg-primary-container border border-primary-container p-5 rounded-xl shadow-lg relative overflow-hidden">
+<div class="absolute -right-4 -bottom-4 opacity-10">
+<span class="material-symbols-outlined text-[100px] text-white">car_tag</span>
+</div>
+<div class="flex justify-between items-start mb-4 relative z-10">
+<div class="p-2 bg-error rounded-lg">
+<span class="material-symbols-outlined text-white" style="font-variation-settings: &quot;FILL&quot; 1;">warning</span>
+</div>
+<div class="flex gap-1">
+<div class="w-1.5 h-1.5 bg-error rounded-full"></div>
+<div class="w-1.5 h-1.5 bg-error rounded-full opacity-50"></div>
+<div class="w-1.5 h-1.5 bg-error rounded-full opacity-30"></div>
+</div>
+</div>
+<h3 class="text-on-primary-container font-label-md text-label-md uppercase tracking-wider relative z-10">Overstay Alerts</h3>
+<p class="text-headline-xl font-headline-xl text-white mt-1 relative z-10">3 <span class="text-body-md font-normal text-on-primary-container">Vehicles</span></p>
+<p class="text-error font-bold text-[10px] mt-3 uppercase tracking-widest relative z-10">Immediate Action Required</p>
+</div>
+</div>
+<!-- Main Content Section: Split View -->
+<div class="grid grid-cols-1 lg:grid-cols-10 gap-6">
+<!-- Left Panel: Support Tickets (60%) -->
+<div class="lg:col-span-6 bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden flex flex-col shadow-sm">
+<div class="px-6 py-4 border-b border-outline-variant flex items-center justify-between bg-white">
+<h2 class="font-headline-md text-headline-md text-primary flex items-center gap-2">
+<span class="material-symbols-outlined text-on-surface-variant">support_agent</span>
+                        Recent Support &amp; Issue Tickets
+                    </h2>
+<button class="text-label-md font-label-md text-on-primary-fixed-variant hover:text-primary transition-colors flex items-center gap-1">
+                        VIEW ALL <span class="material-symbols-outlined text-sm">open_in_new</span>
+</button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low">
+<th class="px-6 py-3 font-label-md text-label-md text-on-surface-variant uppercase border-b border-outline-variant">Ticket #</th>
+<th class="px-6 py-3 font-label-md text-label-md text-on-surface-variant uppercase border-b border-outline-variant">Unit</th>
+<th class="px-6 py-3 font-label-md text-label-md text-on-surface-variant uppercase border-b border-outline-variant">Category</th>
+<th class="px-6 py-3 font-label-md text-label-md text-on-surface-variant uppercase border-b border-outline-variant">Status</th>
+<th class="px-6 py-3 font-label-md text-label-md text-on-surface-variant uppercase border-b border-outline-variant text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/30">
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="px-6 py-4 font-bold text-primary">#TK-8902</td>
+<td class="px-6 py-4 text-on-surface-variant">B-402</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 bg-surface-container rounded text-[10px] font-bold">PLUMBING</span>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-status-open/10 text-status-open text-[10px] font-bold">
+<span class="w-1.5 h-1.5 bg-status-open rounded-full"></span> OPEN
+                                    </span>
+</td>
+<td class="px-6 py-4 text-right space-x-2">
+<button class="p-2 hover:bg-secondary-container/20 text-on-secondary-container rounded transition-colors" title="WhatsApp Message">
+<span class="material-symbols-outlined text-[18px]">chat</span>
+</button>
+<button class="p-2 hover:bg-surface-container text-on-surface-variant rounded transition-colors">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="px-6 py-4 font-bold text-primary">#TK-8901</td>
+<td class="px-6 py-4 text-on-surface-variant">A-105</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 bg-surface-container rounded text-[10px] font-bold">SECURITY</span>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-status-warning/10 text-status-warning text-[10px] font-bold">
+<span class="w-1.5 h-1.5 bg-status-warning rounded-full"></span> IN PROGRESS
+                                    </span>
+</td>
+<td class="px-6 py-4 text-right space-x-2">
+<button class="p-2 hover:bg-secondary-container/20 text-on-secondary-container rounded transition-colors" title="WhatsApp Message">
+<span class="material-symbols-outlined text-[18px]">chat</span>
+</button>
+<button class="p-2 hover:bg-surface-container text-on-surface-variant rounded transition-colors">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="px-6 py-4 font-bold text-primary">#TK-8898</td>
+<td class="px-6 py-4 text-on-surface-variant">C-201</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 bg-surface-container rounded text-[10px] font-bold">BILLING</span>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-status-open/10 text-status-open text-[10px] font-bold">
+<span class="w-1.5 h-1.5 bg-status-open rounded-full"></span> OPEN
+                                    </span>
+</td>
+<td class="px-6 py-4 text-right space-x-2">
+<button class="p-2 hover:bg-secondary-container/20 text-on-secondary-container rounded transition-colors" title="WhatsApp Message">
+<span class="material-symbols-outlined text-[18px]">chat</span>
+</button>
+<button class="p-2 hover:bg-surface-container text-on-surface-variant rounded transition-colors">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="px-6 py-4 font-bold text-primary">#TK-8895</td>
+<td class="px-6 py-4 text-on-surface-variant">E-001</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 bg-surface-container rounded text-[10px] font-bold">LIFT</span>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-status-verified/10 text-status-verified text-[10px] font-bold">
+<span class="w-1.5 h-1.5 bg-status-verified rounded-full"></span> RESOLVED
+                                    </span>
+</td>
+<td class="px-6 py-4 text-right space-x-2">
+<button class="p-2 hover:bg-secondary-container/20 text-on-secondary-container rounded transition-colors" title="WhatsApp Message">
+<span class="material-symbols-outlined text-[18px]">chat</span>
+</button>
+<button class="p-2 hover:bg-surface-container text-on-surface-variant rounded transition-colors">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="px-6 py-3 bg-surface-container-low mt-auto flex justify-center">
+<p class="text-xs text-on-surface-variant italic">AI-Summary: Residents are primarily concerned with plumbing issues this week.</p>
+</div>
+</div>
+<!-- Right Panel: Gate Entry Log (40%) -->
+<div class="lg:col-span-4 bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden flex flex-col shadow-sm">
+<div class="px-6 py-4 border-b border-outline-variant bg-white">
+<h2 class="font-headline-md text-headline-md text-primary flex items-center gap-2">
+<span class="material-symbols-outlined text-error">sensor_door</span>
+                        Live Gate Log
+                    </h2>
+</div>
+<div class="flex-1 overflow-y-auto max-h-[500px]">
+<div class="divide-y divide-outline-variant/30">
+<!-- Flagged Overstay Item -->
+<div class="p-4 bg-error-container/5 hover:bg-error-container/10 transition-colors border-l-4 border-error">
+<div class="flex justify-between items-start mb-2">
+<span class="bg-primary text-white font-mono px-2 py-1 rounded text-sm font-bold tracking-widest border border-white/20">ABC-1234</span>
+<span class="text-[10px] text-error font-bold border border-error px-1.5 py-0.5 rounded animate-pulse">FLAGGED OVERSTAY</span>
+</div>
+<div class="flex items-center justify-between text-on-surface-variant">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-sm">schedule</span>
+<span class="text-xs">Entry: 08:45 AM (3h ago)</span>
+</div>
+<button class="text-xs font-bold text-error underline underline-offset-2 hover:text-on-error-container">NOTIFY GUARD</button>
+</div>
+</div>
+<!-- Regular Entry -->
+<div class="p-4 hover:bg-surface-container-low/50 transition-colors">
+<div class="flex justify-between items-start mb-2">
+<span class="bg-surface-container text-primary font-mono px-2 py-1 rounded text-sm font-bold tracking-widest border border-outline-variant">XYZ-9090</span>
+<span class="text-[10px] bg-status-verified/10 text-status-verified px-2 py-0.5 rounded-full font-bold">RESIDENT</span>
+</div>
+<div class="flex items-center justify-between text-on-surface-variant">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-sm">schedule</span>
+<span class="text-xs">Entry: 11:32 AM</span>
+</div>
+<span class="text-xs opacity-50">Main Gate 02</span>
+</div>
+</div>
+<!-- Flagged Overstay Item -->
+<div class="p-4 bg-error-container/5 hover:bg-error-container/10 transition-colors border-l-4 border-error">
+<div class="flex justify-between items-start mb-2">
+<span class="bg-primary text-white font-mono px-2 py-1 rounded text-sm font-bold tracking-widest border border-white/20">KHI-5566</span>
+<span class="text-[10px] text-error font-bold border border-error px-1.5 py-0.5 rounded">FLAGGED OVERSTAY</span>
+</div>
+<div class="flex items-center justify-between text-on-surface-variant">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-sm">schedule</span>
+<span class="text-xs">Entry: 09:15 AM (2.5h ago)</span>
+</div>
+<button class="text-xs font-bold text-error underline underline-offset-2">ESCALATE</button>
+</div>
+</div>
+<!-- Regular Entry -->
+<div class="p-4 hover:bg-surface-container-low/50 transition-colors">
+<div class="flex justify-between items-start mb-2">
+<span class="bg-surface-container text-primary font-mono px-2 py-1 rounded text-sm font-bold tracking-widest border border-outline-variant">LHR-4432</span>
+<span class="text-[10px] bg-secondary-container/30 text-on-secondary-container px-2 py-0.5 rounded-full font-bold">GUEST (ID-98)</span>
+</div>
+<div class="flex items-center justify-between text-on-surface-variant">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-sm">schedule</span>
+<span class="text-xs">Entry: 11:45 AM</span>
+</div>
+<span class="text-xs opacity-50">Back Gate 01</span>
+</div>
+</div>
+<!-- Another Regular Entry -->
+<div class="p-4 hover:bg-surface-container-low/50 transition-colors">
+<div class="flex justify-between items-start mb-2">
+<span class="bg-surface-container text-primary font-mono px-2 py-1 rounded text-sm font-bold tracking-widest border border-outline-variant">MNP-1100</span>
+<span class="text-[10px] bg-status-verified/10 text-status-verified px-2 py-0.5 rounded-full font-bold">RESIDENT</span>
+</div>
+<div class="flex items-center justify-between text-on-surface-variant">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-sm">schedule</span>
+<span class="text-xs">Entry: 11:58 AM</span>
+</div>
+<span class="text-xs opacity-50">Main Gate 01</span>
+</div>
+</div>
+</div>
+</div>
+<div class="p-4 bg-surface-container-low border-t border-outline-variant">
+<button class="w-full py-2 bg-primary text-white rounded-lg font-bold hover:bg-on-primary-fixed-variant transition-colors active:scale-[0.98] duration-150">
+                        GENERATE FULL GATE REPORT
+                    </button>
+</div>
+</div>
+</div>
+</main>
+<!-- Floating Action Button (Contextual for Home/Dashboard) -->
+<button class="fixed bottom-8 right-8 w-14 h-14 bg-secondary-fixed text-primary-container rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all group z-50">
+<span class="material-symbols-outlined text-[28px] group-hover:rotate-90 transition-transform">add</span>
+<!-- Tooltip -->
+<span class="absolute right-full mr-4 px-3 py-1.5 bg-primary-container text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap">
+            Create Pass / Issue
+        </span>
+</button>
+<script>
+        // Simple Micro-interaction: Active Navigation Logic
+        document.querySelectorAll('nav a').forEach(link => {
+            link.addEventListener('click', function(e) {
+                document.querySelectorAll('nav a').forEach(l => {
+                    l.classList.remove('text-secondary-fixed', 'font-bold', 'border-l-4', 'border-secondary-fixed', 'bg-on-primary-fixed-variant/20');
+                    l.classList.add('text-on-primary-container/70');
+                });
+                this.classList.add('text-secondary-fixed', 'font-bold', 'border-l-4', 'border-secondary-fixed', 'bg-on-primary-fixed-variant/20');
+                this.classList.remove('text-on-primary-container/70');
+            });
+        });
+
+        // Simulating Live Gate Updates
+        setInterval(() => {
+            const timeElements = document.querySelectorAll('.text-xs');
+            timeElements.forEach(el => {
+                if (el.innerText.includes('Entry:')) {
+                    // Logic to update "X min ago" could go here for real-time feel
+                }
+            });
+        }, 60000);
+    </script>
+
+
+</body></html>

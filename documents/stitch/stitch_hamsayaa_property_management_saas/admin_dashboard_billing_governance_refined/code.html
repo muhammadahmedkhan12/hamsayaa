@@ -1,0 +1,445 @@
+<!DOCTYPE html><html class="light" lang="en" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Hamsayaa | Admin Billing &amp; Governance</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&amp;family=Manrope:wght@600;700&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                "on-primary-fixed": "#001c3b",
+                "inverse-surface": "#233144",
+                "primary-container": "#00529b",
+                "tertiary-container": "#4f5254",
+                "surface-container-high": "#dde9ff",
+                "on-error-container": "#93000a",
+                "on-secondary-container": "#436b58",
+                "on-primary-fixed-variant": "#004787",
+                "on-surface": "#0d1c2f",
+                "on-secondary-fixed-variant": "#274e3d",
+                "secondary-fixed": "#c1ecd4",
+                "surface-dim": "#ccdbf4",
+                "surface-container-low": "#eff4ff",
+                "outline-variant": "#c2c6d3",
+                "on-background": "#0d1c2f",
+                "on-tertiary": "#ffffff",
+                "tertiary-fixed-dim": "#c4c7c9",
+                "surface-tint": "#1d5fa8",
+                "secondary-container": "#beead1",
+                "surface-container-highest": "#d5e3fd",
+                "secondary": "#3f6653",
+                "on-secondary-fixed": "#002114",
+                "primary-fixed-dim": "#a6c8ff",
+                "on-surface-variant": "#424751",
+                "outline": "#727782",
+                "surface": "#f8f9ff",
+                "on-secondary": "#ffffff",
+                "surface-container-lowest": "#ffffff",
+                "on-tertiary-fixed": "#191c1e",
+                "surface-bright": "#f8f9ff",
+                "primary-fixed": "#d5e3ff",
+                "inverse-primary": "#a6c8ff",
+                "background": "#f8f9ff",
+                "primary": "#00529b",
+                "error-container": "#ffdad6",
+                "on-tertiary-container": "#c3c5c7",
+                "inverse-on-surface": "#ebf1ff",
+                "secondary-fixed-dim": "#a5d0b9",
+                "on-error": "#ffffff",
+                "surface-variant": "#d5e3fd",
+                "on-primary": "#ffffff",
+                "surface-container": "#e6eeff",
+                "on-primary-container": "#a5c7ff",
+                "tertiary-fixed": "#e0e3e5",
+                "error": "#ba1a1a",
+                "tertiary": "#383b3d",
+                "on-tertiary-fixed-variant": "#444749"
+            },
+            "borderRadius": {
+                "DEFAULT": "0.125rem",
+                "lg": "0.25rem",
+                "xl": "0.5rem",
+                "full": "0.75rem"
+            },
+            "spacing": {
+                "xs": "4px",
+                "3xl": "64px",
+                "base": "4px",
+                "xl": "32px",
+                "margin-desktop": "40px",
+                "md": "16px",
+                "lg": "24px",
+                "margin-mobile": "16px",
+                "gutter": "24px",
+                "sm": "8px",
+                "2xl": "48px",
+                "stack-md": "16px",
+                "stack-sm": "8px",
+                "stack-lg": "32px",
+                "container-max": "1440px"
+            },
+            "fontFamily": {
+                "body-lg": ["Inter"],
+                "headline-xl": ["Manrope"],
+                "body-sm": ["Inter"],
+                "body-md": ["Inter"],
+                "label-md": ["Inter"],
+                "headline-md": ["Manrope"],
+                "headline-lg": ["Manrope"],
+                "label-sm": ["Inter"],
+                "headline-lg-mobile": ["Manrope"]
+            },
+            "fontSize": {
+                "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                "headline-xl": ["40px", {"lineHeight": "48px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                "label-md": ["14px", {"lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "600"}],
+                "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                "label-sm": ["12px", {"lineHeight": "14px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "700"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, h4, h5, h6 { font-family: 'Manrope', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface antialiased overflow-x-hidden">
+<!-- Side Navigation Shell -->
+<aside class="h-screen w-64 fixed left-0 top-0 shadow-sm flex flex-col py-6 z-50" style="background-color: rgb(0, 28, 59);">
+<div class="px-6 mb-10"><img alt="Hamsayaa Logo" class="w-auto object-contain h-10 px-3" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA0yVPhvOql92mkHA8ic-RgAdSfFqF-nhEv_fzenCPFzC9-TvVbBxDXWWjZQNK1Xm-xzxQZcwEue95YG77v0xjwJbuWHQFqXzAAY7ScZCyYWWgwXz2NHYFIoriO9RMEMPQXDoLPWlewo8HnBJlSXLnuMgehGHfEtzxw4FX9zB76koweAY5DyHicdHaB5oxjCN8_1qWgvx4Z0DF3_bSzucWDMbpEPgnFp8L-0DD53YEnEg6NjCziYATKqiPSzu9evlx1fmQ"></div>
+<nav class="flex-1 space-y-1 px-3 custom-scrollbar overflow-y-auto">
+<a class="flex items-center gap-3 px-3 py-3 font-body-md text-body-md hover:text-white hover:bg-on-primary-fixed-variant/20 transition-colors rounded text-white/70" href="#">
+<span class="material-symbols-outlined">dashboard</span> Overview
+        </a>
+<a class="flex items-center gap-3 px-3 py-3 font-body-md text-body-md text-secondary-fixed font-bold border-l-4 border-secondary-fixed rounded-r bg-white/10" href="#">
+<span class="material-symbols-outlined">payments</span> Billing
+        </a>
+<a class="flex items-center gap-3 px-3 py-3 font-body-md text-body-md hover:text-white hover:bg-on-primary-fixed-variant/10 transition-colors rounded text-white/70" href="#">
+<span class="material-symbols-outlined">group</span> Residents
+        </a>
+<a class="flex items-center gap-3 px-3 py-3 font-body-md text-body-md hover:text-white hover:bg-on-primary-fixed-variant/10 transition-colors rounded text-white/70" href="#">
+<span class="material-symbols-outlined">report_problem</span> Complaints
+        </a>
+<a class="flex items-center gap-3 px-3 py-3 font-body-md text-body-md hover:text-white hover:bg-on-primary-fixed-variant/10 transition-colors rounded text-white/70" href="#">
+<span class="material-symbols-outlined">poll</span> Polls
+        </a>
+<a class="flex items-center gap-3 px-3 py-3 font-body-md text-body-md hover:text-white hover:bg-on-primary-fixed-variant/10 transition-colors rounded text-white/70" href="#">
+<span class="material-symbols-outlined">receipt_long</span> Expenses
+        </a>
+<a class="flex items-center gap-3 px-3 py-3 font-body-md text-body-md hover:text-white hover:bg-on-primary-fixed-variant/10 transition-colors rounded text-white/70" href="#">
+<span class="material-symbols-outlined">inventory_2</span> Assets
+        </a>
+<a class="flex items-center gap-3 px-3 py-3 font-body-md text-body-md hover:text-white hover:bg-on-primary-fixed-variant/10 transition-colors rounded text-white/70" href="#">
+<span class="material-symbols-outlined">badge</span> Employees
+        </a>
+</nav>
+<div class="mt-auto px-6 py-4 border-t border-on-primary-container/10">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-on-secondary-container text-sm">admin_panel_settings</span>
+</div>
+<div>
+<p class="text-white text-xs font-bold leading-none">Admin Profile</p>
+<p class="text-white/50 text-[10px]">Society Admin</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Canvas -->
+<main class="ml-64 min-h-screen">
+<!-- Top Nav Bar Shell -->
+<header class="h-16 w-full sticky top-0 z-40 bg-surface-container-lowest border-b border-outline-variant flex justify-between items-center px-gutter">
+<div class="flex items-center gap-8">
+
+<div class="hidden md:flex gap-6">
+<a class="font-label-md text-label-md text-primary font-bold border-b-2 border-primary pb-1" href="#">Society Admin</a>
+<a class="font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors" href="#">Help Center</a>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="relative">
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer hover:text-primary">notifications</span>
+<span class="absolute top-0 right-0 w-2 h-2 bg-error rounded-full"></span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer hover:text-primary">chat</span>
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer hover:text-primary">settings</span>
+<div class="h-8 w-8 rounded-full bg-surface-container-highest overflow-hidden">
+<img alt="Admin headshot" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuABjwzhukW1Sp3WCAXZd9yjuZbx-Z2hZsMtu-5NnH6he_YfwIPF2ReZKeVQwBAfBbzNsuDwkuGK5W4e1ua2IbVEYX-sw1EyEV5Sb3ctLFdvKR_9436W_QUzCgBJ-45Thta59DKXXsYWNMNwpQbx_SWVvRQcALpVBQXfKK3yZzY6Rrr5eSj8JULzAYAa-7rTSQtOVNLQzMMb6YtfC5NWCFNBCmUpj5wS5iJDIn5mx0njUTzUkDFZv8FCJA">
+</div>
+</div>
+</header>
+<!-- Content Area -->
+<div class="p-gutter max-w-container-max mx-auto">
+<!-- Header Section -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-stack-lg">
+<div>
+<h3 class="font-headline-xl text-headline-xl text-primary tracking-tight">Cumulative Billing</h3>
+<p class="font-body-lg text-body-lg text-on-surface-variant">Oversee resident dues and manage system access control.</p>
+</div>
+<div class="flex flex-wrap items-center gap-3">
+<button class="flex items-center gap-2 bg-surface-container-high text-on-surface font-label-md text-label-md px-4 py-2.5 rounded-lg hover:bg-surface-dim transition-all active:scale-[0.98]">
+<span class="material-symbols-outlined text-lg">file_download</span>
+                    Import Resident Excel Roster
+                </button>
+<button class="flex items-center gap-2 bg-primary text-on-primary font-label-md text-label-md px-6 py-2.5 rounded-lg hover:opacity-90 shadow-lg shadow-primary/20 transition-all active:scale-[0.98]">
+<span class="material-symbols-outlined text-lg">description</span>
+                    Generate Monthly Invoices
+                </button>
+</div>
+</div>
+<!-- Bento Metrics Grid -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-stack-lg">
+<div class="bg-surface-container-lowest border border-outline-variant p-5 rounded-xl shadow-sm">
+<div class="flex justify-between items-start mb-2">
+<span class="text-on-surface-variant font-label-md text-label-sm uppercase tracking-wider">Total Receivables</span>
+<span class="material-symbols-outlined text-primary">account_balance_wallet</span>
+</div>
+<h4 class="text-2xl font-bold text-primary">PKR 2,450,000</h4>
+<p class="text-xs text-secondary font-bold mt-2">↑ 12% vs last month</p>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant p-5 rounded-xl shadow-sm">
+<div class="flex justify-between items-start mb-2">
+<span class="text-on-surface-variant font-label-md text-label-sm uppercase tracking-wider">Total Collected</span>
+<span class="material-symbols-outlined text-secondary">payments</span>
+</div>
+<h4 class="text-2xl font-bold text-primary">PKR 1,890,500</h4>
+<div class="w-full bg-surface-container rounded-full h-1.5 mt-4">
+<div class="bg-secondary h-1.5 rounded-full" style="width: 77%"></div>
+</div>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant p-5 rounded-xl shadow-sm">
+<div class="flex justify-between items-start mb-2">
+<span class="text-on-surface-variant font-label-md text-label-sm uppercase tracking-wider">Unpaid Dues</span>
+<span class="material-symbols-outlined text-error">error_outline</span>
+</div>
+<h4 class="text-2xl font-bold text-error">PKR 559,500</h4>
+<p class="text-xs text-on-surface-variant mt-2">24 households overdue</p>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant p-5 rounded-xl shadow-sm">
+<div class="flex justify-between items-start mb-2">
+<span class="text-on-surface-variant font-label-md text-label-sm uppercase tracking-wider">Access Blocked</span>
+<span class="material-symbols-outlined text-primary">block</span>
+</div>
+<h4 class="text-2xl font-bold text-primary">08</h4>
+<p class="text-xs text-on-surface-variant mt-2">Restricted visitor entries</p>
+</div>
+</div>
+<!-- Filters & Search -->
+<div class="bg-surface-container-low border border-outline-variant rounded-t-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4">
+<div class="relative w-full md:w-96">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="w-full pl-10 pr-4 py-2 border border-outline-variant rounded-lg text-body-md focus:ring-2 focus:ring-primary focus:border-primary transition-all bg-white" placeholder="Search by name, unit or phone..." type="text">
+</div>
+<div class="flex items-center gap-3 w-full md:w-auto">
+<select class="bg-white border border-outline-variant rounded-lg px-4 py-2 text-body-md focus:ring-primary min-w-[140px]">
+<option>All Units</option>
+<option>Block A</option>
+<option>Block B</option>
+</select>
+<select class="bg-white border border-outline-variant rounded-lg px-4 py-2 text-body-md focus:ring-primary min-w-[140px]">
+<option>All Status</option>
+<option>Paid</option>
+<option>Unpaid</option>
+<option>Receipt Uploaded</option>
+</select>
+<button class="p-2 border border-outline-variant rounded-lg hover:bg-surface-container-high transition-colors bg-white">
+<span class="material-symbols-outlined">filter_list</span>
+</button>
+</div>
+</div>
+<!-- Resident Governance Table -->
+<div class="bg-white border-x border-b border-outline-variant rounded-b-xl overflow-hidden">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container/50 border-b border-outline-variant">
+<th class="px-6 py-4 font-label-md text-label-sm text-on-surface-variant uppercase tracking-wider">Resident &amp; Unit</th>
+<th class="px-6 py-4 font-label-md text-label-sm text-on-surface-variant uppercase tracking-wider">Whatsapp Contact</th>
+<th class="px-6 py-4 font-label-md text-label-sm text-on-surface-variant uppercase tracking-wider">Breakdown</th>
+<th class="px-6 py-4 font-label-md text-label-sm text-on-surface-variant uppercase tracking-wider">Total PKR</th>
+<th class="px-6 py-4 font-label-md text-label-sm text-on-surface-variant uppercase tracking-wider">Status</th>
+<th class="px-6 py-4 font-label-md text-label-sm text-on-surface-variant uppercase tracking-wider text-right">Governance</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<!-- Row 1: Paid -->
+<tr class="hover:bg-surface-container-low transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary-fixed-dim/20 flex items-center justify-center font-bold text-primary">AA</div>
+<div>
+<p class="font-body-md font-bold text-primary">Ali Ahmed</p>
+<p class="text-xs text-on-surface-variant">Unit A-104</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2 text-body-md">
+<span class="material-symbols-outlined text-secondary text-lg" style="font-variation-settings: &quot;FILL&quot; 1;">chat</span>
+                                    +92 300 1234567
+                                </div>
+</td>
+<td class="px-6 py-4 text-xs font-mono text-on-surface-variant">
+                                12,000 + 1,500 + 4,200
+                            </td>
+<td class="px-6 py-4 font-body-md font-bold text-primary">17,700</td>
+<td class="px-6 py-4">
+<span class="px-2.5 py-1 rounded-full bg-secondary/10 text-secondary text-[11px] font-bold uppercase tracking-wide">Paid</span>
+</td>
+<td class="px-6 py-4 text-right">
+<div class="flex items-center justify-end gap-4">
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer hover:text-primary">visibility</span>
+<div class="flex items-center gap-2">
+<span class="text-[10px] font-bold text-on-surface-variant uppercase">Access</span>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox">
+<div class="w-9 h-5 bg-outline-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-secondary"></div>
+</label>
+</div>
+</div>
+</td>
+</tr>
+<!-- Row 2: Receipt Uploaded -->
+<tr class="hover:bg-surface-container-low transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-tertiary-fixed-dim/20 flex items-center justify-center font-bold text-primary">SM</div>
+<div>
+<p class="font-body-md font-bold text-primary">Sara Malik</p>
+<p class="text-xs text-on-surface-variant">Unit B-205</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2 text-body-md">
+<span class="material-symbols-outlined text-secondary text-lg" style="font-variation-settings: &quot;FILL&quot; 1;">chat</span>
+                                    +92 321 9876543
+                                </div>
+</td>
+<td class="px-6 py-4 text-xs font-mono text-on-surface-variant">
+                                15,000 + 1,500 + 6,800
+                            </td>
+<td class="px-6 py-4 font-body-md font-bold text-primary">23,300</td>
+<td class="px-6 py-4">
+<span class="px-2.5 py-1 rounded-full bg-surface-container-highest text-primary text-[11px] font-bold uppercase tracking-wide">Receipt Uploaded</span>
+</td>
+<td class="px-6 py-4 text-right">
+<div class="flex items-center justify-end gap-3">
+<button class="px-3 py-1 bg-primary text-on-primary text-[11px] font-bold rounded hover:opacity-90">Verify Receipt</button>
+<div class="flex items-center gap-2">
+<span class="text-[10px] font-bold text-on-surface-variant uppercase">Access</span>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox">
+<div class="w-9 h-5 bg-outline-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-secondary"></div>
+</label>
+</div>
+</div>
+</td>
+</tr>
+<!-- Row 3: Unpaid & Warning -->
+<tr class="hover:bg-error-container/10 transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-error-container text-on-error-container flex items-center justify-center font-bold">RK</div>
+<div>
+<p class="font-body-md font-bold text-primary">Raza Khan</p>
+<p class="text-xs text-on-surface-variant">Unit C-012</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2 text-body-md">
+<span class="material-symbols-outlined text-secondary text-lg" style="font-variation-settings: &quot;FILL&quot; 1;">chat</span>
+                                    +92 345 5556677
+                                </div>
+</td>
+<td class="px-6 py-4 text-xs font-mono text-on-surface-variant">
+                                10,000 + 1,500 + 2,100
+                            </td>
+<td class="px-6 py-4 font-body-md font-bold text-error">13,600</td>
+<td class="px-6 py-4">
+<span class="px-2.5 py-1 rounded-full bg-error/10 text-error text-[11px] font-bold uppercase tracking-wide">Unpaid (2m)</span>
+</td>
+<td class="px-6 py-4 text-right">
+<div class="flex items-center justify-end gap-4">
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer hover:text-error" title="Send WhatsApp Reminder">notifications_active</span>
+<div class="flex items-center gap-2">
+<span class="text-[10px] font-bold text-error uppercase">Block</span>
+<label class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer" id="blockToggle" onchange="handleBlockToggle(this)" type="checkbox">
+<div class="w-9 h-5 bg-outline-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-error"></div>
+</label>
+</div>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Footer Pagination/Summary -->
+<div class="flex flex-col md:flex-row items-center justify-between mt-stack-md text-body-md text-on-surface-variant">
+<p class="font-body-md">Showing 1 to 10 of 420 households</p>
+<div class="flex items-center gap-2 mt-4 md:mt-0">
+<button class="px-3 py-1 border border-outline-variant rounded hover:bg-surface-container-high transition-colors">Previous</button>
+<button class="px-3 py-1 bg-primary text-on-primary rounded font-bold">1</button>
+<button class="px-3 py-1 border border-outline-variant rounded hover:bg-surface-container-high transition-colors">2</button>
+<button class="px-3 py-1 border border-outline-variant rounded hover:bg-surface-container-high transition-colors">3</button>
+<button class="px-3 py-1 border border-outline-variant rounded hover:bg-surface-container-high transition-colors">Next</button>
+</div>
+</div>
+</div>
+</main>
+<!-- Contextual Toast Notification (Hidden by Default) -->
+<div class="fixed bottom-8 right-8 z-[100] transform translate-y-20 transition-all duration-300 pointer-events-none opacity-0" id="statusToast">
+<div class="bg-error text-white px-6 py-4 rounded-xl shadow-2xl flex items-center gap-4 max-w-md">
+<span class="material-symbols-outlined text-3xl">warning</span>
+<div>
+<p class="font-bold text-lg leading-tight">Resident Blocked</p>
+<p class="text-sm opacity-90">Gate security has been notified to restrict entry for Unit C-012.</p>
+</div>
+</div>
+</div>
+<script>
+    function handleBlockToggle(checkbox) {
+        const toast = document.getElementById('statusToast');
+        if (checkbox.checked) {
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+            
+            if (navigator.vibrate) navigator.vibrate(50);
+            
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+                toast.classList.remove('translate-y-0', 'opacity-100');
+            }, 5000);
+        }
+    }
+
+    document.querySelectorAll('button').forEach(btn => {
+        btn.addEventListener('click', function() {
+            this.classList.add('scale-95');
+            setTimeout(() => this.classList.remove('scale-95'), 100);
+        });
+    });
+</script>
+
+
+</body></html>

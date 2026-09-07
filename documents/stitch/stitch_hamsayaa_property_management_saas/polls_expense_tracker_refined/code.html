@@ -1,0 +1,465 @@
+<!DOCTYPE html><html class="light" lang="en" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Hamsayaa Admin - Polls &amp; Expenses</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8f9ff;
+        }
+        h1, h2, h3, h4, .font-headline {
+            font-family: 'Manrope', sans-serif;
+        }
+        /* Glassmorphism & Tonal Layering */
+        .glass-card {
+            background: #ffffff;
+            border: 1px solid #dde9ff;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        }
+        .progress-bar-fill {
+            transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        /* Custom scrollbar for data tables */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #eff4ff;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #ccdbf4;
+            border-radius: 10px;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-fixed": "#001c3b",
+                        "inverse-surface": "#233144",
+                        "primary-container": "#00529b",
+                        "tertiary-container": "#4f5254",
+                        "surface-container-high": "#dde9ff",
+                        "on-error-container": "#93000a",
+                        "on-secondary-container": "#436b58",
+                        "on-primary-fixed-variant": "#004787",
+                        "on-surface": "#0d1c2f",
+                        "on-secondary-fixed-variant": "#274e3d",
+                        "secondary-fixed": "#c1ecd4",
+                        "surface-dim": "#ccdbf4",
+                        "surface-container-low": "#eff4ff",
+                        "outline-variant": "#c2c6d3",
+                        "on-background": "#0d1c2f",
+                        "on-tertiary": "#ffffff",
+                        "tertiary-fixed-dim": "#c4c7c9",
+                        "surface-tint": "#1d5fa8",
+                        "secondary-container": "#beead1",
+                        "surface-container-highest": "#d5e3fd",
+                        "secondary": "#3f6653",
+                        "on-secondary-fixed": "#002114",
+                        "primary-fixed-dim": "#a6c8ff",
+                        "on-surface-variant": "#424751",
+                        "outline": "#727782",
+                        "surface": "#f8f9ff",
+                        "on-secondary": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-fixed": "#191c1e",
+                        "surface-bright": "#f8f9ff",
+                        "primary-fixed": "#d5e3ff",
+                        "inverse-primary": "#a6c8ff",
+                        "background": "#f8f9ff",
+                        "primary": "#00529b",
+                        "error-container": "#ffdad6",
+                        "on-tertiary-container": "#c3c5c7",
+                        "inverse-on-surface": "#ebf1ff",
+                        "secondary-fixed-dim": "#a5d0b9",
+                        "on-error": "#ffffff",
+                        "surface-variant": "#d5e3fd",
+                        "on-primary": "#ffffff",
+                        "surface-container": "#e6eeff",
+                        "on-primary-container": "#a5c7ff",
+                        "tertiary-fixed": "#e0e3e5",
+                        "error": "#ba1a1a",
+                        "tertiary": "#383b3d",
+                        "on-tertiary-fixed-variant": "#444749",
+                        "status-open": "#00529b",
+                        "status-overdue": "#ba1a1a",
+                        "status-warning": "#855300",
+                        "status-verified": "#3f6653"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "gutter": "24px",
+                        "stack-md": "16px",
+                        "stack-sm": "8px",
+                        "stack-lg": "32px",
+                        "margin-mobile": "16px",
+                        "container-max": "1440px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Inter"],
+                        "headline-xl": ["Manrope"],
+                        "body-sm": ["Inter"],
+                        "body-md": ["Inter"],
+                        "label-md": ["Inter"],
+                        "headline-md": ["Manrope"],
+                        "headline-lg": ["Manrope"],
+                        "label-sm": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                        "headline-xl": ["40px", {"lineHeight": "48px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "label-md": ["14px", {"lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "600"}],
+                        "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                        "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                        "label-sm": ["12px", {"lineHeight": "14px", "letterSpacing": "0.05em", "fontWeight": "500"}]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-surface text-on-surface">
+<!-- Sidebar Navigation Shell -->
+<aside class="h-screen w-64 fixed left-0 top-0 shadow-xl flex flex-col py-8 z-50" style="background-color: rgb(0, 28, 59);">
+<div class="px-6 mb-10">
+<img alt="Hamsayaa Logo" class="h-16 w-auto object-contain ml-3" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCgOLzD4Ey6YS2UDNxjObpwaA1b4Aq75wFPEWY6nkcqAdSD_Mj7OjudjKvuA82etjst15QOQ7GnRjkMfFw0zkxwtKY6D51Co2zxpp7ilUcUKMczFYpwCElnUhT-wHf5WRo4x75_OkinF-IAuZ6SuXTIezsBUm3-yrk4tSe4R6yZKjx2fNoob1E3SRFmAkqwxA4I6XOtQWkTLBuaA087meT6cC7IGQspOlFY12s03BvXWB7lpDHoH_VPqYuoGzpSuX2nl9Q">
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center px-6 py-3 hover:text-white hover:bg-white/10 transition-colors text-white/80" href="#">
+<span class="material-symbols-outlined mr-3">dashboard</span>
+<span class="font-body-md text-body-md">Overview</span>
+</a>
+<a class="flex items-center px-6 py-3 hover:text-white hover:bg-white/10 transition-colors text-white/80" href="#">
+<span class="material-symbols-outlined mr-3">payments</span>
+<span class="font-body-md text-body-md">Billing</span>
+</a>
+<a class="flex items-center px-6 py-3 hover:text-white hover:bg-white/10 transition-colors text-white/80" href="#">
+<span class="material-symbols-outlined mr-3">group</span>
+<span class="font-body-md text-body-md">Residents</span>
+</a>
+<a class="flex items-center px-6 py-3 hover:text-white hover:bg-white/10 transition-colors text-white/80" href="#">
+<span class="material-symbols-outlined mr-3">report_problem</span>
+<span class="font-body-md text-body-md">Complaints</span>
+</a>
+<!-- Active State -->
+<a class="flex items-center px-6 py-3 text-white font-bold border-l-4 border-secondary-fixed bg-white/20" href="#">
+<span class="material-symbols-outlined mr-3">poll</span>
+<span class="font-body-md text-body-md">Polls</span>
+</a>
+<a class="flex items-center px-6 py-3 hover:text-white hover:bg-white/10 transition-colors text-white/80" href="#">
+<span class="material-symbols-outlined mr-3" style="font-variation-settings: 'FILL' 1;">receipt_long</span>
+<span class="font-body-md text-body-md">Expenses</span>
+</a>
+<a class="flex items-center px-6 py-3 hover:text-white hover:bg-white/10 transition-colors text-white/80" href="#">
+<span class="material-symbols-outlined mr-3">inventory_2</span>
+<span class="font-body-md text-body-md">Assets</span>
+</a>
+<a class="flex items-center px-6 py-3 hover:text-white hover:bg-white/10 transition-colors text-white/80" href="#">
+<span class="material-symbols-outlined mr-3">badge</span>
+<span class="font-body-md text-body-md">Employees</span>
+</a>
+</nav>
+<div class="px-6 pt-6 border-t border-white/10">
+<div class="flex items-center space-x-3">
+<div class="w-10 h-10 rounded-full bg-secondary-fixed flex items-center justify-center overflow-hidden border-2 border-white/20">
+<img alt="Admin Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDicx5vAyIzaP1YVu0ZcKwp00VZp3OUvNevnGNXmj8YPHdmmwc7h4hYkJUAYJJvAJLWGgnf_0JbIkZ0_A4uwh4UjmQZRPUmTZmOsy-DK6126JZr_66hIycpuCH9DJwT_LWOSyJCRFS8xYG9vJlY9zD1W_MXYYrDi3ZINytRG7X3h5Yr7-IIjacoS9GWJbltk7DGdEc3i6EfJzGkATLPFfZsbTdyT02rh1XTAVKws6qp_IflBoWaE8_AOg">
+</div>
+<div class="overflow-hidden">
+<p class="text-white text-sm font-bold truncate">Ahmad Khan</p>
+<p class="text-white/60 text-[10px] uppercase tracking-wider font-bold truncate">Super Admin</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Top AppBar Shell -->
+<header class="h-16 w-full sticky top-0 z-40 bg-white border-b border-surface-container-high flex justify-between items-center px-gutter ml-64">
+<div class="flex items-center space-x-8">
+<span class="font-headline-md text-headline-md font-extrabold text-primary">Polls &amp; Financials</span>
+<div class="hidden md:flex space-x-6">
+<a class="text-label-md font-label-md text-primary font-bold border-b-2 border-primary pb-1" href="#">Society Admin</a>
+<a class="text-label-md font-label-md text-on-surface-variant hover:text-primary transition-colors" href="#">Help Center</a>
+</div>
+</div>
+<div class="flex items-center space-x-4">
+<div class="relative group">
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer hover:text-primary transition-colors">notifications</span>
+<span class="absolute -top-1 -right-1 w-2 h-2 bg-error rounded-full"></span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer hover:text-primary transition-colors">chat</span>
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer hover:text-primary transition-colors">settings</span>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="ml-64 p-gutter max-w-container-max mx-auto">
+<!-- Dashboard Metrics Row -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+<div class="glass-card p-6 rounded-xl flex flex-col">
+<div class="flex justify-between items-start mb-2">
+<span class="text-label-sm font-label-sm text-on-surface-variant uppercase tracking-widest">Active Polls</span>
+<span class="material-symbols-outlined text-status-open" style="font-variation-settings: 'FILL' 1;">poll</span>
+</div>
+<h2 class="font-headline-xl text-headline-xl text-primary">02</h2>
+<p class="text-status-verified text-xs mt-2 font-semibold">↑ 1 from last month</p>
+</div>
+<div class="glass-card p-6 rounded-xl flex flex-col">
+<div class="flex justify-between items-start mb-2">
+<span class="text-label-sm font-label-sm text-on-surface-variant uppercase tracking-widest">Monthly Spend</span>
+<span class="material-symbols-outlined text-primary">account_balance_wallet</span>
+</div>
+<h2 class="font-headline-xl text-headline-xl text-primary">₨ 124K</h2>
+<p class="text-on-surface-variant text-xs mt-2">Budgeted: 150K</p>
+</div>
+</div>
+<!-- Two Column Content Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+<!-- LEFT COLUMN: ACTIVE POLL -->
+<div class="lg:col-span-7 flex flex-col space-y-6">
+<section class="glass-card rounded-xl overflow-hidden flex flex-col h-full border-none shadow-lg">
+<div class="p-6 bg-primary text-white">
+<div class="flex justify-between items-center mb-4">
+<span class="px-3 py-1 bg-secondary text-on-secondary text-[10px] font-bold rounded-full uppercase tracking-widest">Live Poll</span>
+<div class="flex items-center text-xs font-mono bg-white/10 px-3 py-1 rounded-md">
+<span class="material-symbols-outlined text-[14px] mr-2">timer</span>
+<span class="">ENDS IN: 42h 15m 08s</span>
+</div>
+</div>
+<h3 class="font-headline-lg text-headline-lg mb-2">Renovate Central Park Play Area?</h3>
+<p class="text-white/80 text-sm leading-relaxed max-w-xl">Proposed upgrade includes all-weather rubber flooring, new swings, and a shaded seating area for parents. Estimated cost: ₨ 450,000.</p>
+</div>
+<div class="p-8 flex-1 bg-surface-container-low">
+<div class="space-y-10">
+<!-- Option A -->
+<div>
+<div class="flex justify-between items-end mb-3">
+<div>
+<h4 class="font-bold text-primary text-body-lg">Option A: Full Modernization</h4>
+<p class="text-on-surface-variant text-xs">All-new equipment + Landscaping</p>
+</div>
+<span class="font-bold text-headline-md text-primary">64%</span>
+</div>
+<div class="h-4 w-full bg-surface-container-high rounded-full overflow-hidden">
+<div class="progress-bar-fill h-full bg-secondary" style="width: 64%;"></div>
+</div>
+<p class="text-[10px] text-on-surface-variant mt-2 font-medium">214 Residents Voted • Leading by 94 votes</p>
+</div>
+<!-- Option B -->
+<div>
+<div class="flex justify-between items-end mb-3">
+<div>
+<h4 class="font-bold text-primary text-body-lg">Option B: Essential Repairs</h4>
+<p class="text-on-surface-variant text-xs">Fix existing gear + Fresh paint</p>
+</div>
+<span class="font-bold text-headline-md text-primary">36%</span>
+</div>
+<div class="h-4 w-full bg-surface-container-high rounded-full overflow-hidden">
+<div class="progress-bar-fill h-full bg-outline" style="width: 36%;"></div>
+</div>
+<p class="text-[10px] text-on-surface-variant mt-2 font-medium">120 Residents Voted</p>
+</div>
+</div>
+</div>
+<div class="p-6 border-t border-surface-container-high bg-white flex flex-col sm:flex-row justify-between items-center gap-4">
+<div class="flex items-center">
+<span class="material-symbols-outlined text-secondary mr-2">verified</span>
+<span class="text-xs text-on-surface-variant font-semibold">Results are blockchain-verified</span>
+</div>
+<div class="flex space-x-3">
+<button class="flex items-center px-4 py-2 bg-white border border-outline text-primary text-xs font-bold rounded-lg hover:bg-surface-container-low transition-all active:scale-95">
+<span class="material-symbols-outlined text-[18px] mr-2">description</span>
+                            Export Final PDF
+                        </button>
+<button class="flex items-center px-4 py-2 bg-primary text-white text-xs font-bold rounded-lg hover:opacity-90 transition-all active:scale-95 shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined text-[18px] mr-2">analytics</span>
+                            Export Excel Report
+                        </button>
+</div>
+</div>
+</section>
+</div>
+<!-- RIGHT COLUMN: EXPENSE TRACKER -->
+<div class="lg:col-span-5 space-y-6">
+<!-- Expense Logger Form -->
+<section class="glass-card rounded-xl p-6 shadow-sm border-l-4 border-primary">
+<div class="flex items-center mb-6">
+<div class="w-10 h-10 rounded-lg bg-primary flex items-center justify-center text-white mr-4 shadow-md">
+<span class="material-symbols-outlined">add_card</span>
+</div>
+<div>
+<h3 class="font-headline-md text-headline-md text-primary">Log Society Expense</h3>
+<p class="text-on-surface-variant text-xs">Fast entry for petty cash &amp; invoices</p>
+</div>
+</div>
+<form class="space-y-4">
+<div class="grid grid-cols-2 gap-4">
+<div class="space-y-1">
+<label class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Amount (₨)</label>
+<input class="w-full bg-surface-container-low border-surface-container-high rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:border-transparent text-sm" placeholder="0.00" type="number">
+</div>
+<div class="space-y-1">
+<label class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Category</label>
+<select class="w-full bg-surface-container-low border-surface-container-high rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:border-transparent text-sm">
+<option>Repairs</option>
+<option>Utilities</option>
+<option>Security</option>
+<option>Salary</option>
+<option>Misc</option>
+</select>
+</div>
+</div>
+<div class="space-y-1">
+<label class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Vendor / Description</label>
+<input class="w-full bg-surface-container-low border-surface-container-high rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:border-transparent text-sm" placeholder="e.g., Al-Makkah Electric Store" type="text">
+</div>
+<button class="w-full bg-secondary text-white font-bold py-3 rounded-lg hover:opacity-95 transition-all flex items-center justify-center space-x-2 shadow-md" type="submit">
+<span class="material-symbols-outlined text-[20px]">save</span>
+<span class="">Record Expense</span>
+</button>
+</form>
+</section>
+<!-- Recent Expenses Feed -->
+<section class="glass-card rounded-xl overflow-hidden shadow-sm flex flex-col max-h-[500px]">
+<div class="p-6 border-b border-surface-container-high flex justify-between items-center sticky top-0 bg-white z-10">
+<h3 class="font-headline-md text-headline-md text-primary">Recent Ledger</h3>
+<a class="text-xs font-bold text-secondary hover:underline" href="#">View All History</a>
+</div>
+<div class="flex-1 overflow-y-auto custom-scrollbar bg-surface-container-low">
+<table class="w-full text-left border-collapse">
+<thead class="bg-surface-container-high sticky top-0">
+<tr>
+<th class="px-6 py-3 text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Details</th>
+<th class="px-6 py-3 text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Category</th>
+<th class="px-6 py-3 text-[10px] font-bold text-on-surface-variant uppercase tracking-wider text-right">Amount</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-container-high">
+<tr class="hover:bg-white transition-colors cursor-pointer group">
+<td class="px-6 py-4">
+<p class="font-bold text-on-surface text-xs group-hover:text-primary">Generator Fuel</p>
+<p class="text-[10px] text-on-surface-variant">PSO Station #4 • Oct 24</p>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 bg-surface-container-high text-on-surface text-[9px] font-bold rounded uppercase">Utilities</span>
+</td>
+<td class="px-6 py-4 text-right">
+<p class="font-bold text-primary text-xs">₨ 12,500</p>
+</td>
+</tr>
+<tr class="hover:bg-white transition-colors cursor-pointer group">
+<td class="px-6 py-4">
+<p class="font-bold text-on-surface text-xs group-hover:text-primary">Swing Chains Repair</p>
+<p class="text-[10px] text-on-surface-variant">Iqbal Iron Works • Oct 22</p>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 bg-secondary-container text-secondary text-[9px] font-bold rounded uppercase">Repairs</span>
+</td>
+<td class="px-6 py-4 text-right">
+<p class="font-bold text-primary text-xs">₨ 3,200</p>
+</td>
+</tr>
+<tr class="hover:bg-white transition-colors cursor-pointer group">
+<td class="px-6 py-4">
+<p class="font-bold text-on-surface text-xs group-hover:text-primary">Guard Uniforms (x5)</p>
+<p class="text-[10px] text-on-surface-variant">The Uniform Store • Oct 18</p>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 bg-primary-fixed text-primary text-[9px] font-bold rounded uppercase">Security</span>
+</td>
+<td class="px-6 py-4 text-right">
+<p class="font-bold text-primary text-xs">₨ 24,000</p>
+</td>
+</tr>
+<tr class="hover:bg-white transition-colors cursor-pointer group">
+<td class="px-6 py-4">
+<p class="font-bold text-on-surface text-xs group-hover:text-primary">Elevator Annual AMC</p>
+<p class="text-[10px] text-on-surface-variant">Schindler Elevators • Oct 15</p>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 bg-surface-container-high text-on-surface text-[9px] font-bold rounded uppercase">Utilities</span>
+</td>
+<td class="px-6 py-4 text-right">
+<p class="font-bold text-primary text-xs">₨ 85,000</p>
+</td>
+</tr>
+<tr class="hover:bg-white transition-colors cursor-pointer group">
+<td class="px-6 py-4">
+<p class="font-bold text-on-surface text-xs group-hover:text-primary">Cleaning Supplies</p>
+<p class="text-[10px] text-on-surface-variant">Cash &amp; Carry • Oct 12</p>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 bg-tertiary-fixed text-on-tertiary-fixed-variant text-[9px] font-bold rounded uppercase">Misc</span>
+</td>
+<td class="px-6 py-4 text-right">
+<p class="font-bold text-primary text-xs">₨ 4,800</p>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</div>
+</div>
+<!-- Sticky Floating WhatsApp Button Contextual -->
+<div class="fixed bottom-8 right-8 z-50">
+<button class="bg-[#25D366] text-white p-4 rounded-full shadow-2xl hover:scale-110 active:scale-95 transition-all flex items-center justify-center group">
+<span class="material-symbols-outlined text-[28px] group-hover:rotate-12 transition-transform">chat</span>
+<span class="absolute right-full mr-4 bg-primary text-white text-[10px] px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap font-bold shadow-lg">Announce Poll on WhatsApp</span>
+</button>
+</div>
+</main>
+<script>
+    // Mock animation of progress bars on load
+    document.addEventListener('DOMContentLoaded', () => {
+        const bars = document.querySelectorAll('.progress-bar-fill');
+        bars.forEach(bar => {
+            const targetWidth = bar.style.width;
+            bar.style.width = '0%';
+            setTimeout(() => {
+                bar.style.width = targetWidth;
+            }, 200);
+        });
+    });
+
+    // Form Submission visual feedback
+    const form = document.querySelector('form');
+    form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const btn = form.querySelector('button');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<span class="material-symbols-outlined animate-spin">sync</span><span>Processing...</span>';
+        btn.classList.add('opacity-80');
+        btn.disabled = true;
+
+        setTimeout(() => {
+            btn.innerHTML = '<span class="material-symbols-outlined">check_circle</span><span>Expense Logged</span>';
+            btn.classList.remove('bg-secondary');
+            btn.classList.add('bg-status-verified');
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.classList.remove('bg-status-verified', 'opacity-80');
+                btn.classList.add('bg-secondary');
+                btn.disabled = false;
+                form.reset();
+            }, 2000);
+        }, 1000);
+    });
+</script>
+
+
+</body></html>
