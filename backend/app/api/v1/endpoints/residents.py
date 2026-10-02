@@ -148,7 +148,7 @@ async def create_resident(payload: ResidentCreate, society_id: str = Query(DEFAU
                     db_service.client.table("registered_vehicles").insert({
                         "society_id": society_id,
                         "resident_id": res_id,
-                        "plate_number": payload.vehicle_plate.strip().upper(),
+                        "vehicle_plate": payload.vehicle_plate.strip().upper(),
                         "vehicle_type": "Car"
                     }).execute()
             except Exception as ev:
@@ -195,12 +195,12 @@ async def update_resident(resident_id: str, payload: ResidentUpdate):
                 existing_v = db_service.client.table("registered_vehicles").select("id").eq("resident_id", resident_id).execute()
                 if plate:
                     if existing_v.data:
-                        db_service.client.table("registered_vehicles").update({"plate_number": plate}).eq("resident_id", resident_id).execute()
+                        db_service.client.table("registered_vehicles").update({"vehicle_plate": plate}).eq("resident_id", resident_id).execute()
                     else:
                         db_service.client.table("registered_vehicles").insert({
                             "society_id": DEFAULT_SOCIETY_ID,
                             "resident_id": resident_id,
-                            "plate_number": plate,
+                            "vehicle_plate": plate,
                             "vehicle_type": "Car"
                         }).execute()
                 elif existing_v.data:

@@ -287,7 +287,7 @@ export default function Residents() {
     setEditDocFile(null);
     const vehicles = resident.registeredVehicles || resident.registered_vehicles || [];
     const firstPlate = Array.isArray(vehicles) && vehicles.length > 0
-      ? (typeof vehicles[0] === 'string' ? vehicles[0] : (vehicles[0].plate_number || ''))
+      ? (typeof vehicles[0] === 'string' ? vehicles[0] : (vehicles[0].vehicle_plate || vehicles[0].plate_number || ''))
       : '';
 
     setEditFormData({
