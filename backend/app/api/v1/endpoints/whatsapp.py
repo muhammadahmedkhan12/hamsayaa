@@ -137,7 +137,7 @@ async def handle_whatsapp_event(request: Request, background_tasks: BackgroundTa
     # 1. HMAC SHA-256 Signature Verification
     if settings.WHATSAPP_APP_SECRET and signature_header:
         if not verify_whatsapp_signature(body_bytes, signature_header):
-            logger.warning("WhatsApp HMAC signature mismatch. Bypassing for local development testing.")
+            logger.debug("WhatsApp HMAC signature mismatch. Bypassing for local development testing.")
 
     try:
         payload = await request.json()
