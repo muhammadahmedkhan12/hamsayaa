@@ -87,6 +87,8 @@ async def create_resident(payload: ResidentCreate, society_id: str = Query(DEFAU
     clean_cnic = payload.cnic.strip() if payload.cnic else ""
     if not clean_cnic or len(clean_cnic) < 5:
         raise HTTPException(status_code=400, detail="CNIC is compulsory and must contain at least 5 characters.")
+    if len(clean_cnic) > 15:
+        raise HTTPException(status_code=400, detail=f"CNIC must be 15 characters or fewer (e.g. 42101-1234567-1). Got {len(clean_cnic)} characters.")
 
     # Check if a resident with this phone number already exists
     existing = db_service.get_resident_by_phone(clean_phone)
@@ -177,6 +179,8 @@ async def update_resident(resident_id: str, payload: ResidentUpdate):
         clean_cnic = payload.cnic.strip()
         if not clean_cnic or len(clean_cnic) < 5:
             raise HTTPException(status_code=400, detail="CNIC is compulsory and cannot be empty.")
+        if len(clean_cnic) > 15:
+            raise HTTPException(status_code=400, detail=f"CNIC must be 15 characters or fewer (e.g. 42101-1234567-1). Got {len(clean_cnic)} characters.")
         update_data["cnic"] = clean_cnic
     if payload.is_owner is not None:
         update_data["is_owner"] = payload.is_owner

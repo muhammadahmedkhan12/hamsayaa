@@ -795,6 +795,7 @@ export default function Residents() {
                     <input
                       type="text"
                       required
+                      maxLength={15}
                       placeholder="42101-1234567-1"
                       value={formData.cnic}
                       onChange={(e) => setFormData({ ...formData, cnic: e.target.value })}
@@ -979,6 +980,7 @@ export default function Residents() {
                     <input
                       type="text"
                       required
+                      maxLength={15}
                       placeholder="42101-1234567-1"
                       value={editFormData.cnic}
                       onChange={(e) => setEditFormData({ ...editFormData, cnic: e.target.value })}
